@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+# Standard virtual environment folder names
+venv/
+.venv/
+env/
+.env/
+
+# Project-specific Output
+# This is the most important folder for your project to ignore.
+# The script generates these files, so they don't need to be stored on GitHub.
+output/
+
+# IDE and Editor Directories
+# Common folders created by code editors like VS Code or PyCharm
+.vscode/
+.idea/
+
+# OS-specific files
+# Files automatically created by macOS or Windows
+.DS_Store
+Thumbs.db
