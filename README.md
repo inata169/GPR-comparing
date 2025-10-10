@@ -92,3 +92,25 @@
 ---
 
 サブプロジェクト（1Dプロファイル比較）は `phits-linac-validation/README.md` を参照してください。
+
+## クイックスタート（推奨）
+
+- 依存の導入（再現性のために準拠版を使用）
+  - `pip install -r REQUIREMENTS.txt`
+- 自己比較（sanity check）
+  - `python -m rtgamma.main --ref dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.1.dcm --eval dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.1.dcm --mode 3d --report phits-linac-validation/output/rtgamma/self_check`
+- ペア比較の例（3D, 既定 3%/2mm/10%）
+  - `python -m rtgamma.main --ref dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.3.dcm --eval dicom/RTDOSE_2.16.840.1.114337.1.2604.1760079109.3.dcm --mode 3d --report phits-linac-validation/output/rtgamma/pair3_3d`
+
+## 関連ドキュメント
+
+- `AGENTS.md`（貢献ガイド）
+- `TROUBLESHOOTING.md`（トラブルシュート）
+- `TEST_PLAN.md`（手動回帰の手順）
+- `CHANGELOG.md`（変更履歴）
+- `DECISIONS.md`（主要技術判断の要約）
+
+## 注意事項
+
+- 個人情報（PHI）を含むDICOMはリポジトリにコミットしないでください（同梱サンプルは匿名化用途）。
+- 生成物・大容量ファイルは極力コミットせず、`phits-linac-validation/output/rtgamma/` 配下に保存してください（git ignore 推奨）。
