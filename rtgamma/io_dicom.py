@@ -21,6 +21,11 @@ def load_rtdose(path: str) -> Dict:
     if pydicom is None:
         raise RuntimeError("pydicom is required to read RTDOSE DICOM. Install pydicom.")
     ds = pydicom.dcmread(path, force=True)
+
+    # Workaround for files with missing TransferSyntaxUID
+    if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
+        ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
+
     if getattr(ds, 'Modality', None) != 'RTDOSE':
         raise ValueError("DICOM is not RTDOSE (Modality != RTDOSE)")
 
@@ -56,6 +61,11 @@ def load_rtdose(path: str) -> Dict:
             gfov = np.linspace(0.0, st * (nframes - 1), nframes)
         else:
             gfov = np.arange(nframes, dtype=float)  # fallback
+
+    # Sort frames by Z-offset to ensure monotonicity
+    order = np.argsort(gfov)
+    dose = dose[order, :, :]
+    gfov = gfov[order]
 
     # Coordinate vectors along each image axis in mm (distances along r/c/s directions)
     # X (columns): 0..cols-1 along c_dir spaced by col_spacing
@@ -121,4 +131,3 @@ def world_to_index(ipp: np.ndarray,
     k = np.interp(dist_s, z_offsets, np.arange(z_offsets.size, dtype=float), left=-1, right=-1)
     ijk = np.stack([k, j, i], axis=-1)
     return ijk
-

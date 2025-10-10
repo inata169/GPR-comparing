@@ -32,6 +32,7 @@ MANIFEST
 #  in case they are generated locally.
 *.spec
 
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -105,3 +106,6 @@ dmypy.json
 phits-linac-validation/output/
 *.npz
 *.png
+
+# phits-linac-validation
+/phits-linac-validation

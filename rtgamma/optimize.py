@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Tuple, List, Dict
+import logging
 from .gamma import compute_gamma
 from .resample import resample_eval_onto_ref
 
@@ -30,35 +31,71 @@ def grid_search_best_shift(
     cutoff: float,
     norm: str,
     shift_spec: str,
+    refine: bool = True,
 ) -> Tuple[Tuple[float, float, float], float, Dict]:
-    xs, ys, zs = parse_shift_range(shift_spec)
-    best = (0.0, 0.0, 0.0)
-    best_pass = -1.0
-    log: List[Dict] = []
-
-    # Unpack original axes
+    
     z_eval, y_eval, x_eval = eval_axes_mm_1d
 
-    for dz in zs:
-        for dy in ys:
-            for dx in xs:
-                # Apply shift directly to eval coordinates
-                shifted_axes_eval = (z_eval + dz, y_eval + dy, x_eval + dx)
+    def _evaluate_shift(dx, dy, dz):
+        logging.info(f"Testing shift: dx={dx}, dy={dy}, dz={dz}")
+        shifted_axes_eval = (z_eval + dz, y_eval + dy, x_eval + dx)
+        _, pass_rate, _ = compute_gamma(
+            axes_ref_mm=ref_axes_mm_1d,
+            dose_ref=dose_ref,
+            axes_eval_mm=shifted_axes_eval,
+            dose_eval=dose_eval,
+            dd_percent=dd,
+            dta_mm=dta,
+            cutoff_percent=cutoff,
+            gamma_type='global',
+            norm=norm,
+            use_pymedphys=False,
+        )
+        return pass_rate
 
-                g, pass_rate, _ = compute_gamma(
-                    axes_ref_mm=ref_axes_mm_1d,
-                    dose_ref=dose_ref,
-                    axes_eval_mm=shifted_axes_eval,
-                    dose_eval=dose_eval,
-                    dd_percent=dd,
-                    dta_mm=dta,
-                    cutoff_percent=cutoff,
-                    gamma_type='global',
-                    norm=norm,
-                    use_pymedphys=True,
-                )
-                log.append({'dx': dx, 'dy': dy, 'dz': dz, 'pass_rate': pass_rate})
-                if pass_rate > best_pass:
-                    best_pass = pass_rate
-                    best = (dx, dy, dz)
-    return best, best_pass, {'search_log': log}
+    # Coarse search
+    logging.info("Starting coarse shift search.")
+    xs_coarse, ys_coarse, zs_coarse = parse_shift_range(shift_spec)
+    coarse_shifts = []
+    for z in np.unique([zs_coarse[0], 0, zs_coarse[-1]]):
+        for y in np.unique([ys_coarse[0], 0, ys_coarse[-1]]):
+            for x in np.unique([xs_coarse[0], 0, xs_coarse[-1]]):
+                coarse_shifts.append((x, y, z))
+
+    best_pass = -1.0
+    best_shift = (0.0, 0.0, 0.0)
+    log: List[Dict] = []
+
+    for x, y, z in coarse_shifts:
+        pass_rate = _evaluate_shift(x, y, z)
+        log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'coarse'})
+        if pass_rate > best_pass:
+            best_pass = pass_rate
+            best_shift = (x, y, z)
+    
+    logging.info(f"Coarse search complete. Best shift: {best_shift} with pass rate {best_pass:.2f}%")
+
+    # Fine search (refinement)
+    if refine:
+        logging.info("Starting fine shift search.")
+        fine_range = 1.0
+        fine_step = 0.5
+        
+        xs_fine = np.arange(best_shift[0] - fine_range, best_shift[0] + fine_range + 1e-6, fine_step)
+        ys_fine = np.arange(best_shift[1] - fine_range, best_shift[1] + fine_range + 1e-6, fine_step)
+        zs_fine = np.arange(best_shift[2] - fine_range, best_shift[2] + fine_range + 1e-6, fine_step)
+
+        for z in zs_fine:
+            for y in ys_fine:
+                for x in xs_fine:
+                    # Skip re-evaluating the coarse best point
+                    if np.allclose([x, y, z], best_shift):
+                        continue
+                    pass_rate = _evaluate_shift(x, y, z)
+                    log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine'})
+                    if pass_rate > best_pass:
+                        best_pass = pass_rate
+                        best_shift = (x, y, z)
+        logging.info(f"Fine search complete. Best shift: {best_shift} with pass rate {best_pass:.2f}%")
+
+    return best_shift, best_pass, {'search_log': log}
