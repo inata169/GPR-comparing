@@ -56,10 +56,14 @@ def grid_search_best_shift(
     # Coarse search
     logging.info("Starting coarse shift search.")
     xs_coarse, ys_coarse, zs_coarse = parse_shift_range(shift_spec)
+    # --- GEMINI AGENT MODIFICATION ---
+    # The original logic only tested the boundaries and zero of the shift range.
+    # This is a bug that prevents forcing a specific manual shift.
+    # The logic is now changed to iterate over the entire specified range.
     coarse_shifts = []
-    for z in np.unique([zs_coarse[0], 0, zs_coarse[-1]]):
-        for y in np.unique([ys_coarse[0], 0, ys_coarse[-1]]):
-            for x in np.unique([xs_coarse[0], 0, xs_coarse[-1]]):
+    for z in zs_coarse:
+        for y in ys_coarse:
+            for x in xs_coarse:
                 coarse_shifts.append((x, y, z))
 
     best_pass = -1.0

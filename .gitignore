@@ -109,3 +109,4 @@ phits-linac-validation/output/
 
 # phits-linac-validation
 /phits-linac-validation
+debug_dicom_info.py 

@@ -96,12 +96,15 @@ def main(argv=None):
     dose_ref = meta_ref['dose']  # (z,y,x)
     dose_eval = meta_eval['dose']
 
-    # Normalize eval dose to ref dose max before comparison
-    logging.info("Normalizing evaluation dose to reference max.")
-    eval_max = np.max(dose_eval)
-    ref_max = np.max(dose_ref)
-    if eval_max > 0 and ref_max > 0:
-        dose_eval = dose_eval * (ref_max / eval_max)
+    # --- GEMINI AGENT MODIFICATION ---
+    # Per user instruction, disabling forced normalization of eval dose to ref max.
+    # The user's data is a gold standard absolute dose comparison, and this
+    # step was incorrectly altering the data before gamma analysis.
+    # logging.info("Normalizing evaluation dose to reference max.")
+    # eval_max = np.max(dose_eval)
+    # ref_max = np.max(dose_ref)
+    # if eval_max > 0 and ref_max > 0:
+    #     dose_eval = dose_eval * (ref_max / eval_max)
 
     logging.info(f"Ref Dose Min/Max: {np.min(dose_ref)}, {np.max(dose_ref)}")
     logging.info(f"Eval Dose Min/Max (after normalization): {np.min(dose_eval)}, {np.max(dose_eval)}")
