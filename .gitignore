@@ -109,4 +109,13 @@ phits-linac-validation/output/
 
 # phits-linac-validation
 /phits-linac-validation
-debug_dicom_info.py 
+
+# Session-specific temporary files
+debug_dicom.py
+debug_dicom_info.py
+debug_dicom_info_final.py
+create_graph.py
+z_scan_graph.html
+com-res.txt
+commit_docs_message.txt
+dicom/tmp/
