@@ -88,7 +88,7 @@
 - ROI/マスク（RTSTRUCT連携）は未実装（要望があれば対応）
 - 局所探索（Nelder-Mead 等）の追加検討
 - GPU（CuPy）対応は今後検討
-
+ 
 ---
 
 サブプロジェクト（1Dプロファイル比較）は `phits-linac-validation/README.md` を参照してください。
@@ -109,6 +109,31 @@
 - `TEST_PLAN.md`（手動回帰の手順）
 - `CHANGELOG.md`（変更履歴）
 - `DECISIONS.md`（主要技術判断の要約）
+
+## 本日の成果（2025-10-15）
+
+- レポート拡張と警告出力（純幾何の確認を強化）
+  - `FrameOfReferenceUID` をレポートに出力（`ref_for_uid`,`eval_for_uid`,`same_for_uid`）。
+  - 最適シフトの大きさを出力（`best_shift_mag_mm`）し、所定しきい値（既定20 mm）超過で `warnings` に明示。
+  - 方向余弦の一致度を数値化（`orientation_min_dot`）し、ずれが大きい場合は警告。
+  - 純幾何（`--opt-shift off` かつ `--norm none`）での実行を `absolute_geometry_only` としてレポートに明示。
+
+- 実行スクリプトの追加・改善（PowerShell）
+  - `scripts/run_autofallback.ps1`: 純幾何→しきい値未満/警告ありで広探索（±150/±50/±50, 5mm）に自動フォールバック。2D再評価も実施。
+  - 変数展開でのコロン混在に対するPowerShellの不具合を回避（`-f` で文字列合成）。
+  - `scripts/run_test02_2d.ps1` / `run_test02_abs_vs_bestshift.ps1` / `run_test02_wide_bestshift.ps1` を整備。
+
+- ヘッダ比較ユーティリティ
+  - `scripts/compare_rtdose_headers.py`: 2つのRTDOSEの DICOM 幾何・スケールの差分をMarkdownで一覧化（FoR, IPP/IOP, PixelSpacing, GFOV範囲・中央値ステップ, DoseUnits/Scaling, ワールド座標範囲, 原点差(dx,dy,dz) など）。
+
+- 実測的学び
+  - Test04（6MV vs 10MV）では純幾何のみで 3D GPR ≈ 60% と妥当。エネルギー差の形状違いが要因。
+  - Test01/03（SSD=100 cm）での大シフト・低GPRは、設定（SSD/SCD/アイソ中心）の食い違いが有力因子。
+  - Test02/04（SCD=100 cm）では幾何が良好で、GPRが改善。
+
+実行例（1行）
+- 自動フォールバック（例: Test03）
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_autofallback.ps1 -Name Test03_auto -Ref "dicom\Test03\RTDOSE_2.16.840.1.114337.1.2604.1760077605.4.dcm" -Eval "dicom\Test03\RTDOSE_2.16.840.1.114337.1.2604.1760077605.5.dcm"`
 
 ## 注意事項
 

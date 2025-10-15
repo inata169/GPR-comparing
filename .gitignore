@@ -106,6 +106,7 @@ dmypy.json
 phits-linac-validation/output/
 *.npz
 *.png
+rtgamma.log
 
 # phits-linac-validation
 /phits-linac-validation
@@ -118,4 +119,5 @@ create_graph.py
 z_scan_graph.html
 com-res.txt
 commit_docs_message.txt
-dicom/tmp/
+#dicom/tmp/
+dicom/

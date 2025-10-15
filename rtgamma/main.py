@@ -38,7 +38,7 @@ def build_ref_world_coords(meta_ref):
 
 
 def main(argv=None):
-    logging.basicConfig(level=logging.INFO, 
+    logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         filename='rtgamma.log', filemode='w')
     logging.info("Starting gamma analysis.")
@@ -48,7 +48,8 @@ def main(argv=None):
     parser.add_argument('--eval', required=True, help='Evaluation RTDOSE (DICOM)')
     parser.add_argument('--mode', choices=['3d', '2d'], default='3d')
     parser.add_argument('--plane', choices=['axial', 'sagittal', 'coronal'])
-    parser.add_argument('--plane-index', type=int)
+    # Allow 'auto' to pick the central slice for the chosen plane
+    parser.add_argument('--plane-index', type=str, default='auto')
 
     parser.add_argument('--dd', type=float, default=3.0)
     parser.add_argument('--dta', type=float, default=2.0)
@@ -69,12 +70,25 @@ def main(argv=None):
     parser.add_argument('--save-dose-diff')
     parser.add_argument('--report')
     parser.add_argument('--log-level', choices=['INFO', 'DEBUG'], default='INFO')
+    parser.add_argument('--warn-large-shift-mm', type=float, default=20.0,
+                        help='Warn if |best_shift| exceeds this magnitude (mm)')
     parser.add_argument('--seed', type=int)
     parser.add_argument('--threads', type=int)
     parser.add_argument('--gpu', choices=['on', 'off'], default='off')
     parser.add_argument('--tolerance', type=float, default=1e-6)
 
     args = parser.parse_args(argv)
+    # Add console (stdout) logging handler for on-screen feedback
+    try:
+        root_logger = logging.getLogger()
+        stream_levels = {'INFO': logging.INFO, 'DEBUG': logging.DEBUG}
+        sh = logging.StreamHandler(stream=sys.stdout)
+        sh.setLevel(stream_levels.get(args.log_level, logging.INFO))
+        sh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        root_logger.addHandler(sh)
+    except Exception:
+        pass
+
     logging.info(f"Arguments: {args}")
 
     logging.info(f"Loading reference dose: {args.ref}")
@@ -92,6 +106,21 @@ def main(argv=None):
     logging.info(f"Ref GridFrameOffsetVector (first 5): {meta_ref['dataset'].GridFrameOffsetVector[:5]}, Eval GridFrameOffsetVector (first 5): {meta_eval['dataset'].GridFrameOffsetVector[:5]}")
     logging.info(f"Ref DoseGridScaling: {meta_ref['dataset'].DoseGridScaling}, Eval DoseGridScaling: {meta_eval['dataset'].DoseGridScaling}")
     logging.info(f"Ref DoseUnits: {meta_ref['units']}, Eval DoseUnits: {meta_eval['units']}")
+    # FrameOfReferenceUIDs (may be absent on some files)
+    ref_for_uid = str(getattr(meta_ref['dataset'], 'FrameOfReferenceUID', ''))
+    eval_for_uid = str(getattr(meta_eval['dataset'], 'FrameOfReferenceUID', ''))
+    logging.info(f"Ref FoR UID: {ref_for_uid or 'N/A'}, Eval FoR UID: {eval_for_uid or 'N/A'}")
+
+    # Orientation similarity checks (cosine of angle between ref and eval axes)
+    try:
+        dot_row = float(abs(np.dot(meta_ref['row_dir'], meta_eval['row_dir'])))
+        dot_col = float(abs(np.dot(meta_ref['col_dir'], meta_eval['col_dir'])))
+        dot_sli = float(abs(np.dot(meta_ref['slice_dir'], meta_eval['slice_dir'])))
+        orientation_min_dot = min(dot_row, dot_col, dot_sli)
+        if orientation_min_dot < 0.99:
+            logging.warning(f"Orientation mismatch suspected (min dot = {orientation_min_dot:.6f}). Check IOP consistency.")
+    except Exception:
+        orientation_min_dot = float('nan')
 
     dose_ref = meta_ref['dose']  # (z,y,x)
     dose_eval = meta_eval['dose']
@@ -207,24 +236,46 @@ def main(argv=None):
             os.makedirs(d, exist_ok=True)
 
     # Outputs
+    pass_rate_out = None
     if args.mode == '2d':
-        if not args.plane or args.plane_index is None:
-            raise SystemExit('--plane and --plane-index are required in 2d mode')
+        if not args.plane:
+            raise SystemExit('--plane is required in 2d mode')
+
+        # Determine slice index: support 'auto' (central slice) or explicit integer
+        sz, sy, sx = dose_ref.shape  # (z, y, x)
+        if isinstance(args.plane_index, str) and args.plane_index.lower() == 'auto':
+            if args.plane == 'axial':
+                sl = int(sz // 2)
+            elif args.plane == 'sagittal':
+                sl = int(sx // 2)
+            else:  # coronal
+                sl = int(sy // 2)
+        else:
+            try:
+                sl = int(args.plane_index)
+            except Exception:
+                raise SystemExit('--plane-index must be an integer or "auto"')
+
         if args.plane == 'axial':
-            sl = args.plane_index
             g2d = gamma_map[sl, :, :]
             r2d = dose_ref[sl, :, :]
             e2d = eval_on_ref[sl, :, :]
         elif args.plane == 'sagittal':
-            sl = args.plane_index
             g2d = gamma_map[:, :, sl]
             r2d = dose_ref[:, :, sl]
             e2d = eval_on_ref[:, :, sl]
         else:  # coronal
-            sl = args.plane_index
             g2d = gamma_map[:, sl, :]
             r2d = dose_ref[:, sl, :]
             e2d = eval_on_ref[:, sl, :]
+
+        # Compute 2D pass rate on the selected slice (exclude NaN/inf and cutoff-excluded voxels)
+        finite_mask = np.isfinite(g2d)
+        if finite_mask.any():
+            pass_rate_out = float(np.sum((g2d <= 1.0) & finite_mask) / np.sum(finite_mask) * 100.0)
+        else:
+            pass_rate_out = float('nan')
+        logging.info(f"2D slice pass rate ({args.plane} index {sl}): {pass_rate_out}")
         if args.save_gamma_map:
             logging.info(f"Saving 2D gamma map to {args.save_gamma_map}")
             save_gamma_map_2d(args.save_gamma_map, g2d, title=f'Gamma (shift {best_shift} mm)')
@@ -245,19 +296,47 @@ def main(argv=None):
     if args.report:
         logging.info(f"Saving report to {args.report}")
         base = os.path.splitext(args.report)[0]
+        # Build warnings and flags
+        warnings_list = []
+        same_for = (ref_for_uid != '' and eval_for_uid != '' and ref_for_uid == eval_for_uid)
+        if (ref_for_uid and eval_for_uid) and (ref_for_uid != eval_for_uid):
+            msg = f"FrameOfReferenceUID differs (ref={ref_for_uid}, eval={eval_for_uid})"
+            warnings_list.append(msg)
+            logging.warning(msg)
+        # Large shift warning (applies when optimization was enabled)
+        try:
+            dx_, dy_, dz_ = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
+            shift_mag = float(np.sqrt(dx_**2 + dy_**2 + dz_**2))
+        except Exception:
+            shift_mag = float(0.0)
+        large_shift_threshold = float(getattr(args, 'warn_large_shift_mm', 20.0))
+        if args.opt_shift == 'on' and shift_mag > large_shift_threshold:
+            msg = f"Large best shift magnitude {shift_mag:.3f} mm (> {large_shift_threshold} mm)"
+            warnings_list.append(msg)
+            logging.warning(msg)
+
+        absolute_geometry_only = (args.opt_shift == 'off' and args.norm == 'none')
+
         summary = {
             'ref': os.path.basename(args.ref),
             'eval': os.path.basename(args.eval),
             'mode': args.mode,
             'plane': getattr(args, 'plane', None),
-            'plane_index': getattr(args, 'plane_index', None),
+            'plane_index': int(sl) if args.mode == '2d' else None,
             'dd_percent': args.dd,
             'dta_mm': args.dta,
             'cutoff_percent': args.cutoff,
             'gamma_type': args.gamma_type,
             'norm': args.norm,
-            'pass_rate_percent': pass_rate,
+            'pass_rate_percent': pass_rate_out if args.mode == '2d' else pass_rate,
             'best_shift_mm': best_shift,
+            'best_shift_mag_mm': shift_mag,
+            'absolute_geometry_only': absolute_geometry_only,
+            'ref_for_uid': ref_for_uid or None,
+            'eval_for_uid': eval_for_uid or None,
+            'same_for_uid': bool(same_for),
+            'orientation_min_dot': orientation_min_dot,
+            'warnings': "; ".join(warnings_list) if warnings_list else "",
             'gamma_mean': gstats['gamma_mean'],
             'gamma_median': gstats['gamma_median'],
             'gamma_max': gstats['gamma_max'],

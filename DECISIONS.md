@@ -1,4 +1,12 @@
 # Architectural Decisions (ADR Summary)
+
+## ADR-006: Geometry Sanity in Reports (FoR/Orientation/Shift)
+- Decision: Emit `FrameOfReferenceUID` fields, `orientation_min_dot`, `best_shift_mag_mm`, and `absolute_geometry_only` to reports; warn on FoR mismatch and large shifts (threshold configurable).
+- Rationale: Rapidly distinguishes header/geometry issues from dose-model differences; aids triage and reproducibility.
+
+## ADR-007: Auto-Fallback Wide Search
+- Decision: Provide an auto-fallback runner that executes absolute-geometry first, then widens the search (±150/±50/±50 mm) if pass rate is below a threshold or warnings exist.
+- Rationale: Real-world datasets may include large initial offsets (e.g., differing SSD/SCD/isocenter settings). Automated recovery improves usability without masking geometry problems.
 \n+## ADR-001: Slice Order and GFOV Alignment
 - Decision: Reorder dose frames by ascending GFOV and use the same order for z-coordinates.
 - Rationale: Prevents z–data mismatches; robust to non-monotonic GFOV.

@@ -7,6 +7,20 @@ All notable changes to this project will be documented in this file.
 - Local search (Nelder–Mead) option (planned)
 - Optional GPU (CuPy) backend (investigating)
 
+## [2025-10-15]
+### Added
+- Report fields: `ref_for_uid`, `eval_for_uid`, `same_for_uid`, `best_shift_mag_mm`, `absolute_geometry_only`, `orientation_min_dot`, `warnings`.
+- Console warnings for FoR mismatch and large shifts; CLI `--warn-large-shift-mm`.
+- PowerShell: `scripts/run_autofallback.ps1` (auto-fallback from absolute geometry to wide best-shift), `run_test02_abs_vs_bestshift.ps1`, `run_test02_wide_bestshift.ps1`.
+- Utility: `scripts/compare_rtdose_headers.py` (Markdown diff of RTDOSE geometry/scale).
+
+### Fixed
+- PowerShell string interpolation with colons in shift spec (use `-f` formatting) to avoid parser errors.
+
+### Notes
+- Test04 (6MV vs 10MV) absolute geometry yields ~60% GPR (expected due to energy profile differences).
+- Test01/03 (SSD=100 cm) vs Test02/04 (SCD=100 cm) suggest setup discrepancy as a primary cause of low GPR in earlier runs.
+
 ## [2025-10-10]
 ### Added
 - Documentation overhaul: README streamlined; AGENTS.md (contributor guide).

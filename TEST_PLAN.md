@@ -28,3 +28,11 @@ Covers core gamma workflows: DICOM I/O, resampling, shift optimization, gamma co
 - Commands complete without exceptions.
 - Reports written (CSV/JSON/MD) with plausible stats and search logs.
 - Self-compare meets 100%; cross-pairs within expected bands.
+
+## Geometry Sanity (Header Compare)
+- Run: `python scripts/compare_rtdose_headers.py --a <ref.dcm> --b <eval.dcm> --out phits-linac-validation/output/rtgamma/<pair>_dose_compare.md`
+- Verify:
+  - `FrameOfReferenceUID` matches.
+  - `origin_delta_projected_mm (dx,dy,dz)` is small unless a known setup shift exists.
+  - `orientation_min_dot` ~ 1.0.
+  - Pixel spacing and GFOV look reasonable (monotonic; median step ~ slice spacing).
