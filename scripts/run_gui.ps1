@@ -216,7 +216,7 @@ function Run-Cmd([string[]]$cmd){
       $elapsed = (Get-Date) - $script:startTime
       $mm = [int]$elapsed.TotalMinutes
       $ss = $elapsed.Seconds.ToString('00')
-      $lblElapsed.Text = "Elapsed: $mm:$ss"
+      $lblElapsed.Text = "Elapsed: $($mm):$($ss)"
     }
   })
   $timer.Start()
@@ -298,9 +298,12 @@ try {
 $btnSave = New-Button 'Save Settings' 540 330 140 34
 $form.Controls.Add($btnSave)
 $btnSave.Add_Click({
+  $actionMap = @('header','3d','2d')
+  $actionKey = $actionMap[[int]$cbAction.SelectedIndex]
+  if (-not $actionKey) { $actionKey = '3d' }
   $new = [ordered]@{
     profile = (Get-ProfileKey)
-    action = (switch ($cbAction.SelectedIndex) { 0 {'header'} 1 {'3d'} 2 {'2d'} default {'3d'} })
+    action = $actionKey
     threads = [int]$nudThreads.Value
     output_dir = $tbOut.Text
     open_on_finish = $cbOpen.Checked
