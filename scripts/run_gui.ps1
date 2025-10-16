@@ -89,18 +89,21 @@ $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
 # Threads
-$form.Controls.Add((New-Label 'Threads (optional)' 220 264))
+$cpu = [Environment]::ProcessorCount
+$form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 264))
 $nudThreads = New-Object System.Windows.Forms.NumericUpDown
 $nudThreads.Location = New-Object System.Drawing.Point(220,288)
 $nudThreads.Size = New-Object System.Drawing.Size(100,24)
 $nudThreads.Minimum = 0
-$nudThreads.Maximum = 128
-$nudThreads.Value = 0
+$nudThreads.Maximum = [decimal]$cpu
+$nudThreads.Value = [decimal]$cpu
 $form.Controls.Add($nudThreads)
 
 # Run / Open buttons
 $btnRun = New-Button 'Run' 20 330 120 34
 $btnOpen = New-Button 'Open Output' 160 330 160 34
+$lblStatus = New-Label 'Status: Idle' 340 336
+$form.Controls.Add($lblStatus)
 $form.Controls.Add($btnRun)
 $form.Controls.Add($btnOpen)
 
@@ -168,6 +171,7 @@ function Build-Command(){
 
 function Run-Cmd([string[]]$cmd){
   Append-Log ("> " + ($cmd -join ' '))
+  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $lblStatus.Text = 'Status: Running'
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $cmd[0]
   $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
@@ -177,13 +181,29 @@ function Run-Cmd([string[]]$cmd){
   $psi.CreateNoWindow = $true
   $p = New-Object System.Diagnostics.Process
   $p.StartInfo = $psi
+  $p.EnableRaisingEvents = $true
+
+  # Output event handlers
+  Register-ObjectEvent -InputObject $p -EventName OutputDataReceived -Action {
+    if($Event.SourceEventArgs.Data){
+      $null = $form.BeginInvoke([Action]{ $tbLog.AppendText($Event.SourceEventArgs.Data + "`r`n") })
+    }
+  } | Out-Null
+  Register-ObjectEvent -InputObject $p -EventName ErrorDataReceived -Action {
+    if($Event.SourceEventArgs.Data){
+      $null = $form.BeginInvoke([Action]{ $tbLog.AppendText($Event.SourceEventArgs.Data + "`r`n") })
+    }
+  } | Out-Null
+  Register-ObjectEvent -InputObject $p -EventName Exited -Action {
+    $code = $Event.Sender.ExitCode
+    $null = $form.BeginInvoke([Action]{
+      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $lblStatus.Text = "Status: Done (Exit $code)"
+    })
+  } | Out-Null
+
   [void]$p.Start()
-  $stdout = $p.StandardOutput.ReadToEnd()
-  $stderr = $p.StandardError.ReadToEnd()
-  $p.WaitForExit()
-  if($stdout){ Append-Log $stdout }
-  if($stderr){ Append-Log $stderr }
-  if($p.ExitCode -ne 0){ [System.Windows.Forms.MessageBox]::Show("Error occurred. Check log. `r`nExitCode=$($p.ExitCode)"); }
+  $p.BeginOutputReadLine()
+  $p.BeginErrorReadLine()
 }
 
 $btnRun.Add_Click({
