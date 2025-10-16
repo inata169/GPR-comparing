@@ -43,3 +43,18 @@ python scripts/make_summary.py --case Test05 --out-dir phits-linac-validation/ou
 
 補足：詳細な修正履歴は `CHANGELOG.md` を参照してください。
 
+## 開発用テスト（pytest）
+
+- 依存追加（ローカル）
+```
+pip install -r requirements-dev.txt
+```
+- 実行
+```
+pytest -q
+```
+- 含まれるテスト
+  - `tests/test_headers_script.py`: ヘッダ比較スクリプトの実行検証
+  - `tests/test_cli_2d_axial.py`: 2D axial 中央スライス（最適化OFF）のCLI実行
+  - `tests/test_io_monotonic.py`: DICOM GFOV の単調性検証
+  - `tests/test_gamma_3d_quick.py`: Test05を用いた小領域3Dガンマ（短時間用クロップ）
