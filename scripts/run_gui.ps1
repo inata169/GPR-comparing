@@ -220,13 +220,25 @@ function Run-Cmd([string[]]$cmd){
     }
   })
   $timer.Start()
+  # Resolve python path for reliability
+  $pyCmd = $cmd[0]
+  if ($pyCmd -eq 'python') {
+    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $py) {
+      $py = (Get-Command py -ErrorAction SilentlyContinue).Source
+      if ($py) { $pyCmd = $py; $cmd = @($pyCmd,'-3') + $cmd[1..($cmd.Length-1)] }
+    } else { $pyCmd = $py }
+  }
+
   $psi = New-Object System.Diagnostics.ProcessStartInfo
-  $psi.FileName = $cmd[0]
+  $psi.FileName = $pyCmd
   $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.UseShellExecute = $false
   $psi.CreateNoWindow = $true
+  $psi.WorkingDirectory = $ROOT
+  $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
   $p = New-Object System.Diagnostics.Process
   $p.StartInfo = $psi
   $p.EnableRaisingEvents = $true
