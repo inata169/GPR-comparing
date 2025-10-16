@@ -148,7 +148,7 @@ $tbLog.ReadOnly = $true
 $form.Controls.Add($tbLog)
 
 # Timer for elapsed time
-$lblElapsed = New-Label 'Elapsed: 00:00' 520 336
+$lblElapsed = New-Label 'Elapsed: 00:00' 340 310
 $form.Controls.Add($lblElapsed)
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 500
