@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 from typing import Tuple, Literal, Optional
 import numba
 
@@ -132,4 +132,5 @@ def compute_gamma(
         'valid_points': int(np.sum(valid)),
     }
     return g, pass_rate, stats
+
 
