@@ -41,45 +41,45 @@ $form.StartPosition = 'CenterScreen'
 # REF / EVAL selectors
 $form.Controls.Add((New-Label 'Ref RTDOSE (.dcm)' 20 20))
 $tbRef = New-TextBox 20 44 560
-$btnRef = New-Button '参照...' 600 42
+$btnRef = New-Button 'Browse...' 600 42
 $form.Controls.Add($tbRef)
 $form.Controls.Add($btnRef)
 
 $form.Controls.Add((New-Label 'Eval RTDOSE (.dcm)' 20 80))
 $tbEval = New-TextBox 20 104 560
-$btnEval = New-Button '参照...' 600 102
+$btnEval = New-Button 'Browse...' 600 102
 $form.Controls.Add($tbEval)
 $form.Controls.Add($btnEval)
 
 # Output folder
-$form.Controls.Add((New-Label '出力フォルダ' 20 140))
+$form.Controls.Add((New-Label 'Output Folder' 20 140))
 $tbOut = New-TextBox 20 164 560
-$btnOut = New-Button '選択...' 600 162
+$btnOut = New-Button 'Select...' 600 162
 $form.Controls.Add($tbOut)
 $form.Controls.Add($btnOut)
 
 # Action
-$form.Controls.Add((New-Label '実行内容' 20 204))
+$form.Controls.Add((New-Label 'Action' 20 204))
 $cbAction = New-Object System.Windows.Forms.ComboBox
 $cbAction.Location = New-Object System.Drawing.Point(20,228)
 $cbAction.Size = New-Object System.Drawing.Size(260,24)
 $cbAction.DropDownStyle = 'DropDownList'
-$cbAction.Items.AddRange(@('ヘッダ比較','3D解析（臨床プリセット）','2D解析（臨床プリセット）'))
+$cbAction.Items.AddRange(@('Header Compare','3D (clinical preset)','2D (clinical preset)'))
 $cbAction.SelectedIndex = 1
 $form.Controls.Add($cbAction)
 
 # Preset profile
-$form.Controls.Add((New-Label '臨床プリセット' 320 204))
+$form.Controls.Add((New-Label 'Clinical Preset' 320 204))
 $cbProfile = New-Object System.Windows.Forms.ComboBox
 $cbProfile.Location = New-Object System.Drawing.Point(320,228)
 $cbProfile.Size = New-Object System.Drawing.Size(260,24)
 $cbProfile.DropDownStyle = 'DropDownList'
-$cbProfile.Items.AddRange(@('clinical_abs（絶対3%/2mm/10%）','clinical_rel（相対3%/2mm/10%）','clinical_2x2（2%/2mm/10%）','clinical_3x3（3%/3mm/10%）'))
+$cbProfile.Items.AddRange(@('clinical_abs (abs 3%/2mm/10%)','clinical_rel (rel 3%/2mm/10%)','clinical_2x2 (2%/2mm/10%)','clinical_3x3 (3%/3mm/10%)'))
 $cbProfile.SelectedIndex = 1
 $form.Controls.Add($cbProfile)
 
 # 2D plane
-$form.Controls.Add((New-Label '2D面（2D解析時）' 20 264))
+$form.Controls.Add((New-Label '2D Plane' 20 264))
 $cbPlane = New-Object System.Windows.Forms.ComboBox
 $cbPlane.Location = New-Object System.Drawing.Point(20,288)
 $cbPlane.Size = New-Object System.Drawing.Size(180,24)
@@ -89,7 +89,7 @@ $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
 # Threads
-$form.Controls.Add((New-Label 'スレッド数（任意）' 220 264))
+$form.Controls.Add((New-Label 'Threads (optional)' 220 264))
 $nudThreads = New-Object System.Windows.Forms.NumericUpDown
 $nudThreads.Location = New-Object System.Drawing.Point(220,288)
 $nudThreads.Size = New-Object System.Drawing.Size(100,24)
@@ -99,8 +99,8 @@ $nudThreads.Value = 0
 $form.Controls.Add($nudThreads)
 
 # Run / Open buttons
-$btnRun = New-Button '実行' 20 330 120 34
-$btnOpen = New-Button '出力フォルダを開く' 160 330 160 34
+$btnRun = New-Button 'Run' 20 330 120 34
+$btnOpen = New-Button 'Open Output' 160 330 160 34
 $form.Controls.Add($btnRun)
 $form.Controls.Add($btnOpen)
 
@@ -143,7 +143,7 @@ function Get-ProfileKey(){
 function Build-Command(){
   $ref = $tbRef.Text; $eval = $tbEval.Text; $out = $tbOut.Text
   if([string]::IsNullOrWhiteSpace($ref) -or [string]::IsNullOrWhiteSpace($eval) -or [string]::IsNullOrWhiteSpace($out)){
-    [System.Windows.Forms.MessageBox]::Show('Ref/Eval/出力フォルダを選択してください。'); return $null
+    [System.Windows.Forms.MessageBox]::Show('Please select Ref/Eval/Output folder.'); return $null
   }
   New-Item -ItemType Directory -Force -Path $out | Out-Null
 
@@ -183,7 +183,7 @@ function Run-Cmd([string[]]$cmd){
   $p.WaitForExit()
   if($stdout){ Append-Log $stdout }
   if($stderr){ Append-Log $stderr }
-  if($p.ExitCode -ne 0){ [System.Windows.Forms.MessageBox]::Show("エラーが発生しました。ログを確認してください。`r`nExitCode=$($p.ExitCode)"); }
+  if($p.ExitCode -ne 0){ [System.Windows.Forms.MessageBox]::Show("Error occurred. Check log. `r`nExitCode=$($p.ExitCode)"); }
 }
 
 $btnRun.Add_Click({
@@ -192,4 +192,3 @@ $btnRun.Add_Click({
 })
 
 [void]$form.ShowDialog()
-
