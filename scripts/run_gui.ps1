@@ -97,6 +97,14 @@ $cbPlane.Items.AddRange(@('axial','sagittal','coronal'))
 $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
+# Optimize shift checkbox (default: off)
+$cbOpt = New-Object System.Windows.Forms.CheckBox
+$cbOpt.Text = 'Optimize shift'
+$cbOpt.Location = New-Object System.Drawing.Point(320,260)
+$cbOpt.AutoSize = $true
+$cbOpt.Checked = $false
+$form.Controls.Add($cbOpt)
+
 # Threads
 $cpu = [Environment]::ProcessorCount
 $form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 264))
@@ -197,12 +205,14 @@ function Build-Command(){
     }
     1 { # 3D clinical
       $profile = Get-ProfileKey
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $threadsArg
+      $optArg = @('--opt-shift', ($cbOpt.Checked ? 'on' : 'off'))
+      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $threadsArg
     }
     2 { # 2D clinical central slice
       $profile = Get-ProfileKey
       $plane = $cbPlane.SelectedItem
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $threadsArg
+      $optArg = @('--opt-shift', ($cbOpt.Checked ? 'on' : 'off'))
+      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $threadsArg
     }
   }
 }
@@ -244,19 +254,12 @@ function Run-Cmd([string[]]$cmd){
   $p.EnableRaisingEvents = $true
 
   # Output event handlers
-  Register-ObjectEvent -InputObject $p -EventName OutputDataReceived -Action {
-    if($Event.SourceEventArgs.Data){
-      $null = $form.BeginInvoke([Action]{ $tbLog.AppendText($Event.SourceEventArgs.Data + "`r`n") })
-    }
-  } | Out-Null
-  Register-ObjectEvent -InputObject $p -EventName ErrorDataReceived -Action {
-    if($Event.SourceEventArgs.Data){
-      $null = $form.BeginInvoke([Action]{ $tbLog.AppendText($Event.SourceEventArgs.Data + "`r`n") })
-    }
-  } | Out-Null
-  Register-ObjectEvent -InputObject $p -EventName Exited -Action {
-    $code = $Event.Sender.ExitCode
-    $null = $form.BeginInvoke([Action]{
+  # Marshal events to UI thread
+  $p.SynchronizingObject = $form
+  $null = $p.add_OutputDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
+  $null = $p.add_ErrorDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
+  $null = $p.add_Exited({ param($sender,$e)
+      $code = $sender.ExitCode
       $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $lblStatus.Text = "Status: Done (Exit $code)"; $pb.Visible = $false; $timer.Stop(); $script:startTime = $null
       if ($cbSaveLog.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
@@ -276,7 +279,6 @@ function Run-Cmd([string[]]$cmd){
         } catch {}
       }
     })
-  } | Out-Null
 
   [void]$p.Start()
   $p.BeginOutputReadLine()
