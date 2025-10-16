@@ -3,7 +3,7 @@ import argparse
 import os
 import numpy as np
 
-from rtgamma.io_dicom import load_rtdose
+from rtgamma.io_dicom import load_rtdose, load_rtplan
 
 
 def summarize(meta):
@@ -72,7 +72,7 @@ def orientation_similarity(meta_a, meta_b):
     return min(dot_row, dot_col, dot_sli)
 
 
-def render_markdown(a, b, dxdyz, mindot):
+def render_markdown(a, b, dxdyz, mindot, plan_a=None, plan_b=None):
     lines = []
     lines.append("# RTDOSE Header Comparison")
     lines.append("")
@@ -103,6 +103,27 @@ def render_markdown(a, b, dxdyz, mindot):
     lines.append("")
     row('origin_delta_projected_mm (dx,dy,dz) along A', dxdyz, '')
     row('orientation_min_dot', mindot, '')
+    # Optional plan-derived info
+    if plan_a is not None or plan_b is not None:
+        lines.append("")
+        lines.append("## RTPLAN (Optional)")
+        lines.append("")
+        def fmt_iso(p):
+            v = p.get('isocenter_mean_lps_mm') if p else None
+            return tuple(map(float, v)) if v is not None else None
+        def fmt_mean(x):
+            return float(x) if x is not None else None
+        a_iso = fmt_iso(plan_a)
+        b_iso = fmt_iso(plan_b)
+        row('plan_isocenter_mean_lps_mm', a_iso, b_iso)
+        row('plan_sad_mm_mean', fmt_mean(plan_a.get('sad_mm_mean') if plan_a else None), fmt_mean(plan_b.get('sad_mm_mean') if plan_b else None))
+        row('plan_ssd_mm_mean', fmt_mean(plan_a.get('ssd_mm_mean') if plan_a else None), fmt_mean(plan_b.get('ssd_mm_mean') if plan_b else None))
+        # Deltas
+        if a_iso is not None and b_iso is not None:
+            delta = tuple(float(ai - bi) for ai, bi in zip(a_iso, b_iso))
+            mag = float(np.sqrt(sum((ai - bi)**2 for ai, bi in zip(a_iso, b_iso))))
+            row('plan_isocenter_delta_lps_mm (A-B)', delta, '')
+            row('plan_isocenter_delta_mag_mm', mag, '')
     lines.append("")
     # Heuristic notes
     notes = []
@@ -127,6 +148,8 @@ def main():
     ap.add_argument('--a', required=True, help='Path to reference RTDOSE DICOM')
     ap.add_argument('--b', required=True, help='Path to evaluation RTDOSE DICOM')
     ap.add_argument('--out', required=True, help='Output markdown path')
+    ap.add_argument('--plan-a', help='Optional: Path to reference RTPLAN DICOM')
+    ap.add_argument('--plan-b', help='Optional: Path to evaluation RTPLAN DICOM')
     args = ap.parse_args()
 
     meta_a = load_rtdose(args.a)
@@ -136,7 +159,9 @@ def main():
     summ_b = summarize(meta_b)
     dxdyz = project_origin_delta(meta_a, meta_b)
     mindot = orientation_similarity(meta_a, meta_b)
-    md = render_markdown(summ_a, summ_b, dxdyz, mindot)
+    plan_a = load_rtplan(args.plan_a) if args.plan_a else None
+    plan_b = load_rtplan(args.plan_b) if args.plan_b else None
+    md = render_markdown(summ_a, summ_b, dxdyz, mindot, plan_a=plan_a, plan_b=plan_b)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:
@@ -145,4 +170,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
