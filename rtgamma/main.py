@@ -37,6 +37,57 @@ def build_ref_world_coords(meta_ref):
     return Xw, Yw, Zw
 
 
+def build_plane_world_coords(meta_ref, plane: str, sl: int):
+    # Returns (Xw3, Yw3, Zw3) shaped (1, y, x) for the requested plane slice
+    z_mm = meta_ref['z_coords_mm']
+    y_mm = meta_ref['y_coords_mm']
+    x_mm = meta_ref['x_coords_mm']
+    ipp = meta_ref['ipp']
+    r = meta_ref['row_dir']
+    c = meta_ref['col_dir']
+    s = meta_ref['slice_dir']
+    if plane == 'axial':
+        Y, X = np.meshgrid(y_mm, x_mm, indexing='ij')  # (y,x)
+        Z = np.full_like(Y, fill_value=float(z_mm[sl]))
+    elif plane == 'sagittal':
+        # sagittal fixes x index; vary z (rows) and y (cols) when slicing 3D array [:, :, sl]
+        Z, Y = np.meshgrid(z_mm, y_mm, indexing='ij')  # (z,y) but we need (y,x) shaped arrays; remap below
+        # Build in (y,z) then transpose later; here we instead construct via world formula per (y,z)
+        # To keep consistency with resample API (expects (z,y,x)), we instead produce axial-like layout with a single x
+        Y2, Z2 = np.meshgrid(y_mm, z_mm, indexing='ij')  # (y,z)
+        X = np.full_like(Y2, fill_value=float(x_mm[sl]))
+        # Now compute world and then add a dummy z-dimension at front
+        Y, X, Z = Y2, X, Z2
+    else:  # coronal
+        # coronal fixes y index; vary z (rows) and x (cols) for [:, sl, :]
+        Z, X = np.meshgrid(z_mm, x_mm, indexing='ij')
+        X2, Z2 = np.meshgrid(x_mm, z_mm, indexing='ij')  # (z,x)
+        Y = np.full_like(X2, fill_value=float(y_mm[sl]))
+        # For uniformity with axial-like (y,x), remap to (y= z-dim, x= x-dim) via transpose later
+        # We will compute world after expanding to 3D
+        X, Z = X2, Z2
+    # Compute world coords for 2D grid, then expand to (1, y, x)
+    Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :] + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+    Xw = Pw[..., 0][None, ...]
+    Yw = Pw[..., 1][None, ...]
+    Zw = Pw[..., 2][None, ...]
+    # Axes for this plane
+    if plane == 'axial':
+        ax_z = np.array([float(z_mm[sl])], dtype=float)
+        ax_y = y_mm
+        ax_x = x_mm
+    elif plane == 'sagittal':
+        ax_z = z_mm
+        ax_y = y_mm
+        ax_x = np.array([float(x_mm[sl])], dtype=float)
+        # Our world grids are (1,y,z) order effectively; transpose to (1,y,x) by swapping z<->x roles later in resampler consumer
+    else:  # coronal
+        ax_z = z_mm
+        ax_y = np.array([float(y_mm[sl])], dtype=float)
+        ax_x = x_mm
+    return (Xw, Yw, Zw), (ax_z, ax_y, ax_x)
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -222,21 +273,65 @@ def main(argv=None):
         logging.info("Final resampling complete.")
 
     # Final gamma calculation on the optimally shifted and resampled dose grid
-    logging.info("Starting final gamma calculation.")
-    axes_ref_mm = (meta_ref['z_coords_mm'], meta_ref['y_coords_mm'], meta_ref['x_coords_mm'])
-    gamma_map, pass_rate, gstats = compute_gamma(
-        axes_ref_mm=axes_ref_mm,
-        dose_ref=dose_ref,
-        axes_eval_mm=axes_ref_mm,  # Now eval is on the ref grid
-        dose_eval=eval_on_ref,
-        dd_percent=args.dd,
-        dta_mm=args.dta,
-        cutoff_percent=args.cutoff,
-        gamma_type=args.gamma_type,
-        norm=args.norm,
-        use_pymedphys=False,
-    )
-    logging.info(f"Final gamma calculation complete. Pass rate: {pass_rate}")
+    # Fast path: 2D mode without shift optimization computes only the selected slice
+    if args.mode == '2d' and args.opt_shift == 'off':
+        # Determine slice index early
+        sz, sy, sx = dose_ref.shape
+        if isinstance(args.plane_index, str) and args.plane_index.lower() == 'auto':
+            if args.plane == 'axial':
+                sl = int(sz // 2)
+            elif args.plane == 'sagittal':
+                sl = int(sx // 2)
+            else:
+                sl = int(sy // 2)
+        else:
+            try:
+                sl = int(args.plane_index)
+            except Exception:
+                raise SystemExit('--plane-index must be an integer or "auto"')
+        # Build world coords only for this plane slice and resample eval
+        (Xw1, Yw1, Zw1), (ax_z, ax_y, ax_x) = build_plane_world_coords(meta_ref, args.plane, sl)
+        def world_to_eval_ijk(xyz):
+            return world_to_index(meta_eval['ipp'], meta_eval['row_dir'], meta_eval['col_dir'], meta_eval['slice_dir'],
+                                  meta_eval['row_spacing'], meta_eval['col_spacing'], meta_eval['z_offsets'], xyz)
+        eval_on_ref_slice = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw1, Yw1, Zw1), interp=args.interp, shift_mm=(0, 0, 0))
+        # Extract ref slice
+        if args.plane == 'axial':
+            ref_slice = dose_ref[sl:sl+1, :, :]
+        elif args.plane == 'sagittal':
+            ref_slice = dose_ref[:, :, sl:sl+1]  # shape (z,y,1)
+        else:  # coronal
+            ref_slice = dose_ref[:, sl:sl+1, :]  # shape (z,1,x)
+        logging.info("Starting 2D slice gamma calculation (fast path).")
+        gamma_map, pass_rate, gstats = compute_gamma(
+            axes_ref_mm=(ax_z, ax_y, ax_x),
+            dose_ref=ref_slice,
+            axes_eval_mm=(ax_z, ax_y, ax_x),
+            dose_eval=eval_on_ref_slice,
+            dd_percent=args.dd,
+            dta_mm=args.dta,
+            cutoff_percent=args.cutoff,
+            gamma_type=args.gamma_type,
+            norm=args.norm,
+            use_pymedphys=False,
+        )
+        logging.info(f"2D gamma calculation complete. Slice pass rate: {pass_rate}")
+    else:
+        logging.info("Starting final gamma calculation.")
+        axes_ref_mm = (meta_ref['z_coords_mm'], meta_ref['y_coords_mm'], meta_ref['x_coords_mm'])
+        gamma_map, pass_rate, gstats = compute_gamma(
+            axes_ref_mm=axes_ref_mm,
+            dose_ref=dose_ref,
+            axes_eval_mm=axes_ref_mm,  # Now eval is on the ref grid
+            dose_eval=eval_on_ref,
+            dd_percent=args.dd,
+            dta_mm=args.dta,
+            cutoff_percent=args.cutoff,
+            gamma_type=args.gamma_type,
+            norm=args.norm,
+            use_pymedphys=False,
+        )
+        logging.info(f"Final gamma calculation complete. Pass rate: {pass_rate}")
 
     # Create output directories if they don't exist
     if args.save_gamma_map:
@@ -258,33 +353,49 @@ def main(argv=None):
         if not args.plane:
             raise SystemExit('--plane is required in 2d mode')
 
-        # Determine slice index: support 'auto' (central slice) or explicit integer
-        sz, sy, sx = dose_ref.shape  # (z, y, x)
-        if isinstance(args.plane_index, str) and args.plane_index.lower() == 'auto':
+        # In fast 2D path, gamma_map may be (1,y,x) or similar; normalize indexing
+        if args.opt_shift == 'off':
+            # We already selected slice; extract 2D arrays from computed slice gamma
             if args.plane == 'axial':
-                sl = int(sz // 2)
+                g2d = gamma_map[0, :, :]
+                r2d = dose_ref[sl, :, :]
+                e2d = eval_on_ref_slice[0, :, :]
             elif args.plane == 'sagittal':
-                sl = int(sx // 2)
+                g2d = gamma_map[:, :, 0] if gamma_map.shape[2] == 1 else gamma_map[0, :, :]
+                r2d = dose_ref[:, :, sl]
+                e2d = eval_on_ref_slice[:, :, 0] if eval_on_ref_slice.shape[2] == 1 else eval_on_ref_slice[0, :, :]
             else:  # coronal
-                sl = int(sy // 2)
+                g2d = gamma_map[:, 0, :] if gamma_map.shape[1] == 1 else gamma_map[0, :, :]
+                r2d = dose_ref[:, sl, :]
+                e2d = eval_on_ref_slice[:, 0, :] if eval_on_ref_slice.shape[1] == 1 else eval_on_ref_slice[0, :, :]
         else:
-            try:
-                sl = int(args.plane_index)
-            except Exception:
-                raise SystemExit('--plane-index must be an integer or "auto"')
-
-        if args.plane == 'axial':
-            g2d = gamma_map[sl, :, :]
-            r2d = dose_ref[sl, :, :]
-            e2d = eval_on_ref[sl, :, :]
-        elif args.plane == 'sagittal':
-            g2d = gamma_map[:, :, sl]
-            r2d = dose_ref[:, :, sl]
-            e2d = eval_on_ref[:, :, sl]
-        else:  # coronal
-            g2d = gamma_map[:, sl, :]
-            r2d = dose_ref[:, sl, :]
-            e2d = eval_on_ref[:, sl, :]
+            # Original indexing from full 3D map
+            # Determine slice index: support 'auto' (central slice) or explicit integer
+            sz, sy, sx = dose_ref.shape  # (z, y, x)
+            if isinstance(args.plane_index, str) and args.plane_index.lower() == 'auto':
+                if args.plane == 'axial':
+                    sl = int(sz // 2)
+                elif args.plane == 'sagittal':
+                    sl = int(sx // 2)
+                else:  # coronal
+                    sl = int(sy // 2)
+            else:
+                try:
+                    sl = int(args.plane_index)
+                except Exception:
+                    raise SystemExit('--plane-index must be an integer or "auto"')
+            if args.plane == 'axial':
+                g2d = gamma_map[sl, :, :]
+                r2d = dose_ref[sl, :, :]
+                e2d = eval_on_ref[sl, :, :]
+            elif args.plane == 'sagittal':
+                g2d = gamma_map[:, :, sl]
+                r2d = dose_ref[:, :, sl]
+                e2d = eval_on_ref[:, :, sl]
+            else:  # coronal
+                g2d = gamma_map[:, sl, :]
+                r2d = dose_ref[:, sl, :]
+                e2d = eval_on_ref[:, sl, :]
 
         # Compute 2D pass rate on the selected slice (exclude NaN/inf and cutoff-excluded voxels)
         finite_mask = np.isfinite(g2d)
