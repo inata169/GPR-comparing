@@ -10,6 +10,13 @@ $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 Set-Location $ROOT
 $env:PYTHONPATH = $ROOT
 
+# Load config (JSON)
+$cfgPath = Join-Path $ROOT 'config/gui_defaults.json'
+$cfg = @{}
+if (Test-Path $cfgPath) {
+  try { $cfg = Get-Content -Raw -Path $cfgPath | ConvertFrom-Json } catch { $cfg = @{} }
+}
+
 function New-Label($text, $x, $y){
   $lbl = New-Object System.Windows.Forms.Label
   $lbl.Text = $text
@@ -37,6 +44,8 @@ $form = New-Object System.Windows.Forms.Form
 $form.Text = 'rtgamma GUI Runner'
 $form.Size = New-Object System.Drawing.Size(720,560)
 $form.StartPosition = 'CenterScreen'
+$form.Font = New-Object System.Drawing.Font('Segoe UI',9)
+$form.BackColor = [System.Drawing.Color]::FromArgb(245,250,255)
 
 # REF / EVAL selectors
 $form.Controls.Add((New-Label 'Ref RTDOSE (.dcm)' 20 20))
@@ -99,22 +108,51 @@ $nudThreads.Maximum = [decimal]$cpu
 $nudThreads.Value = [decimal]$cpu
 $form.Controls.Add($nudThreads)
 
+# Options: open on finish, save log
+$cbOpen = New-Object System.Windows.Forms.CheckBox
+$cbOpen.Text = 'Open summary on finish'
+$cbOpen.Location = New-Object System.Drawing.Point(340,288)
+$cbOpen.AutoSize = $true
+$cbOpen.Checked = $true
+$form.Controls.Add($cbOpen)
+
+$cbSaveLog = New-Object System.Windows.Forms.CheckBox
+$cbSaveLog.Text = 'Save log to file'
+$cbSaveLog.Location = New-Object System.Drawing.Point(520,288)
+$cbSaveLog.AutoSize = $true
+$cbSaveLog.Checked = $true
+$form.Controls.Add($cbSaveLog)
+
 # Run / Open buttons
 $btnRun = New-Button 'Run' 20 330 120 34
 $btnOpen = New-Button 'Open Output' 160 330 160 34
 $lblStatus = New-Label 'Status: Idle' 340 336
+$pb = New-Object System.Windows.Forms.ProgressBar
+$pb.Location = New-Object System.Drawing.Point(20, 368)
+$pb.Size = New-Object System.Drawing.Size(660, 12)
+$pb.Style = 'Marquee'
+$pb.MarqueeAnimationSpeed = 25
+$pb.Visible = $false
 $form.Controls.Add($lblStatus)
 $form.Controls.Add($btnRun)
 $form.Controls.Add($btnOpen)
+$form.Controls.Add($pb)
 
 # Log box
 $tbLog = New-Object System.Windows.Forms.TextBox
-$tbLog.Location = New-Object System.Drawing.Point(20,380)
+$tbLog.Location = New-Object System.Drawing.Point(20,392)
 $tbLog.Size = New-Object System.Drawing.Size(660,130)
 $tbLog.Multiline = $true
 $tbLog.ScrollBars = 'Vertical'
 $tbLog.ReadOnly = $true
 $form.Controls.Add($tbLog)
+
+# Timer for elapsed time
+$lblElapsed = New-Label 'Elapsed: 00:00' 520 336
+$form.Controls.Add($lblElapsed)
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 500
+$script:startTime = $null
 
 function Append-Log($text){ $tbLog.AppendText("$text`r`n") }
 
@@ -164,14 +202,24 @@ function Build-Command(){
     2 { # 2D clinical central slice
       $profile = Get-ProfileKey
       $plane = $cbPlane.SelectedItem
-      return @('python','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out "${plane}_gamma.png"),'--save-dose-diff',(Join-Path $out "${plane}_diff.png"),'--report',(Join-Path $out "${plane}")) + $threadsArg
+      return @('python','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $threadsArg
     }
   }
 }
 
 function Run-Cmd([string[]]$cmd){
   Append-Log ("> " + ($cmd -join ' '))
-  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $lblStatus.Text = 'Status: Running'
+  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $lblStatus.Text = 'Status: Running'; $pb.Visible = $true
+  $script:startTime = Get-Date
+  $timer.add_Tick({
+    if ($script:startTime) {
+      $elapsed = (Get-Date) - $script:startTime
+      $mm = [int]$elapsed.TotalMinutes
+      $ss = $elapsed.Seconds.ToString('00')
+      $lblElapsed.Text = "Elapsed: $mm:$ss"
+    }
+  })
+  $timer.Start()
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $cmd[0]
   $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
@@ -197,7 +245,24 @@ function Run-Cmd([string[]]$cmd){
   Register-ObjectEvent -InputObject $p -EventName Exited -Action {
     $code = $Event.Sender.ExitCode
     $null = $form.BeginInvoke([Action]{
-      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $lblStatus.Text = "Status: Done (Exit $code)"
+      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $lblStatus.Text = "Status: Done (Exit $code)"; $pb.Visible = $false; $timer.Stop(); $script:startTime = $null
+      if ($cbSaveLog.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
+        try {
+          $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+          $logPath = Join-Path $tbOut.Text ("run_log_" + $stamp + ".txt")
+          $tbLog.Text | Out-File -FilePath $logPath -Encoding utf8
+        } catch {}
+      }
+      if ($cbOpen.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
+        try {
+          $pdf = Get-ChildItem -Path $tbOut.Text -Filter '*summary.pdf' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($pdf) { Start-Process $pdf.FullName }
+          else {
+            $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
+          }
+        } catch {}
+      }
     })
   } | Out-Null
 
@@ -205,6 +270,45 @@ function Run-Cmd([string[]]$cmd){
   $p.BeginOutputReadLine()
   $p.BeginErrorReadLine()
 }
+
+# Apply config defaults to UI
+try {
+  if ($cfg.output_dir) { $tbOut.Text = [string]$cfg.output_dir }
+  if ($cfg.profile) {
+    switch ([string]$cfg.profile) {
+      'clinical_abs' { $cbProfile.SelectedIndex = 0 }
+      'clinical_rel' { $cbProfile.SelectedIndex = 1 }
+      'clinical_2x2' { $cbProfile.SelectedIndex = 2 }
+      'clinical_3x3' { $cbProfile.SelectedIndex = 3 }
+    }
+  }
+  if ($cfg.action) {
+    switch ([string]$cfg.action) {
+      'header' { $cbAction.SelectedIndex = 0 }
+      '3d' { $cbAction.SelectedIndex = 1 }
+      '2d' { $cbAction.SelectedIndex = 2 }
+    }
+  }
+  if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
+  if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
+  if ($cfg.save_log -ne $null) { $cbSaveLog.Checked = [bool]$cfg.save_log }
+} catch {}
+
+# Save settings button
+$btnSave = New-Button 'Save Settings' 540 330 140 34
+$form.Controls.Add($btnSave)
+$btnSave.Add_Click({
+  $new = [ordered]@{
+    profile = (Get-ProfileKey)
+    action = (switch ($cbAction.SelectedIndex) { 0 {'header'} 1 {'3d'} 2 {'2d'} default {'3d'} })
+    threads = [int]$nudThreads.Value
+    output_dir = $tbOut.Text
+    open_on_finish = $cbOpen.Checked
+    save_log = $cbSaveLog.Checked
+    progress_marquee = $true
+  }
+  try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Saved.') } catch {}
+})
 
 $btnRun.Add_Click({
   $cmd = Build-Command

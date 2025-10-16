@@ -172,3 +172,42 @@ python -m rtgamma.main \
 ```
 - DoseUnitsの注意: GY と RELATIVE が混在する比較では、正規化や評価条件の解釈に注意。
 - 座標整合: DICOMの `ImagePositionPatient` / `ImageOrientationPatient` / `PixelSpacing` / `GridFrameOffsetVector` を尊重し、GFOV昇順でフレームを整列。
+
+## Quick Start (GUI)
+
+- Launch: double-click `run_gui.bat` (or run `scripts/run_gui.ps1`).
+- Pick files: Browse… for `Ref` and `Eval` RTDOSE (.dcm), Select… for output folder.
+- Choose: Action (Header Compare / 3D / 2D), Clinical Preset, Plane (for 2D).
+- Threads: default to CPU count; 0 = auto. Set 8 to use 8 threads.
+- Comfort: live log, running status, elapsed timer, progress bar, auto-open summary, auto-save log (toggle in UI or config).
+
+## Clinical Presets
+
+- `--profile clinical_abs`  Absolute dose, 3%/2mm/10%, no shift (norm=none)
+- `--profile clinical_rel`  Relative dose, 3%/2mm/10%, no shift (norm=global_max)
+- `--profile clinical_2x2`  2%/2mm/10%, no shift
+- `--profile clinical_3x3`  3%/3mm/10%, no shift
+- Parallel: `--threads <N>` (Numba threads)
+
+## Config (GUI Defaults)
+
+- File: `config/gui_defaults.json`
+- Example:
+```
+{
+  "profile": "clinical_rel",
+  "action": "3d",
+  "threads": 8,
+  "output_dir": "phits-linac-validation/output/rtgamma",
+  "open_on_finish": true,
+  "save_log": true,
+  "progress_marquee": true
+}
+```
+- Save from GUI with the [Save Settings] button.
+
+## Preset Runner (Test05)
+
+- One-shot run: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_presets_test05.ps1 -OutDir "phits-linac-validation/output/rtgamma"`
+- Does: header compare → 3D absolute (no shift) → 3D optimized (2-stage) → 2D images (ax/sag/cor) → summary MD/PDF.
+

@@ -1,0 +1,10 @@
+{
+  "profile": "clinical_rel",
+  "action": "3d",
+  "threads": 0,
+  "output_dir": "phits-linac-validation/output/rtgamma",
+  "open_on_finish": true,
+  "save_log": true,
+  "progress_marquee": true
+}
+
