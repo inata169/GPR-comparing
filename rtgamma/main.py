@@ -84,6 +84,8 @@ def main(argv=None):
                         help='Warn if |best_shift| exceeds this magnitude (mm)')
     parser.add_argument('--seed', type=int)
     parser.add_argument('--threads', type=int)
+    parser.add_argument('--profile', choices=['clinical_abs', 'clinical_rel', 'clinical_2x2', 'clinical_3x3'],
+                        help='Preset typical clinical conditions (no shift)')
     parser.add_argument('--gpu', choices=['on', 'off'], default='off')
     parser.add_argument('--tolerance', type=float, default=1e-6)
 
@@ -367,3 +369,26 @@ def main(argv=None):
 
 if __name__ == '__main__':
     main()
+    # Apply thread setting if provided
+    try:
+        if getattr(args, 'threads', None):
+            import numba
+            numba.set_num_threads(int(args.threads))
+    except Exception:
+        pass
+
+    # Clinical profiles to streamline typical usage
+    profile = getattr(args, 'profile', None) if hasattr(args, 'profile') else None
+    if profile:
+        if profile == 'clinical_abs':  # Absolute dose, no shift
+            args.dd = 3.0; args.dta = 2.0; args.cutoff = 10.0
+            args.norm = 'none'; args.opt_shift = 'off'
+        elif profile == 'clinical_rel':  # Relative dose, no shift
+            args.dd = 3.0; args.dta = 2.0; args.cutoff = 10.0
+            args.norm = 'global_max'; args.opt_shift = 'off'
+        elif profile == 'clinical_2x2':
+            args.dd = 2.0; args.dta = 2.0; args.cutoff = 10.0
+            args.opt_shift = 'off'
+        elif profile == 'clinical_3x3':
+            args.dd = 3.0; args.dta = 3.0; args.cutoff = 10.0
+            args.opt_shift = 'off'
