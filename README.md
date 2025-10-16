@@ -1,4 +1,4 @@
-# RTDOSE ガンマ解析 CLI（2D/3D・三軸シフト最適化）
+﻿# RTDOSE ガンマ解析 CLI（2D/3D・三軸シフト最適化）
 
 放射線治療QA向けに、2つの DICOM RTDOSE を比較して 2D/3D ガンマインデックスを計算するツールです。異グリッド・異座標系の整合、三軸シフト最適化、可視化、レポート出力に対応します。
 
@@ -6,9 +6,9 @@
 - ガンマ種別: `global`（`--gamma-type`で切替可）
 - 正規化: `global_max`（`--norm`で `max_ref` / `none` 選択可）
 
-同梱サンプル（肺症例）
-- `dicom/PHITS_Iris_10_rtdose.dcm`
-- `dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm`
+同梱サンプル（CCCとMCのGPR比較）（肺症例）
+- `dicom/Test05/AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm` (CCC)
+- `dicom/Test05/AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm` (MC)
 
 備考: `phits-linac-validation/` にはPHITS出力と実測CSVの1Dプロファイル比較ツールが別途含まれます（本READMEはRTDOSE同士のボリューム比較ツールの説明です）。
 
@@ -137,7 +137,7 @@
 
 ## 注意事項
 
-- 個人情報（PHI）を含むDICOMはリポジトリにコミットしないでください（同梱サンプルは匿名化用途）。
+- 個人情報（PHI）を含むDICOMはリポジトリにコミットしないでください（同梱サンプル（CCCとMCのGPR比較）は匿名化用途）。
 - 生成物・大容量ファイルは極力コミットせず、`phits-linac-validation/output/rtgamma/` 配下に保存してください（git ignore 推奨）。
 
 ## 2025年10月14日の調査サマリ
@@ -159,3 +159,16 @@
 
 -   `optimize.py`: シフト探索範囲の評価ロジックを修正し、手動でのシフト量固定を可能にした。
 -   `main.py`: 絶対線量比較を妨げていた強制正規化処理を無効化した。
+
+## 注意・補足（重要）
+
+- 絶対幾何ベースライン（最適化OFF・正規化なし）
+```
+python -m rtgamma.main \
+  --ref dicom/Test05/AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm \
+  --eval dicom/Test05/AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm \
+  --mode 3d --opt-shift off --norm none \
+  --report phits-linac-validation/output/rtgamma/Test05_abs
+```
+- DoseUnitsの注意: GY と RELATIVE が混在する比較では、正規化や評価条件の解釈に注意。
+- 座標整合: DICOMの `ImagePositionPatient` / `ImageOrientationPatient` / `PixelSpacing` / `GridFrameOffsetVector` を尊重し、GFOV昇順でフレームを整列。
