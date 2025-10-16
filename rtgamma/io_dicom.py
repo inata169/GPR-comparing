@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Optional
 
 try:
     import pydicom
@@ -89,6 +89,68 @@ def load_rtdose(path: str) -> Dict:
         'units': getattr(ds, 'DoseUnits', 'UNKNOWN'),
         'dataset': ds,
         'shape': dose.shape,
+    }
+    return meta
+
+
+def load_rtplan(path: str) -> Dict:
+    if pydicom is None:
+        raise RuntimeError("pydicom is required to read RTPLAN DICOM. Install pydicom.")
+    ds = pydicom.dcmread(path, force=True)
+
+    if getattr(ds, 'Modality', None) != 'RTPLAN':
+        raise ValueError("DICOM is not RTPLAN (Modality != RTPLAN)")
+
+    beam_seq = list(getattr(ds, 'BeamSequence', []) or [])
+    isocenters: List[np.ndarray] = []
+    sad_vals: List[float] = []
+    ssd_vals: List[float] = []
+
+    for beam in beam_seq:
+        # SAD may be on Beam or Control Points
+        sad = None
+        if hasattr(beam, 'SourceToAxisDistance'):
+            try:
+                sad = float(beam.SourceToAxisDistance)
+            except Exception:
+                sad = None
+        # Control points for isocenter and possibly SSD/SAD
+        cps = list(getattr(beam, 'ControlPointSequence', []) or [])
+        for cp in cps:
+            if hasattr(cp, 'IsocenterPosition'):
+                try:
+                    iso = np.array(cp.IsocenterPosition, dtype=float)
+                    isocenters.append(iso)
+                except Exception:
+                    pass
+            if hasattr(cp, 'SourceToSurfaceDistance'):
+                try:
+                    ssd = float(cp.SourceToSurfaceDistance)
+                    if np.isfinite(ssd):
+                        ssd_vals.append(ssd)
+                except Exception:
+                    pass
+            if sad is None and hasattr(cp, 'SourceToAxisDistance'):
+                try:
+                    sad = float(cp.SourceToAxisDistance)
+                except Exception:
+                    sad = None
+        if sad is not None and np.isfinite(sad):
+            sad_vals.append(float(sad))
+
+    iso_mean: Optional[np.ndarray] = None
+    if isocenters:
+        iso_mean = np.mean(np.stack(isocenters, axis=0), axis=0)
+
+    meta = {
+        'dataset': ds,
+        'beam_count': len(beam_seq),
+        'isocenters_lps_mm': isocenters,
+        'isocenter_mean_lps_mm': iso_mean if iso_mean is not None else None,
+        'sad_mm_vals': sad_vals,
+        'sad_mm_mean': float(np.mean(sad_vals)) if len(sad_vals) > 0 else None,
+        'ssd_mm_vals': ssd_vals,
+        'ssd_mm_mean': float(np.mean(ssd_vals)) if len(ssd_vals) > 0 else None,
     }
     return meta
 
