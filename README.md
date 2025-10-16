@@ -6,7 +6,7 @@
 - ガンマ種別: `global`（`--gamma-type`で切替可）
 - 正規化: `global_max`（`--norm`で `max_ref` / `none` 選択可）
 
-同梱サンプル（CCCとMCのGPR比較）（肺症例）
+同梱サンプル（CCCとMCのGPR比較例）
 - `dicom/Test05/AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm` (CCC)
 - `dicom/Test05/AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm` (MC)
 
