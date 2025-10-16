@@ -62,6 +62,16 @@ def main(argv=None):
     parser.add_argument('--opt-shift', choices=['on', 'off'], default='on')
     parser.add_argument('--shift-range', default='x:-3:3:1,y:-3:3:1,z:-3:3:1')
     parser.add_argument('--refine', choices=['none', 'coarse2fine'], default='coarse2fine')
+    parser.add_argument('--fine-range-mm', type=float, default=10.0,
+                        help='Fine search half-range in mm (default 10)')
+    parser.add_argument('--fine-step-mm', type=float, default=1.0,
+                        help='Fine search step in mm (default 1)')
+    parser.add_argument('--early-stop-epsilon', type=float, default=0.05,
+                        help='Early stop threshold (pass rate delta)')
+    parser.add_argument('--early-stop-patience', type=int, default=100,
+                        help='Number of consecutive non-improving steps to stop')
+    parser.add_argument('--prescan-2d', choices=['on', 'off'], default='on',
+                        help='Enable 2D central-slice prescan to narrow XY range')
 
     parser.add_argument('--spacing', help='Override spacing sx,sy,sz in mm (unused default: ref grid)')
     parser.add_argument('--interp', choices=['linear', 'bspline', 'nearest'], default='linear')
@@ -186,6 +196,11 @@ def main(argv=None):
             norm=args.norm,
             shift_spec=args.shift_range,
             refine=args.refine == 'coarse2fine',
+            fine_range_mm=float(args.fine_range_mm),
+            fine_step_mm=float(args.fine_step_mm),
+            early_stop_epsilon=float(args.early_stop_epsilon),
+            early_stop_patience=int(args.early_stop_patience),
+            prescan_2d=(args.prescan_2d == 'on'),
         )
         search_log = extras['search_log']
         logging.info(f"Shift optimization complete. Best shift: {best_shift}, Pass rate: {best_pass}")
