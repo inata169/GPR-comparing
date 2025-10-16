@@ -181,6 +181,13 @@ python -m rtgamma.main \
 - Threads: default to CPU count; 0 = auto. Set 8 to use 8 threads.
 - Comfort: live log, running status, elapsed timer, progress bar, auto-open summary, auto-save log (toggle in UI or config).
 
+### GUI Tips
+- Optimize shift: run without shift by default. Turn ON only when needed.
+- Threads: set to your CPU core count for speed (e.g. 8). 0 means auto.
+- 2D speed: 2D with shift OFF uses a fast path (only the selected slice is computed).
+- Logs: enable Save log to archive run_log_*.txt; Open summary to automatically open PDF/MD.
+- Config: edit `config/gui_defaults.json`, or press [Save Settings] in the GUI.
+
 ## Clinical Presets
 
 - `--profile clinical_abs`  Absolute dose, 3%/2mm/10%, no shift (norm=none)
@@ -210,4 +217,12 @@ python -m rtgamma.main \
 
 - One-shot run: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_presets_test05.ps1 -OutDir "phits-linac-validation/output/rtgamma"`
 - Does: header compare → 3D absolute (no shift) → 3D optimized (2-stage) → 2D images (ax/sag/cor) → summary MD/PDF.
+
+## Troubleshooting (GUI)
+- If the Log shows only the command line, ensure you are on the latest version. GUI now launches Python unbuffered and streams logs live.
+- If performance seems slow:
+  - Set Threads to your CPU core count (e.g., 8).
+  - For 2D, keep Optimize shift OFF (fast path).
+  - Warm up Numba by running a quick 2D first; then 3D.
+- If outputs don’t appear, click [Open Output] and look for `*.md`/`*.png` files under your selected folder.
 
