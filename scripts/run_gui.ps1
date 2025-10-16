@@ -205,13 +205,15 @@ function Build-Command(){
     }
     1 { # 3D clinical
       $profile = Get-ProfileKey
-      $optArg = @('--opt-shift', ($cbOpt.Checked ? 'on' : 'off'))
+      $optVal = (If ($cbOpt.Checked) { 'on' } Else { 'off' })
+      $optArg = @('--opt-shift', $optVal)
       return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $threadsArg
     }
     2 { # 2D clinical central slice
       $profile = Get-ProfileKey
       $plane = $cbPlane.SelectedItem
-      $optArg = @('--opt-shift', ($cbOpt.Checked ? 'on' : 'off'))
+      $optVal = (If ($cbOpt.Checked) { 'on' } Else { 'off' })
+      $optArg = @('--opt-shift', $optVal)
       return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $threadsArg
     }
   }
