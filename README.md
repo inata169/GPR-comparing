@@ -1,228 +1,70 @@
-﻿# RTDOSE ガンマ解析 CLI（2D/3D・三軸シフト最適化）
+#+ rtgamma — DICOM RTDOSE Gamma Analysis (2D/3D)
 
-放射線治療QA向けに、2つの DICOM RTDOSE を比較して 2D/3D ガンマインデックスを計算するツールです。異グリッド・異座標系の整合、三軸シフト最適化、可視化、レポート出力に対応します。
+Fast and reproducible gamma analysis for DICOM RTDOSE pairs with robust geometry handling, CLI/GUI, and lightweight docs/specs.
 
-- 既定条件: `DD=3.0%`, `DTA=2.0 mm`, `Cutoff=10%`
-- ガンマ種別: `global`（`--gamma-type`で切替可）
-- 正規化: `global_max`（`--norm`で `max_ref` / `none` 選択可）
+This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG and docs under docs/openspec/.
 
-同梱サンプル（CCCとMCのGPR比較例）
-- `dicom/Test05/AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm` (CCC)
-- `dicom/Test05/AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm` (MC)
+## Features
+- 2D/3D gamma with shift optimization (coarse→fine, early stop) and 2D fast path
+- DICOM geometry fidelity (IPP/IOP/PixelSpacing/GFOV; GFOV-order alignment)
+- Global and Local gamma selection
+- CLI and Windows GUI (PowerShell/WinForms)
+- Reports (CSV/JSON/MD), optional NPZ saves, and schema validation
+- OpenSpec docs with examples and helper scripts
 
-備考: `phits-linac-validation/` にはPHITS出力と実測CSVの1Dプロファイル比較ツールが別途含まれます（本READMEはRTDOSE同士のボリューム比較ツールの説明です）。
-
-## インストール
-
-- Python 3.9+ を推奨
-- 依存関係のインストール
+## Install
+- Python 3.9+
+- Dependencies:
   - `pip install pydicom numpy scipy matplotlib numba`
 
-## 使い方（基本）
+## Quick Start (CLI)
+- 3D analysis (report only)
+  - `python -m rtgamma.main --ref dicom/PHITS_Iris_10_rtdose.dcm --eval dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm --mode 3d --report phits-linac-validation/output/rtgamma/run3d`
+- 2D axial (central slice, save images)
+  - `python -m rtgamma.main --mode 2d --plane axial --plane-index auto --ref <ref.dcm> --eval <eval.dcm> --save-gamma-map out/gamma.png --save-dose-diff out/diff.png --report out/axial`
 
-- 3D ガンマ＋シフト最適化＋レポート出力
-  - `python -m rtgamma.main --ref dicom/PHITS_Iris_10_rtdose.dcm --eval dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm --mode 3d --report phits-linac-validation/output/rtgamma/lung3d_report --save-gamma-map phits-linac-validation/output/rtgamma/gamma3d.npz --save-dose-diff phits-linac-validation/output/rtgamma/dose_diff3d.npz`
+## Clinical Presets and Threads
+- Presets: `--profile {clinical_abs,clinical_rel,clinical_2x2,clinical_3x3}` (shift OFF)
+- Threads: `--threads <N>` to control Numba parallelism (0=auto)
 
-- 2D Axial スライス（スライス番号 50）＋画像保存
-  - `python -m rtgamma.main --ref dicom/PHITS_Iris_10_rtdose.dcm --eval dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm --mode 2d --plane axial --plane-index 50 --save-gamma-map phits-linac-validation/output/rtgamma/gamma_axial.png --save-dose-diff phits-linac-validation/output/rtgamma/diff_axial.png --report phits-linac-validation/output/rtgamma/lung2d_axial`
+## Global vs Local Gamma
+- Select with `--gamma-type {global,local}` (default: global)
+- GUI toggle: Local gamma (default OFF)
+- Guide and examples: see `GPR_Global_vs_Local.md`
 
-出力先ディレクトリは自動作成されます（ファイル名のみの場合はカレントに出力）。
+## Geometry and Coordinates
+- Obeys DICOM IPP/IOP/PixelSpacing/GFOV; frames sorted by ascending GFOV
+- 2D plane grids align to array order (z,y,x) with a singleton axis for the fixed dimension
 
-## 主な引数（抜粋）
+## Outputs
+- 2D images: PNG/TIFF (`--save-gamma-map`, `--save-dose-diff`)
+- 3D arrays: NPZ (`--save-gamma-map`, `--save-dose-diff`)
+- Reports: CSV/JSON/MD (`--report <basepath>`) with geometry sanity fields
 
-- 入力
-  - `--ref <path>` 基準 RTDOSE（DICOM）
-  - `--eval <path>` 比較 RTDOSE（DICOM）
+## GUI
+- Launch: double-click `run_gui.bat` (or run `scripts/run_gui.ps1`)
+- Pick Ref/Eval RTDOSE, select output folder, choose Action (Header/3D/2D), preset, plane, threads
+- Comfort: live log, status, elapsed, auto-open summary, save log; Local gamma toggle
+- Details: `docs/openspec/GUI_RUN.md`
 
-- 解析モード
-  - `--mode {3d,2d}` 既定: `3d`
-  - `--plane {axial,sagittal,coronal}`（2D時）
-  - `--plane-index <int>`（2D時、スライス番号）
+## OpenSpec and Validation
+- Docs/specs: `docs/openspec/` (README, TEMPLATE, `report.schema.json`, examples, `rtgamma_openspec.md`)
+- Validate a report JSON:
+  - `python scripts/validate_report.py --sanitize-nan phits-linac-validation/output/rtgamma/spec_check/axial.json`
+- Compare a 3D gamma slice vs a 2D report:
+  - `python scripts/compare_slice_gpr.py <gamma3d.npz> --plane coronal --index 101 --report2d <coronal_101.json>`
 
-- 評価条件
-  - `--dd <float>` 既定: `3.0`
-  - `--dta <float>` 既定: `2.0`
-  - `--cutoff <float>` 既定: `10.0`
-  - `--gamma-type {global,local}` 既定: `global`
-  - `--norm {global_max,max_ref,none}` 既定: `global_max`
+## Testing
+- Lightweight tests: `pytest -q`
+- Includes gamma local vs global checks and I/O/header utilities
 
-- シフト最適化（ON/OFF, 範囲）
-  - `--opt-shift {on,off}` 既定: `on`
-  - `--shift-range "x:-3:3:1,y:-3:3:1,z:-3:3:1"`
-    - 一般にIMRT/VMATでは±3mm, 1mm刻み程度が目安
-    - 3D-CRTなどで広めに探索する場合: 例 `x:-5:5:1,y:-5:5:1,z:-5:5:1`
+## Notes
+- Prefer UTF-8 (no BOM) for Markdown on Windows
+- Do not commit PHI; use anonymized test DICOM only
+- Write outputs under `phits-linac-validation/output/rtgamma/`
 
-- 補間
-  - `--interp {linear,bspline,nearest}` 既定: `linear`
-
-- 出力
-  - `--save-gamma-map <path>` 2D: PNG/TIFF, 3D: NPZ
-  - `--save-dose-diff <path>` 2D: PNG/TIFF, 3D: NPZ（ref基準で%表記）
-  - `--report <path>` 拡張子なしで指定（CSV/JSON/MD を自動生成）
-
-## 出力ファイル例
-
-- `phits-linac-validation/output/rtgamma/gamma3d.npz` 3D ガンマ配列
-- `phits-linac-validation/output/rtgamma/dose_diff3d.npz` 3D 差分（%）
-- `phits-linac-validation/output/rtgamma/gamma_axial.png` 2D ガンマ画像
-- `phits-linac-validation/output/rtgamma/diff_axial.png` 2D 差分画像
-- `phits-linac-validation/output/rtgamma/lung3d_report.csv|json|md` 要約（パス率、最適シフト、統計）
-- `phits-linac-validation/output/rtgamma/lung3d_report_search_log.json` シフト探索ログ
-
-## 実装メモ
-
-- RTDOSE の座標は `ImagePositionPatient` / `ImageOrientationPatient` / `PixelSpacing` / `GridFrameOffsetVector` を用いて LPS へ復元
-- 評価側は参照グリッド上へ連続空間補間（`scipy.ndimage.map_coordinates`）
-- ガンマは `numba` 実装（3D）で高速化、cutoff未満は除外
-- シフト探索は coarse→fine の2段階グリッドサーチ
-
-## 最近の修正（重要）
-
-- GFOV とフレーム配列の同期：`GridFrameOffsetVector` に合わせてZスライス順序を昇順に再配置（`dose = dose[order, ...]`）。Z座標とデータの不一致を解消。
-- 原点差補正の厳密化：IPP差を参照の方向余弦（row/col/slice）へ射影して各軸差（dx,dy,dz）を算出。
-- 最適シフト適用の方向修正：参照軸成分のシフトを LPS ベクトルへ変換してからリサンプリングに適用。
-- 出力先ディレクトリの安全化：空ディレクトリ名で `os.makedirs('')` にならないようガード。
-
-## 既知の制限 / 今後の拡張
-
-- ROI/マスク（RTSTRUCT連携）は未実装（要望があれば対応）
-- 局所探索（Nelder-Mead 等）の追加検討
-- GPU（CuPy）対応は今後検討
- 
----
-
-サブプロジェクト（1Dプロファイル比較）は `phits-linac-validation/README.md` を参照してください。
-
-## クイックスタート（推奨）
-
-- 依存の導入（再現性のために準拠版を使用）
-  - `pip install -r REQUIREMENTS.txt`
-- 自己比較（sanity check）
-  - `python -m rtgamma.main --ref dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.1.dcm --eval dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.1.dcm --mode 3d --report phits-linac-validation/output/rtgamma/self_check`
-- ペア比較の例（3D, 既定 3%/2mm/10%）
-  - `python -m rtgamma.main --ref dicom/RTDOSE_2.16.840.1.114337.1.2604.1760077605.3.dcm --eval dicom/RTDOSE_2.16.840.1.114337.1.2604.1760079109.3.dcm --mode 3d --report phits-linac-validation/output/rtgamma/pair3_3d`
-
-## 関連ドキュメント
-
-- `AGENTS.md`（貢献ガイド）
-- `TROUBLESHOOTING.md`（トラブルシュート）
-- `TEST_PLAN.md`（手動回帰の手順）
-- `CHANGELOG.md`（変更履歴）
-- `DECISIONS.md`（主要技術判断の要約）
-
-## 本日の成果（2025-10-15）
-
-- レポート拡張と警告出力（純幾何の確認を強化）
-  - `FrameOfReferenceUID` をレポートに出力（`ref_for_uid`,`eval_for_uid`,`same_for_uid`）。
-  - 最適シフトの大きさを出力（`best_shift_mag_mm`）し、所定しきい値（既定20 mm）超過で `warnings` に明示。
-  - 方向余弦の一致度を数値化（`orientation_min_dot`）し、ずれが大きい場合は警告。
-  - 純幾何（`--opt-shift off` かつ `--norm none`）での実行を `absolute_geometry_only` としてレポートに明示。
-
-- 実行スクリプトの追加・改善（PowerShell）
-  - `scripts/run_autofallback.ps1`: 純幾何→しきい値未満/警告ありで広探索（±150/±50/±50, 5mm）に自動フォールバック。2D再評価も実施。
-  - 変数展開でのコロン混在に対するPowerShellの不具合を回避（`-f` で文字列合成）。
-  - `scripts/run_test02_2d.ps1` / `run_test02_abs_vs_bestshift.ps1` / `run_test02_wide_bestshift.ps1` を整備。
-
-- ヘッダ比較ユーティリティ
-  - `scripts/compare_rtdose_headers.py`: 2つのRTDOSEの DICOM 幾何・スケールの差分をMarkdownで一覧化（FoR, IPP/IOP, PixelSpacing, GFOV範囲・中央値ステップ, DoseUnits/Scaling, ワールド座標範囲, 原点差(dx,dy,dz) など）。
-
-- 実測的学び
-  - Test04（6MV vs 10MV）では純幾何のみで 3D GPR ≈ 60% と妥当。エネルギー差の形状違いが要因。
-  - Test01/03（SSD=100 cm）での大シフト・低GPRは、設定（SSD/SCD/アイソ中心）の食い違いが有力因子。
-  - Test02/04（SCD=100 cm）では幾何が良好で、GPRが改善。
-
-実行例（1行）
-- 自動フォールバック（例: Test03）
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_autofallback.ps1 -Name Test03_auto -Ref "dicom\Test03\RTDOSE_2.16.840.1.114337.1.2604.1760077605.4.dcm" -Eval "dicom\Test03\RTDOSE_2.16.840.1.114337.1.2604.1760077605.5.dcm"`
-
-## 注意事項
-
-- 個人情報（PHI）を含むDICOMはリポジトリにコミットしないでください（同梱サンプル（CCCとMCのGPR比較）は匿名化用途）。
-- 生成物・大容量ファイルは極力コミットせず、`phits-linac-validation/output/rtgamma/` 配下に保存してください（git ignore 推奨）。
-
-## 2025年10月14日の調査サマリ
-
-`rtgamma`ツールが、物理的にほぼ同一であるべき2つのRTDOSEファイル（CCC対MC）に対して低いガンマパス率を示す問題の調査を行った。
-
-### 判明した点
-
-1.  **幾何学的な問題:**
-    -   2つのファイルの`ImagePositionPatient`（座標原点）のX軸が`+114mm`異なっている。
-    -   ツールの自動原点補正ロジックが不適切である可能性が高く、これを打ち消すために手動で`dx ≈ -114mm`のシフトを適用することで、正しい幾何学的位置に近づくことが判明した。
-
-2.  **線量的な問題:**
-    -   2つのファイルの`DoseGridScaling`（線量変換係数）が異なっている。
-    -   ツールの内部にあった、最大値を強制的に一致させる正規化処理を無効化した。
-    -   その上で絶対線量比較を行った結果、依然としてガンマ評価が不合格（パス率 < 3%）となった。これは、2つのアルゴリズムの計算結果に、DICOM規格に準拠した比較では無視できない「真の差」が存在することを示唆している。
-
-### 修正したツール内のバグ
-
--   `optimize.py`: シフト探索範囲の評価ロジックを修正し、手動でのシフト量固定を可能にした。
--   `main.py`: 絶対線量比較を妨げていた強制正規化処理を無効化した。
-
-## 注意・補足（重要）
-
-- 絶対幾何ベースライン（最適化OFF・正規化なし）
-```
-python -m rtgamma.main \
-  --ref dicom/Test05/AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm \
-  --eval dicom/Test05/AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm \
-  --mode 3d --opt-shift off --norm none \
-  --report phits-linac-validation/output/rtgamma/Test05_abs
-```
-- DoseUnitsの注意: GY と RELATIVE が混在する比較では、正規化や評価条件の解釈に注意。
-- 座標整合: DICOMの `ImagePositionPatient` / `ImageOrientationPatient` / `PixelSpacing` / `GridFrameOffsetVector` を尊重し、GFOV昇順でフレームを整列。
-
-## Quick Start (GUI)
-
-- Launch: double-click `run_gui.bat` (or run `scripts/run_gui.ps1`).
-- Pick files: Browse… for `Ref` and `Eval` RTDOSE (.dcm), Select… for output folder.
-- Choose: Action (Header Compare / 3D / 2D), Clinical Preset, Plane (for 2D).
-- Threads: default to CPU count; 0 = auto. Set 8 to use 8 threads.
-- Comfort: live log, running status, elapsed timer, progress bar, auto-open summary, auto-save log (toggle in UI or config).
-
-### GUI Tips
-- Optimize shift: run without shift by default. Turn ON only when needed.
-- Threads: set to your CPU core count for speed (e.g. 8). 0 means auto.
-- 2D speed: 2D with shift OFF uses a fast path (only the selected slice is computed).
-- Logs: enable Save log to archive run_log_*.txt; Open summary to automatically open PDF/MD.
-- Config: edit `config/gui_defaults.json`, or press [Save Settings] in the GUI.
-
-## Clinical Presets
-
-- `--profile clinical_abs`  Absolute dose, 3%/2mm/10%, no shift (norm=none)
-- `--profile clinical_rel`  Relative dose, 3%/2mm/10%, no shift (norm=global_max)
-- `--profile clinical_2x2`  2%/2mm/10%, no shift
-- `--profile clinical_3x3`  3%/3mm/10%, no shift
-- Parallel: `--threads <N>` (Numba threads)
-
-## Config (GUI Defaults)
-
-- File: `config/gui_defaults.json`
-- Example:
-```
-{
-  "profile": "clinical_rel",
-  "action": "3d",
-  "threads": 8,
-  "output_dir": "phits-linac-validation/output/rtgamma",
-  "open_on_finish": true,
-  "save_log": true,
-  "progress_marquee": true
-}
-```
-- Save from GUI with the [Save Settings] button.
-
-## Preset Runner (Test05)
-
-- One-shot run: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\run_presets_test05.ps1 -OutDir "phits-linac-validation/output/rtgamma"`
-- Does: header compare → 3D absolute (no shift) → 3D optimized (2-stage) → 2D images (ax/sag/cor) → summary MD/PDF.
-
-## Troubleshooting (GUI)
-- If the Log shows only the command line, ensure you are on the latest version. GUI now launches Python unbuffered and streams logs live.
-- If performance seems slow:
-  - Set Threads to your CPU core count (e.g., 8).
-  - For 2D, keep Optimize shift OFF (fast path).
-  - Warm up Numba by running a quick 2D first; then 3D.
-- If outputs don’t appear, click [Open Output] and look for `*.md`/`*.png` files under your selected folder.
-
+## Recent Updates (2025-10-23)
+- Local gamma support (`--gamma-type local`); GUI toggle added
+- OpenSpec initialized; report schema and validators included
+- Slice consistency helper script added
+- Reproducible 2D/3D commands and validation steps documented
