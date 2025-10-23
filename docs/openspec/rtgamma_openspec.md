@@ -96,9 +96,9 @@
   - 2D fast path GPR: 96.8729%
   - 3D gamma の axial 同スライス: 96.8729%（一致）
 - Coronal（indices 100/101/102）
-  - 2D fast path: 81.12% / 82.10% / 80.54%
-  - 3D gamma の coronal 同スライス: 100% / 100% / 100%
-  - 差分が大きく、2D coronal fast path の座標/補間まわりに未解決の不一致が疑われます（要調査）。
+  - 修正前（参考）: 2D fast path が ~81% 前後、3D スライスが 100% で不一致
+  - 修正後: 2D fast path も 100% に一致（2D での正規化を「全体の最大値」に統一）
+  - 方針: 2D fast path の Global/MaxRef 正規化は全体の最大値を使用（3D と揃える）
   - 補助スクリプト: `scripts/compare_slice_gpr.py`（3D NPZ の特定スライスと 2D レポートの GPR を比較）
 
 ## 10. Security & Privacy
