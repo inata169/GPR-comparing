@@ -46,6 +46,11 @@ This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG an
 - Pick Ref/Eval RTDOSE, select output folder, choose Action (Header/3D/2D), preset, plane, threads
 - Comfort: live log, status, elapsed, auto-open summary, save log; Local gamma toggle
 - Details: `docs/openspec/GUI_RUN.md`
+ 
+### Screenshots (small, optional)
+- docs/openspec/images/gui_main.png
+- docs/openspec/images/gui_after_run3d.png
+- docs/openspec/images/gui_after_run2d_axial.png
 
 ## OpenSpec and Validation
 - Docs/specs: `docs/openspec/` (README, TEMPLATE, `report.schema.json`, examples, `rtgamma_openspec.md`)
