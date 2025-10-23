@@ -42,7 +42,7 @@ function New-TextBox($x, $y, $w=420){
 # Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'rtgamma GUI Runner'
-$form.Size = New-Object System.Drawing.Size(720,560)
+$form.Size = New-Object System.Drawing.Size(720,600)
 $form.StartPosition = 'CenterScreen'
 $form.Font = New-Object System.Drawing.Font('Segoe UI',9)
 $form.BackColor = [System.Drawing.Color]::FromArgb(245,250,255)
@@ -97,6 +97,15 @@ $cbPlane.Items.AddRange(@('axial','sagittal','coronal'))
 $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
+# Plane index (auto or number)
+$form.Controls.Add((New-Label 'Plane Index (auto or number)' 20 316))
+$tbPlaneIndex = New-Object System.Windows.Forms.TextBox
+$tbPlaneIndex.Location = New-Object System.Drawing.Point(20,340)
+$tbPlaneIndex.Size = New-Object System.Drawing.Size(180,24)
+$tbPlaneIndex.ReadOnly = $false
+$tbPlaneIndex.Text = 'auto'
+$form.Controls.Add($tbPlaneIndex)
+
 # Optimize shift checkbox (default: off)
 $cbOpt = New-Object System.Windows.Forms.CheckBox
 $cbOpt.Text = 'Optimize shift'
@@ -139,24 +148,35 @@ $cbSaveLog.AutoSize = $true
 $cbSaveLog.Checked = $true
 $form.Controls.Add($cbSaveLog)
 
+# 3D NPZ save toggle
+$cbSaveNPZ3D = New-Object System.Windows.Forms.CheckBox
+$cbSaveNPZ3D.Text = 'Save 3D NPZ (gamma/diff)'
+$cbSaveNPZ3D.Location = New-Object System.Drawing.Point(340,260)
+$cbSaveNPZ3D.AutoSize = $true
+$cbSaveNPZ3D.Checked = $false
+$form.Controls.Add($cbSaveNPZ3D)
+
 # Run / Open buttons
-$btnRun = New-Button 'Run' 20 330 120 34
-$btnOpen = New-Button 'Open Output' 160 330 160 34
-$lblStatus = New-Label 'Status: Idle' 340 336
+$btnRun = New-Button 'Run' 20 372 120 34
+$btnCancel = New-Button 'Cancel' 160 372 120 34
+$btnCancel.Enabled = $false
+$btnOpen = New-Button 'Open Output' 300 372 160 34
+$lblStatus = New-Label 'Status: Idle' 480 378
 $pb = New-Object System.Windows.Forms.ProgressBar
-$pb.Location = New-Object System.Drawing.Point(20, 368)
+$pb.Location = New-Object System.Drawing.Point(20, 412)
 $pb.Size = New-Object System.Drawing.Size(660, 12)
 $pb.Style = 'Marquee'
 $pb.MarqueeAnimationSpeed = 25
 $pb.Visible = $false
 $form.Controls.Add($lblStatus)
 $form.Controls.Add($btnRun)
+$form.Controls.Add($btnCancel)
 $form.Controls.Add($btnOpen)
 $form.Controls.Add($pb)
 
 # Log box
 $tbLog = New-Object System.Windows.Forms.TextBox
-$tbLog.Location = New-Object System.Drawing.Point(20,392)
+$tbLog.Location = New-Object System.Drawing.Point(20,436)
 $tbLog.Size = New-Object System.Drawing.Size(660,130)
 $tbLog.Multiline = $true
 $tbLog.ScrollBars = 'Vertical'
@@ -164,11 +184,14 @@ $tbLog.ReadOnly = $true
 $form.Controls.Add($tbLog)
 
 # Timer for elapsed time
-$lblElapsed = New-Label 'Elapsed: 00:00' 340 310
+$lblElapsed = New-Label 'Elapsed: 00:00' 480 354
+$lblETA = New-Label 'ETA: --:--' 480 330
 $form.Controls.Add($lblElapsed)
+$form.Controls.Add($lblETA)
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 500
 $script:startTime = $null
+$script:proc = $null
 
 function Append-Log($text){ $tbLog.AppendText("$text`r`n") }
 
@@ -218,24 +241,32 @@ function Build-Command(){
       $optArg = @('--opt-shift', $optVal)
       $gammaArg = @()
       if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArg + $threadsArg
+      $baseCmd = @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArg + $threadsArg
+      if ($cbSaveNPZ3D.Checked) {
+        $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
+      }
+      return $baseCmd
     }
     2 { # 2D clinical central slice
       $profile = Get-ProfileKey
       $plane = $cbPlane.SelectedItem
+      $pindex = 'auto'
+      if (-not [string]::IsNullOrWhiteSpace($tbPlaneIndex.Text)) {
+        $pindex = $tbPlaneIndex.Text.Trim()
+      }
       $optVal = 'off'
       if ($cbOpt.Checked) { $optVal = 'on' }
       $optArg = @('--opt-shift', $optVal)
       $gammaArg = @()
       if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $gammaArg + $threadsArg
+      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,'--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $gammaArg + $threadsArg
     }
   }
 }
 
 function Run-Cmd([string[]]$cmd){
   Append-Log ("> " + ($cmd -join ' '))
-  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $lblStatus.Text = 'Status: Running'; $pb.Visible = $true
+  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $btnCancel.Enabled = $true; $lblStatus.Text = 'Status: Running'; $pb.Visible = $true
   $script:startTime = Get-Date
   $timer.add_Tick({
     if ($script:startTime) {
@@ -243,6 +274,7 @@ function Run-Cmd([string[]]$cmd){
       $mm = [int]$elapsed.TotalMinutes
       $ss = $elapsed.Seconds.ToString('00')
       $lblElapsed.Text = "Elapsed: $($mm):$($ss)"
+      $lblETA.Text = 'ETA: --:--'
     }
   })
   $timer.Start()
@@ -268,6 +300,7 @@ function Run-Cmd([string[]]$cmd){
   $p = New-Object System.Diagnostics.Process
   $p.StartInfo = $psi
   $p.EnableRaisingEvents = $true
+  $script:proc = $p
 
   # Output event handlers
   # Marshal events to UI thread
@@ -276,7 +309,7 @@ function Run-Cmd([string[]]$cmd){
   $null = $p.add_ErrorDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
   $null = $p.add_Exited({ param($sender,$e)
       $code = $sender.ExitCode
-      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $lblStatus.Text = "Status: Done (Exit $code)"; $pb.Visible = $false; $timer.Stop(); $script:startTime = $null
+      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $btnCancel.Enabled = $false; $lblStatus.Text = "Status: Done (Exit $code)"; $pb.Visible = $false; $timer.Stop(); $script:startTime = $null; $script:proc = $null
       if ($cbSaveLog.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
           $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -315,9 +348,27 @@ function Run-Cmd([string[]]$cmd){
   $p.BeginErrorReadLine()
 }
 
+# Cancel support
+$btnCancel.Add_Click({
+  try {
+    if ($script:proc -and -not $script:proc.HasExited) {
+      $script:proc.Kill()
+      $lblStatus.Text = 'Status: Canceled'
+      $pb.Visible = $false
+      $btnCancel.Enabled = $false
+      $btnRun.Enabled = $true
+      $btnRun.Text = 'Run'
+      $timer.Stop(); $script:startTime = $null; $script:proc = $null
+      Append-Log('Process canceled by user.')
+    }
+  } catch {}
+})
+
 # Apply config defaults to UI
 try {
   if ($cfg.output_dir) { $tbOut.Text = [string]$cfg.output_dir }
+  if ($cfg.plane_index) { $tbPlaneIndex.Text = [string]$cfg.plane_index } else { $tbPlaneIndex.Text = 'auto' }
+  if ($cfg.save_npz_3d -ne $null) { $cbSaveNPZ3D.Checked = [bool]$cfg.save_npz_3d }
   if ($cfg.profile) {
     switch ([string]$cfg.profile) {
       'clinical_abs' { $cbProfile.SelectedIndex = 0 }
@@ -353,6 +404,8 @@ $btnSave.Add_Click({
     open_on_finish = $cbOpen.Checked
     save_log = $cbSaveLog.Checked
     progress_marquee = $true
+    plane_index = $tbPlaneIndex.Text
+    save_npz_3d = $cbSaveNPZ3D.Checked
   }
   try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Saved.') } catch {}
 })
