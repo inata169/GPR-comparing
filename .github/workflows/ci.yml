@@ -7,11 +7,12 @@ on:
     branches: [ main ]
 
 jobs:
-  test-windows:
-    runs-on: windows-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
     env:
       MPLBACKEND: Agg
@@ -46,4 +47,3 @@ jobs:
         shell: bash
         run: |
           pytest -q
-
