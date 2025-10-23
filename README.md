@@ -1,5 +1,7 @@
 # rtgamma — DICOM RTDOSE Gamma Analysis (2D/3D)
 
+![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)
+
 Fast and reproducible gamma analysis for DICOM RTDOSE pairs with robust geometry handling, CLI/GUI, and lightweight docs/specs.
 
 This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG and docs under docs/openspec/.

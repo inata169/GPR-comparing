@@ -1,5 +1,7 @@
 # rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
 
+![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)
+
 本プロジェクトは、DICOM RTDOSE 同士の 2D/3D ガンマ解析を高速かつ再現性高く実行するためのツール群です。幾何整合（IPP/IOP/PixelSpacing/GFOV）を厳密に扱い、CLI と Windows GUI を提供します。（UTF-8 / BOM なし）
 
 ## 主な機能
