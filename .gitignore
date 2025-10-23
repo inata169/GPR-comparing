@@ -1,1 +1,4 @@
 CON
+docs/openspec/images/*.png
+docs/openspec/images/*.jpg
+docs/openspec/images/*.jpeg

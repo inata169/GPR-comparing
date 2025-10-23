@@ -51,6 +51,7 @@ This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG an
 - docs/openspec/images/gui_main.png
 - docs/openspec/images/gui_after_run3d.png
 - docs/openspec/images/gui_after_run2d_axial.png
+ - Helper: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\capture_gui_screens.ps1 -OutDir docs/openspec/images -DelayMs 1500
 
 ## OpenSpec and Validation
 - Docs/specs: `docs/openspec/` (README, TEMPLATE, `report.schema.json`, examples, `rtgamma_openspec.md`)
