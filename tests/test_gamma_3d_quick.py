@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+import pytest
 
 from rtgamma.io_dicom import load_rtdose
 from rtgamma.resample import resample_eval_onto_ref
@@ -8,8 +9,12 @@ from rtgamma.resample import resample_eval_onto_ref
 def test_gamma_quick_3d_crop():
     # Load Test05 and evaluate a small 3D crop to keep runtime short
     root = Path(__file__).resolve().parents[1]
-    ref = load_rtdose(str(root / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm'))
-    eva = load_rtdose(str(root / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm'))
+    pa = root / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm'
+    pb = root / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm'
+    if not (pa.exists() and pb.exists()):
+        pytest.skip("Test data not present in CI environment")
+    ref = load_rtdose(str(pa))
+    eva = load_rtdose(str(pb))
 
     # Determine crop indices around the center
     zc = ref['dose'].shape[0] // 2
@@ -60,4 +65,3 @@ def test_gamma_quick_3d_crop():
         use_pymedphys=False,
     )
     assert 0.0 <= pr <= 100.0
-

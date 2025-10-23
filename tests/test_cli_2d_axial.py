@@ -3,6 +3,7 @@ import sys
 import json
 import subprocess
 from pathlib import Path
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,8 @@ def run(cmd):
 def test_cli_2d_axial_central(tmp_path):
     a = ROOT / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm'
     b = ROOT / 'dicom' / 'Test05' / 'AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm'
+    if not (a.exists() and b.exists()):
+        pytest.skip("Test data not present in CI environment")
     base = tmp_path / 'axial'
     cp = run([sys.executable, '-m', 'rtgamma.main',
               '--ref', str(a), '--eval', str(b),
@@ -27,4 +30,3 @@ def test_cli_2d_axial_central(tmp_path):
     data = json.loads((tmp_path / 'axial.json').read_text(encoding='utf-8'))
     pr = float(data.get('pass_rate_percent', -1))
     assert 0.0 <= pr <= 100.0
-
