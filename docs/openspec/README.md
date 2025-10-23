@@ -24,3 +24,7 @@
 - 変更は `CHANGELOG.md` とリンクし、重要な決定は `DECISIONS.md` と相互参照します。
 - GUI の実行とログ保存手順は `docs/openspec/GUI_RUN.md` を参照してください。
 
+## 主要ドキュメント（日本語）
+- 仕様書（本書の要約＋詳細）: `docs/openspec/rtgamma_spec_JA.md`
+- ガンマ種別の図式解説: `docs/openspec/Global_Local_Illustrated_JA.md`
+- FAQ: `docs/openspec/FAQ_JA.md`
