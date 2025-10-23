@@ -91,6 +91,11 @@
   - index 102 → 80.5369%
   - 出力先: `phits-linac-validation/output/rtgamma/spec_check_coronal/`
 
+#### Observed Results (2025-10-23, post-fix)
+- 本リポジトリ同梱データ（CCC vs pMCFF）、clinical_rel（global, 3%/2mm/10%, shift OFF）にて、コロナル index 100/101/102 はすべて 100.0% を観測。
+- 要約: `phits-linac-validation/output/rtgamma/spec_check_coronal/summary.md`
+- 備考: 正規化と平面ジオメトリ修正後、2D fast path は 3D と整合する挙動となり、本データセットでは完全一致となった。
+
 ### 2D fast path vs 3D slice consistency
 - Axial 中央スライス（index 124）
   - 2D fast path GPR: 96.8729%
