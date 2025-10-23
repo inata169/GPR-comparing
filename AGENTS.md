@@ -35,3 +35,10 @@ This guide helps contributors and agents work efficiently in this repository.
 - Do not commit PHI. Use anonymized test DICOM only.
 - Avoid committing large binaries and generated outputs; prefer paths under `phits-linac-validation/output/rtgamma/` which are typically git-ignored.
 - Coordinate systems: always respect DICOM `ImagePositionPatient`, `ImageOrientationPatient`, `PixelSpacing`, and `GridFrameOffsetVector`. Ingest frames in ascending GFOV and align dose arrays accordingly.
+
+## Operational Notes (2025-10-16)
+- 2D plane slicing: sagittal/coronal world-coordinate grids were corrected to align with array axis order `(z,y,x)` using a singleton axis for the fixed dimension. This resolves shape mismatches when saving 2D dose diff images.
+- GUI auto-open: after runs, the GUI now prefers `run3d.md` (Action=3D), `<plane>.md` (Action=2D), or `header_compare.md` (Action=Header). Falls back to the most recent `*.md` if none found.
+- Coronal GPR investigation: recent coronal pass rate (~82%) may differ from prior (~93%) due to stricter normalization behavior and corrected plane geometry. See `TODO.md` follow-up (2025-10-16) for concrete reproduction steps (plane-index 100/101/102 sweep, `--norm` sensitivity, and 2D vs 3D slice consistency check).
+- Reproduction settings: use clinical presets (e.g., `clinical_rel`), `--opt-shift off`, `--interp linear`, `--cutoff 10`, and write outputs under `phits-linac-validation/output/rtgamma/`. Save GUI logs (`run_log_*.txt`) for traceability.
+- Encoding tip: prefer UTF-8 (no BOM) for Markdown to avoid mojibake on Windows.

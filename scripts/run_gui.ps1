@@ -105,6 +105,14 @@ $cbOpt.AutoSize = $true
 $cbOpt.Checked = $false
 $form.Controls.Add($cbOpt)
 
+# Local gamma checkbox (default: global)
+$cbLocal = New-Object System.Windows.Forms.CheckBox
+$cbLocal.Text = 'Local gamma'
+$cbLocal.Location = New-Object System.Drawing.Point(320,288)
+$cbLocal.AutoSize = $true
+$cbLocal.Checked = $false
+$form.Controls.Add($cbLocal)
+
 # Threads
 $cpu = [Environment]::ProcessorCount
 $form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 264))
@@ -208,7 +216,9 @@ function Build-Command(){
       $optVal = 'off'
       if ($cbOpt.Checked) { $optVal = 'on' }
       $optArg = @('--opt-shift', $optVal)
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $threadsArg
+      $gammaArg = @()
+      if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
+      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArg + $threadsArg
     }
     2 { # 2D clinical central slice
       $profile = Get-ProfileKey
@@ -216,7 +226,9 @@ function Build-Command(){
       $optVal = 'off'
       if ($cbOpt.Checked) { $optVal = 'on' }
       $optArg = @('--opt-shift', $optVal)
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $threadsArg
+      $gammaArg = @()
+      if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
+      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index','auto','--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $gammaArg + $threadsArg
     }
   }
 }
@@ -274,11 +286,25 @@ function Run-Cmd([string[]]$cmd){
       }
       if ($cbOpen.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
+          # Prefer a summary PDF if present
           $pdf = Get-ChildItem -Path $tbOut.Text -Filter '*summary.pdf' -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($pdf) { Start-Process $pdf.FullName }
           else {
-            $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
+            # Prefer an expected report name based on action
+            $preferred = $null
+            switch ($cbAction.SelectedIndex) {
+              0 { $preferred = Join-Path $tbOut.Text 'header_compare.md' }
+              1 { $preferred = Join-Path $tbOut.Text 'run3d.md' }
+              2 { $preferred = Join-Path $tbOut.Text ("{0}.md" -f $cbPlane.SelectedItem) }
+            }
+            if ($preferred -and (Test-Path $preferred)) {
+              Start-Process $preferred
+            }
+            else {
+              # Fallback: open the most recently modified *.md under the folder
+              $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
+            }
           }
         } catch {}
       }

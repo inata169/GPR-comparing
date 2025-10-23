@@ -38,7 +38,18 @@ def build_ref_world_coords(meta_ref):
 
 
 def build_plane_world_coords(meta_ref, plane: str, sl: int):
-    # Returns (Xw3, Yw3, Zw3) shaped (1, y, x) for the requested plane slice
+    """
+    Build world-coordinate grids for a single plane slice that align with
+    the reference dose array order (z, y, x), inserting a singleton axis
+    for the fixed dimension:
+      - axial (fix z):   shape (1, y, x)
+      - sagittal (fix x): shape (z, y, 1)
+      - coronal (fix y):  shape (z, 1, x)
+
+    Returns:
+      (Xw, Yw, Zw): world coordinate arrays with the shapes above
+      (ax_z, ax_y, ax_x): 1D axis arrays corresponding to the (z, y, x) axes
+    """
     z_mm = meta_ref['z_coords_mm']
     y_mm = meta_ref['y_coords_mm']
     x_mm = meta_ref['x_coords_mm']
@@ -46,42 +57,40 @@ def build_plane_world_coords(meta_ref, plane: str, sl: int):
     r = meta_ref['row_dir']
     c = meta_ref['col_dir']
     s = meta_ref['slice_dir']
+
     if plane == 'axial':
-        Y, X = np.meshgrid(y_mm, x_mm, indexing='ij')  # (y,x)
-        Z = np.full_like(Y, fill_value=float(z_mm[sl]))
-    elif plane == 'sagittal':
-        # sagittal fixes x index; vary z (rows) and y (cols) when slicing 3D array [:, :, sl]
-        Z, Y = np.meshgrid(z_mm, y_mm, indexing='ij')  # (z,y) but we need (y,x) shaped arrays; remap below
-        # Build in (y,z) then transpose later; here we instead construct via world formula per (y,z)
-        # To keep consistency with resample API (expects (z,y,x)), we instead produce axial-like layout with a single x
-        Y2, Z2 = np.meshgrid(y_mm, z_mm, indexing='ij')  # (y,z)
-        X = np.full_like(Y2, fill_value=float(x_mm[sl]))
-        # Now compute world and then add a dummy z-dimension at front
-        Y, X, Z = Y2, X, Z2
-    else:  # coronal
-        # coronal fixes y index; vary z (rows) and x (cols) for [:, sl, :]
-        Z, X = np.meshgrid(z_mm, x_mm, indexing='ij')
-        X2, Z2 = np.meshgrid(x_mm, z_mm, indexing='ij')  # (z,x)
-        Y = np.full_like(X2, fill_value=float(y_mm[sl]))
-        # For uniformity with axial-like (y,x), remap to (y= z-dim, x= x-dim) via transpose later
-        # We will compute world after expanding to 3D
-        X, Z = X2, Z2
-    # Compute world coords for 2D grid, then expand to (1, y, x)
-    Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :] + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
-    Xw = Pw[..., 0][None, ...]
-    Yw = Pw[..., 1][None, ...]
-    Zw = Pw[..., 2][None, ...]
-    # Axes for this plane
-    if plane == 'axial':
+        # z fixed, vary y and x -> (1, y, x)
+        Y, X = np.meshgrid(y_mm, x_mm, indexing='ij')  # (y, x)
+        Z = np.full_like(Y, fill_value=float(z_mm[sl]))  # (y, x)
+        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
+              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        Xw = Pw[..., 0][None, ...]
+        Yw = Pw[..., 1][None, ...]
+        Zw = Pw[..., 2][None, ...]
         ax_z = np.array([float(z_mm[sl])], dtype=float)
         ax_y = y_mm
         ax_x = x_mm
     elif plane == 'sagittal':
+        # x fixed, vary z and y -> build (z, y), then expand to (z, y, 1)
+        Z, Y = np.meshgrid(z_mm, y_mm, indexing='ij')  # (z, y)
+        X = np.full_like(Z, fill_value=float(x_mm[sl]))  # (z, y)
+        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
+              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        Xw = Pw[..., 0][..., None]
+        Yw = Pw[..., 1][..., None]
+        Zw = Pw[..., 2][..., None]
         ax_z = z_mm
         ax_y = y_mm
         ax_x = np.array([float(x_mm[sl])], dtype=float)
-        # Our world grids are (1,y,z) order effectively; transpose to (1,y,x) by swapping z<->x roles later in resampler consumer
     else:  # coronal
+        # y fixed, vary z and x -> build (z, x), then expand to (z, 1, x)
+        Z, X = np.meshgrid(z_mm, x_mm, indexing='ij')  # (z, x)
+        Y = np.full_like(Z, fill_value=float(y_mm[sl]))  # (z, x)
+        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
+              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        Xw = Pw[..., 0][:, None, :]
+        Yw = Pw[..., 1][:, None, :]
+        Zw = Pw[..., 2][:, None, :]
         ax_z = z_mm
         ax_y = np.array([float(y_mm[sl])], dtype=float)
         ax_x = x_mm

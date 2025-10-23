@@ -14,7 +14,6 @@ def _norm_factor(dose_ref: np.ndarray, dose_eval: np.ndarray, norm: NormType) ->
 
 
 @numba.jit(nopython=True, parallel=True)
-
 def _numba_gamma_3d(
     axes_ref_mm: Tuple[np.ndarray, np.ndarray, np.ndarray],
     dose_ref: np.ndarray,
@@ -24,6 +23,8 @@ def _numba_gamma_3d(
     dta_mm: float,
     cutoff_percent: float,
     norm_factor: float,
+    local_mode: int,
+    tiny: float,
 ) -> np.ndarray:
     gamma = np.full_like(dose_ref, np.nan)
     dta_mm_sq = dta_mm ** 2
@@ -38,6 +39,7 @@ def _numba_gamma_3d(
             for i_ref in range(shape_ref[2]):
                 dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
                 
+                # Cutoff check is applied relative to global reference norm_factor
                 if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
                     continue
 
@@ -69,7 +71,15 @@ def _numba_gamma_3d(
                             
                             if dist_sq <= dta_mm_sq:
                                 dose_eval_val = dose_eval[k_eval, j_eval, i_eval]
-                                dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0)**2
+                                # Global vs Local dose difference normalisation
+                                if local_mode == 1:
+                                    denom = dose_ref_val
+                                    if denom < tiny and denom > -tiny:
+                                        # avoid division by zero; skip contribution
+                                        continue
+                                    dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
+                                else:
+                                    dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
                                 
                                 gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
                                 if gamma_sq < min_gamma_sq:
@@ -108,6 +118,7 @@ def compute_gamma(
         if dose_ref.ndim != 3:
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
         
+        local_mode = 1 if gamma_type == 'local' else 0
         g = _numba_gamma_3d(
             axes_ref_mm,
             dose_ref,
@@ -116,7 +127,9 @@ def compute_gamma(
             dd_percent,
             dta_mm,
             cutoff_percent,
-            nf
+            nf,
+            local_mode,
+            1e-12,
         )
 
     valid = ~np.isnan(g)

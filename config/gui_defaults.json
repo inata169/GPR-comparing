@@ -1,10 +1,9 @@
-{
-  "profile": "clinical_rel",
-  "action": "3d",
-  "threads": 0,
-  "output_dir": "phits-linac-validation/output/rtgamma",
-  "open_on_finish": true,
-  "save_log": true,
-  "progress_marquee": true
+﻿{
+    "profile":  "clinical_rel",
+    "action":  "3d",
+    "threads":  8,
+    "output_dir":  "C:\\Users\\放射治療研究用PC\\Documents\\Python\\GPR-comparing\\phits-linac-validation\\output\\rtgamma\\Test05_guiTest",
+    "open_on_finish":  true,
+    "save_log":  true,
+    "progress_marquee":  true
 }
-

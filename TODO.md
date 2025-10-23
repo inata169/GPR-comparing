@@ -36,3 +36,44 @@ How to resume
 2) If geometry is sound, run absolute geometry (opt-shift=off, norm=none). If low GPR, use coarse→fine search.
 3) If large shifts re-occur, confirm plan isocenter/SAD/SSD via RTPLAN comparison.
 
+
+---
+
+Follow-up 2025-10-16 (Coronal GPR regression + GUI)
+
+Context
+- Test05 2D fast path (opt-shift=off, clinical_rel) shows sagittal ≈ 93.38% (index 126), coronal ≈ 82.10% (index 101).
+- Previously, coronal was remembered at ≈ 93%.
+- Recent fixes: 2D plane world-coords for sagittal/coronal corrected to align array axes; GUI now opens run3d.md for 3D.
+
+Hypotheses
+- H1: Prior runs benefited from unintended eval-dose normalization to ref-max (now removed); stricter comparison can lower GPR.
+- H2: Previous coronal plane had axis mix-up that incidentally improved GPR; corrected geometry yields lower but accurate GPR.
+- H3: Auto central slice picked a different index; ±1 slice can shift GPR notably in high-gradient regions.
+
+Actions (High priority)
+- [ ] Coronal index sweep at same settings (clinical_rel, opt-shift=off, interp=linear, cutoff=10%):
+      - plane-index 100/101/102; compare pass rates and images.
+      - Example:
+        - python -m rtgamma.main --profile clinical_rel --ref <ref> --eval <eval> --mode 2d --plane coronal --plane-index 100 \
+          --save-gamma-map phits-linac-validation/output/rtgamma/Test05_guiTest/coronal_100_gamma.png \
+          --save-dose-diff phits-linac-validation/output/rtgamma/Test05_guiTest/coronal_100_diff.png \
+          --report phits-linac-validation/output/rtgamma/Test05_guiTest/coronal_100 --opt-shift off
+        - (repeat for 101/102)
+- [ ] Norm sensitivity check:
+      - Compare --norm global_max (clinical_rel) vs --norm none (absolute) on the same coronal index.
+- [ ] 2D fast path vs 3D slice consistency:
+      - Run 3D with NPZ save (temporary): ensure 2D coronal slice GPR matches 3D gamma slice at same index.
+      - If mismatch > 0.5 pp, investigate axes/spacing in compute_gamma inputs.
+
+Actions (GUI, optional)
+- [ ] Add plane-index numeric input to GUI for 2D runs (default auto).
+- [ ] Add optional 3D NPZ save toggle and path; keep auto-open preference to run3d.md when Action=3D.
+
+References
+- Logs: phits-linac-validation/output/rtgamma/Test05_guiTest/run_log_20251016_171244.txt (coronal 82.10%, index 101)
+- Logs: phits-linac-validation/output/rtgamma/Test05_guiTest/run_log_20251016_171131.txt (sagittal 93.38%, index 126)
+
+Done (today)
+- [x] Fix 2D coronal/sagittal slice shape mismatch (consistent (z,y,x) singleton axes per plane).
+- [x] GUI: prefer run3d.md (3D), <plane>.md (2D), header_compare.md (Header) when auto-opening.

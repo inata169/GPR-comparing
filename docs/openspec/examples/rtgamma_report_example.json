@@ -1,0 +1,25 @@
+{
+  "ref": "AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm",
+  "eval": "AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm",
+  "mode": "2d",
+  "plane": "axial",
+  "plane_index": 50,
+  "dd_percent": 3.0,
+  "dta_mm": 2.0,
+  "cutoff_percent": 10.0,
+  "gamma_type": "global",
+  "norm": "global_max",
+  "pass_rate_percent": 96.873,
+  "best_shift_mm": [0.0, 0.0, 0.0],
+  "best_shift_mag_mm": 0.0,
+  "absolute_geometry_only": true,
+  "ref_for_uid": "1.2.840.113619.2.55.3.604688726.781.1639571712.467",
+  "eval_for_uid": "1.2.840.113619.2.55.3.604688726.781.1639571712.467",
+  "same_for_uid": true,
+  "orientation_min_dot": 0.999999,
+  "warnings": "",
+  "gamma_mean": 0.43,
+  "gamma_median": 0.31,
+  "gamma_max": 6.7
+}
+

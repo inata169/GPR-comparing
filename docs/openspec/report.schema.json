@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rtgamma report summary",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ref": { "type": ["string", "null"] },
+    "eval": { "type": ["string", "null"] },
+    "mode": { "type": "string", "enum": ["2d", "3d"] },
+    "plane": { "type": ["string", "null"], "enum": ["axial", "sagittal", "coronal", null] },
+    "plane_index": { "type": ["integer", "null"] },
+    "dd_percent": { "type": "number" },
+    "dta_mm": { "type": "number" },
+    "cutoff_percent": { "type": "number" },
+    "gamma_type": { "type": "string", "enum": ["global", "local"] },
+    "norm": { "type": "string", "enum": ["global_max", "max_ref", "none"] },
+    "pass_rate_percent": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "null"},
+        {"type": "string", "enum": ["NaN"] }
+      ],
+      "description": "注意: 実装は Python の NaN を非標準トークンで出力する場合があります。スキーマは整形済み（文字列 'NaN' または null）も許容します。"
+    },
+    "best_shift_mm": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "best_shift_mag_mm": { "type": "number" },
+    "absolute_geometry_only": { "type": "boolean" },
+    "ref_for_uid": { "type": ["string", "null"] },
+    "eval_for_uid": { "type": ["string", "null"] },
+    "same_for_uid": { "type": "boolean" },
+    "orientation_min_dot": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "null"},
+        {"type": "string", "enum": ["NaN"] }
+      ]
+    },
+    "warnings": { "type": "string" },
+    "gamma_mean": { "type": "number" },
+    "gamma_median": { "type": "number" },
+    "gamma_max": { "type": "number" }
+  },
+  "required": [
+    "mode", "dd_percent", "dta_mm", "cutoff_percent",
+    "gamma_type", "norm", "best_shift_mm", "absolute_geometry_only"
+  ]
+}
