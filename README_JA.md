@@ -50,6 +50,9 @@
 - `docs/openspec/images/gui_after_run2d_axial.png`
 （画像は任意。大きい場合は圧縮・縮小して追加してください）
 
+利用可能な例:
+- `docs/openspec/images/Gui-screenshot.png`
+
 ## OpenSpec と検証
 - 仕様・例: `docs/openspec/`（README, TEMPLATE, `report.schema.json`, `rtgamma_openspec.md` ほか）
 - レポート JSON 検証:
