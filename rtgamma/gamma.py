@@ -102,9 +102,10 @@ def compute_gamma(
     gamma_type: GammaType = 'global',
     norm: NormType = 'global_max',
     use_pymedphys: bool = False, # Default to False now
+    norm_factor_override: Optional[float] = None,
 ) -> Tuple[np.ndarray, float, dict]:
     
-    nf = _norm_factor(dose_ref, dose_eval, norm)
+    nf = float(norm_factor_override) if (norm_factor_override is not None) else _norm_factor(dose_ref, dose_eval, norm)
 
     if use_pymedphys:
         import pymedphys

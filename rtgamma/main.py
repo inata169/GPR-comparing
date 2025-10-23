@@ -312,6 +312,8 @@ def main(argv=None):
         else:  # coronal
             ref_slice = dose_ref[:, sl:sl+1, :]  # shape (z,1,x)
         logging.info("Starting 2D slice gamma calculation (fast path).")
+        # Ensure 2D fast path uses the full-volume reference max for normalization
+        full_ref_max = float(np.nanmax(dose_ref)) if np.isfinite(dose_ref).any() else 1.0
         gamma_map, pass_rate, gstats = compute_gamma(
             axes_ref_mm=(ax_z, ax_y, ax_x),
             dose_ref=ref_slice,
@@ -323,6 +325,7 @@ def main(argv=None):
             gamma_type=args.gamma_type,
             norm=args.norm,
             use_pymedphys=False,
+            norm_factor_override=full_ref_max if args.norm in ('global_max','max_ref') else None,
         )
         logging.info(f"2D gamma calculation complete. Slice pass rate: {pass_rate}")
     else:
