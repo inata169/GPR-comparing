@@ -1,4 +1,4 @@
-#+ rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
+# rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
 
 本プロジェクトは、DICOM RTDOSE 同士の 2D/3D ガンマ解析を高速かつ再現性高く実行するためのツール群です。幾何整合（IPP/IOP/PixelSpacing/GFOV）を厳密に扱い、CLI と Windows GUI を提供します。（UTF-8 / BOM なし）
 
@@ -52,6 +52,8 @@
 
 利用可能な例:
 - `docs/openspec/images/Gui-screenshot.png`
+
+![Gui-screenshot.png 704x551](docs/openspec/images/Gui-screenshot.png)
 
 ## OpenSpec と検証
 - 仕様・例: `docs/openspec/`（README, TEMPLATE, `report.schema.json`, `rtgamma_openspec.md` ほか）

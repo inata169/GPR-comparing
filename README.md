@@ -1,4 +1,4 @@
-#+ rtgamma — DICOM RTDOSE Gamma Analysis (2D/3D)
+# rtgamma — DICOM RTDOSE Gamma Analysis (2D/3D)
 
 Fast and reproducible gamma analysis for DICOM RTDOSE pairs with robust geometry handling, CLI/GUI, and lightweight docs/specs.
 
@@ -55,6 +55,8 @@ This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG an
 
 - Available example:
   - docs/openspec/images/Gui-screenshot.png
+  
+  ![Gui-screenshot.png 704x551](docs/openspec/images/Gui-screenshot.png)
 
 ## OpenSpec and Validation
 - Docs/specs: `docs/openspec/` (README, TEMPLATE, `report.schema.json`, examples, `rtgamma_openspec.md`)
