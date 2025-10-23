@@ -72,3 +72,6 @@
 - スライス整合のヘルパを追加
 - 2D/3D の再現コマンドと検証手順をドキュメント化
 
+## 参照資料
+- docs/openspec/Global_Local_Illustrated_JA.md
+- docs/openspec/FAQ_JA.md
