@@ -11,6 +11,8 @@
   6. **ドキュメントとスキーマ**: `docs/openspec/rtgamma_openspec.md` にCLI引数と出力仕様を追記。`report.schema.json` へ `per_structure` プロパティを追加し `scripts/validate_report.py` にてテストがパスすることを検証しました。
   7. **Local Gamma サポートの完全統合**: シフト最適化 (`--opt-shift on`) においても `--gamma-type local` が正しく適用されるように `rtgamma/optimize.py` および `rtgamma/main.py` を修正しました。自己対向テストにて最適化ループ内で local gamma が使用されていることを確認しました。
   8. **空間不整合の修正**: 画像配列とLPS座標系のマッピングを修正し、ROIマスクが線量グリッドと正しく重なるようにしました。
+  9. **単位テストの拡充**: `test_coord_roundtrip.py` を追加し、DICOM世界座標（LPS）と画像配列インデックス間の往復変換の一貫性を実データを含めて保証しました。
+  10. **GUIの強化**: `scripts/run_gui.ps1` に RTSTRUCT のファイルパスと ROI名（複数指定可）の入力欄を追加し、GUIから直接 ROI 限定のガンマ解析が起動できるようにしました。
 
 ## 2. 実装上の留意事項 (Implementation Notes)
 - **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
@@ -19,8 +21,7 @@
 
 ## 3. 保留中のタスク・今後の展望 (Pending Tasks / Future)
 - (オプション) `mask.py` におけるROIのポリゴン構築が遅い場合の最適化 (例: NumbaベースのPoint-in-Polygonへの置き換えやbboxによる限定的な検査)。
-- (オプション) 複数ROIを指定した際の並列処理化、もしくは GUI/ダッシュボード への対応。
-- 今後機能が完成したと判断した場合、`Local gamma` オプションをCLIに完全に組み込むかどうかの検討。
+- (オプション) ROI に特化したシフト最適化（ROI 内のガンマパス率を最大にする専用の最適化探索）。
 
 ## 4. 直近で実行すべきコマンド (Next Commands)
-次回の作業では、今回の機能を用いてさまざまなプラン・ROI間の比較解析を回して実用性を評価したり、GUIへの Local Gamma オプションの露出（現在はCLIのみ）の検討を行うことができます。
+次回の作業では、完成した GUI または CLI を用いて、実際の患者データの PTV や OAR 単位での比較解析を回し、ROI別の運用評価フェーズに入ることができます。
