@@ -1,91 +1,63 @@
-# rtgamma — DICOM RTDOSE Gamma Analysis (2D/3D)
+# rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
 
 ![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)
 
-Fast and reproducible gamma analysis for DICOM RTDOSE pairs with robust geometry handling, CLI/GUI, and lightweight docs/specs.
+DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツールです。堅牢なジオメトリ処理、CLI/GUI サポート、軽量なドキュメントと仕様を備えています。
 
-This README is normalized to UTF-8 (no BOM). For prior details, see CHANGELOG and docs under docs/openspec/.
+## 主な機能
+- **高精度な空間整合**: DICOMタグ (IPP/IOP/PixelSpacing/GFOV) に厳密に基づく座標投影。ROIマスクも線量グリッドに正確にマッピングします。
+- **2D/3Dガンマ解析**: 高速な3Dカーネル (Numba) および特定スライスのみを計算する軽量な2D経路。
+- **シフト最適化**: 計算領域を粗密2段階で自動走査し、最適な空間シフト（位置ズレ）を探索。
+- **ROI 限定解析**: RTSTRUCT ファイルと ROI 名を指定することで、特定構造（PTV, GTV など）内のガンマパス率（GPR）や統計値を算出可能。
+- **Global / Local ガンマ**: 基準線量最大値（Global）または各ボクセル値（Local）に基づくガンマ計算の切り替え。
+- **使いやすい GUI**: PowerShell / WinForms ベースの GUI サポート。
 
-## Features
-- 2D/3D gamma with shift optimization (coarse→fine, early stop) and 2D fast path
-- DICOM geometry fidelity (IPP/IOP/PixelSpacing/GFOV; GFOV-order alignment)
-- Global and Local gamma selection
-- CLI and Windows GUI (PowerShell/WinForms)
-- Reports (CSV/JSON/MD), optional NPZ saves, and schema validation
-- OpenSpec docs with examples and helper scripts
+## インストール
+- 要件: Python 3.9 以上
+- 依存ライブラリ:
+  ```bash
+  pip install pydicom numpy scipy matplotlib numba
+  ```
 
-## Install
-- Python 3.9+
-- Dependencies:
-  - `pip install pydicom numpy scipy matplotlib numba`
+## クイックスタート (CLI)
+- **3D 解析 (レポートのみ出力)**
+  ```bash
+  python -m rtgamma.main --ref dicom/Reference.dcm --eval dicom/Evaluate.dcm --mode 3d --report output/run3d
+  ```
+- **ROI 限定の 3D 解析**
+  ```bash
+  python -m rtgamma.main --ref dicom/Ref.dcm --eval dicom/Eval.dcm --rtstruct dicom/Struct.dcm --roi GTV --mode 3d --report output/run3d_gtv
+  ```
 
-## Quick Start (CLI)
-- 3D analysis (report only)
-  - `python -m rtgamma.main --ref dicom/PHITS_Iris_10_rtdose.dcm --eval dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm --mode 3d --report phits-linac-validation/output/rtgamma/run3d`
-- 2D axial (central slice, save images)
-  - `python -m rtgamma.main --mode 2d --plane axial --plane-index auto --ref <ref.dcm> --eval <eval.dcm> --save-gamma-map out/gamma.png --save-dose-diff out/diff.png --report out/axial`
+## 臨床プリセットとスレッド数
+- **プリセット**: `--profile {clinical_abs, clinical_rel, clinical_2x2, clinical_3x3}` (デフォルトではシフト最適化が無効化されます)
+- **スレッド数**: `--threads <N>` で Numba 並列スレッド数を指定 (0=自動)
 
-## Clinical Presets and Threads
-- Presets: `--profile {clinical_abs,clinical_rel,clinical_2x2,clinical_3x3}` (shift OFF)
-- Threads: `--threads <N>` to control Numba parallelism (0=auto)
+## Global / Local ガンマ
+- `--gamma-type {global,local}` で選択可能 (デフォルト: global)
+- 詳細な仕様と挙動については、`docs/openspec/Global_Local_Illustrated_JA.md` を参照してください。
 
-## Global vs Local Gamma
-- Select with `--gamma-type {global,local}` (default: global)
-- GUI toggle: Local gamma (default OFF)
-- Guide and examples: see `GPR_Global_vs_Local.md`
+## 出力形式
+- **レポート**: CSV / JSON / Markdown (`--report <basepath>`) 。ROIごとの統計情報 (`per_structure`) を含みます。
+- **2D 画像**: PNG形式でのガンママップと線量差分 (`--save-gamma-map`, `--save-dose-diff`)
+- **3D 配列**: NPZ形式での生データ出力（オプション）
 
-## Geometry and Coordinates
-- Obeys DICOM IPP/IOP/PixelSpacing/GFOV; frames sorted by ascending GFOV
-- 2D plane grids align to array order (z,y,x) with a singleton axis for the fixed dimension
+## GUI (グラフィカル・ユーザー・インターフェース)
+- 起動: `run_gui.bat` をダブルクリック（または `scripts/run_gui.ps1` を実行）
+- Ref / Eval の RTDOSE ファイル、出力先フォルダを選び、「Run」をクリックするだけ。
+- **RTSTRUCT の読み込みと ROI 入力**にも対応しており、GUIから直接 ROI 限定解析を実行できます。
+- Local Gamma の切り替えや、プログレスバーによる進捗確認に対応。
 
-## Outputs
-- 2D images: PNG/TIFF (`--save-gamma-map`, `--save-dose-diff`)
-- 3D arrays: NPZ (`--save-gamma-map`, `--save-dose-diff`)
-- Reports: CSV/JSON/MD (`--report <basepath>`) with geometry sanity fields
+## テストと検証
+- 座標系丸め誤差（Round-trip）テストや、合成データを用いた単体テストを完備しています。
+  ```bash
+  pytest -q
+  ```
 
-## GUI
-- Launch: double-click `run_gui.bat` (or run `scripts/run_gui.ps1`)
-- Pick Ref/Eval RTDOSE, select output folder, choose Action (Header/3D/2D), preset, plane, threads
-- Comfort: live log, status, elapsed, auto-open summary, save log; Local gamma toggle
-- Details: `docs/openspec/GUI_RUN.md`
- 
-### Screenshots (small, optional)
-- docs/openspec/images/gui_main.png
-- docs/openspec/images/gui_after_run3d.png
-- docs/openspec/images/gui_after_run2d_axial.png
-- Helper: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\capture_gui_screens.ps1 -OutDir docs/openspec/images -DelayMs 1500
-
-- Available example:
-  - docs/openspec/images/Gui-screenshot.png
-  
-  ![Gui-screenshot.png 704x551](docs/openspec/images/Gui-screenshot.png)
-
-## OpenSpec and Validation
-- Docs/specs: `docs/openspec/` (README, TEMPLATE, `report.schema.json`, examples, `rtgamma_openspec.md`)
-- Validate a report JSON:
-  - `python scripts/validate_report.py --sanitize-nan phits-linac-validation/output/rtgamma/spec_check/axial.json`
-- Compare a 3D gamma slice vs a 2D report:
-  - `python scripts/compare_slice_gpr.py <gamma3d.npz> --plane coronal --index 101 --report2d <coronal_101.json>`
-
-### Japanese Docs
-- Full Japanese spec: `docs/openspec/rtgamma_spec_JA.md`
-- Illustrated Global/Local guide: `docs/openspec/Global_Local_Illustrated_JA.md`
-- FAQ (JA): `docs/openspec/FAQ_JA.md`
-
-## Testing
-- Lightweight tests: `pytest -q`
-- Includes gamma local vs global checks and I/O/header utilities
-
-## Notes
-- Prefer UTF-8 (no BOM) for Markdown on Windows
-- Do not commit PHI; use anonymized test DICOM only
-- Write outputs under `phits-linac-validation/output/rtgamma/`
-
-## Recent Updates (2025-10-23)
-- Local gamma support (`--gamma-type local`); GUI toggle added
-- OpenSpec initialized; report schema and validators included
-- Slice consistency helper script added
-- Reproducible 2D/3D commands and validation steps documented
+## 最近のアップデート
+- **2026-03**: RTSTRUCT読込機能および ROI (ポリゴンマスク) 限定のガンマ解析機能を完全統合。GUIからのROI指定に対応。
+- **2026-03**: DICOM 世界座標 (LPS) と画像インデックス間の変換ロジックを刷新し、斜めスライス等に対する座標変換往復テスト (Round-trip tests) を実装しました。
+- **2025-10**: Local gamma オプション (`--gamma-type local`) の追加。OpenSpec ドキュメントの導入。
 
 ## **免責事項 / Disclaimer**
 
