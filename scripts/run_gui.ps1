@@ -42,7 +42,7 @@ function New-TextBox($x, $y, $w=420){
 # Form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'rtgamma GUI Runner'
-$form.Size = New-Object System.Drawing.Size(720,600)
+$form.Size = New-Object System.Drawing.Size(720,720)
 $form.StartPosition = 'CenterScreen'
 $form.Font = New-Object System.Drawing.Font('Segoe UI',9)
 $form.BackColor = [System.Drawing.Color]::FromArgb(245,250,255)
@@ -60,17 +60,30 @@ $btnEval = New-Button 'Browse...' 600 102
 $form.Controls.Add($tbEval)
 $form.Controls.Add($btnEval)
 
+# RTSTRUCT
+$form.Controls.Add((New-Label 'RTSTRUCT (.dcm, optional)' 20 140))
+$tbStruct = New-TextBox 20 164 560
+$btnStruct = New-Button 'Browse...' 600 162
+$form.Controls.Add($tbStruct)
+$form.Controls.Add($btnStruct)
+
+# ROI
+$form.Controls.Add((New-Label 'ROI Name (optional, comma separated, e.g. PTV,GTV)' 20 200))
+$tbRoi = New-TextBox 20 224 560
+$tbRoi.ReadOnly = $false
+$form.Controls.Add($tbRoi)
+
 # Output folder
-$form.Controls.Add((New-Label 'Output Folder' 20 140))
-$tbOut = New-TextBox 20 164 560
-$btnOut = New-Button 'Select...' 600 162
+$form.Controls.Add((New-Label 'Output Folder' 20 260))
+$tbOut = New-TextBox 20 284 560
+$btnOut = New-Button 'Select...' 600 282
 $form.Controls.Add($tbOut)
 $form.Controls.Add($btnOut)
 
 # Action
-$form.Controls.Add((New-Label 'Action' 20 204))
+$form.Controls.Add((New-Label 'Action' 20 324))
 $cbAction = New-Object System.Windows.Forms.ComboBox
-$cbAction.Location = New-Object System.Drawing.Point(20,228)
+$cbAction.Location = New-Object System.Drawing.Point(20,348)
 $cbAction.Size = New-Object System.Drawing.Size(260,24)
 $cbAction.DropDownStyle = 'DropDownList'
 $cbAction.Items.AddRange(@('Header Compare','3D (clinical preset)','2D (clinical preset)'))
@@ -78,9 +91,9 @@ $cbAction.SelectedIndex = 1
 $form.Controls.Add($cbAction)
 
 # Preset profile
-$form.Controls.Add((New-Label 'Clinical Preset' 320 204))
+$form.Controls.Add((New-Label 'Clinical Preset' 320 324))
 $cbProfile = New-Object System.Windows.Forms.ComboBox
-$cbProfile.Location = New-Object System.Drawing.Point(320,228)
+$cbProfile.Location = New-Object System.Drawing.Point(320,348)
 $cbProfile.Size = New-Object System.Drawing.Size(260,24)
 $cbProfile.DropDownStyle = 'DropDownList'
 $cbProfile.Items.AddRange(@('clinical_abs (abs 3%/2mm/10%)','clinical_rel (rel 3%/2mm/10%)','clinical_2x2 (2%/2mm/10%)','clinical_3x3 (3%/3mm/10%)'))
@@ -88,9 +101,9 @@ $cbProfile.SelectedIndex = 1
 $form.Controls.Add($cbProfile)
 
 # 2D plane
-$form.Controls.Add((New-Label '2D Plane' 20 264))
+$form.Controls.Add((New-Label '2D Plane' 20 384))
 $cbPlane = New-Object System.Windows.Forms.ComboBox
-$cbPlane.Location = New-Object System.Drawing.Point(20,288)
+$cbPlane.Location = New-Object System.Drawing.Point(20,408)
 $cbPlane.Size = New-Object System.Drawing.Size(180,24)
 $cbPlane.DropDownStyle = 'DropDownList'
 $cbPlane.Items.AddRange(@('axial','sagittal','coronal'))
@@ -98,9 +111,9 @@ $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
 # Plane index (auto or number)
-$form.Controls.Add((New-Label 'Plane Index (auto or number)' 20 316))
+$form.Controls.Add((New-Label 'Plane Index (auto or number)' 20 436))
 $tbPlaneIndex = New-Object System.Windows.Forms.TextBox
-$tbPlaneIndex.Location = New-Object System.Drawing.Point(20,340)
+$tbPlaneIndex.Location = New-Object System.Drawing.Point(20,460)
 $tbPlaneIndex.Size = New-Object System.Drawing.Size(180,24)
 $tbPlaneIndex.ReadOnly = $false
 $tbPlaneIndex.Text = 'auto'
@@ -109,7 +122,7 @@ $form.Controls.Add($tbPlaneIndex)
 # Optimize shift checkbox (default: off)
 $cbOpt = New-Object System.Windows.Forms.CheckBox
 $cbOpt.Text = 'Optimize shift'
-$cbOpt.Location = New-Object System.Drawing.Point(320,260)
+$cbOpt.Location = New-Object System.Drawing.Point(320,380)
 $cbOpt.AutoSize = $true
 $cbOpt.Checked = $false
 $form.Controls.Add($cbOpt)
@@ -117,16 +130,16 @@ $form.Controls.Add($cbOpt)
 # Local gamma checkbox (default: global)
 $cbLocal = New-Object System.Windows.Forms.CheckBox
 $cbLocal.Text = 'Local gamma'
-$cbLocal.Location = New-Object System.Drawing.Point(320,288)
+$cbLocal.Location = New-Object System.Drawing.Point(320,408)
 $cbLocal.AutoSize = $true
 $cbLocal.Checked = $false
 $form.Controls.Add($cbLocal)
 
 # Threads
 $cpu = [Environment]::ProcessorCount
-$form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 264))
+$form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 384))
 $nudThreads = New-Object System.Windows.Forms.NumericUpDown
-$nudThreads.Location = New-Object System.Drawing.Point(220,288)
+$nudThreads.Location = New-Object System.Drawing.Point(220,408)
 $nudThreads.Size = New-Object System.Drawing.Size(100,24)
 $nudThreads.Minimum = 0
 $nudThreads.Maximum = [decimal]$cpu
@@ -136,14 +149,14 @@ $form.Controls.Add($nudThreads)
 # Options: open on finish, save log
 $cbOpen = New-Object System.Windows.Forms.CheckBox
 $cbOpen.Text = 'Open summary on finish'
-$cbOpen.Location = New-Object System.Drawing.Point(340,288)
+$cbOpen.Location = New-Object System.Drawing.Point(340,408)
 $cbOpen.AutoSize = $true
 $cbOpen.Checked = $true
 $form.Controls.Add($cbOpen)
 
 $cbSaveLog = New-Object System.Windows.Forms.CheckBox
 $cbSaveLog.Text = 'Save log to file'
-$cbSaveLog.Location = New-Object System.Drawing.Point(520,288)
+$cbSaveLog.Location = New-Object System.Drawing.Point(520,408)
 $cbSaveLog.AutoSize = $true
 $cbSaveLog.Checked = $true
 $form.Controls.Add($cbSaveLog)
@@ -151,19 +164,19 @@ $form.Controls.Add($cbSaveLog)
 # 3D NPZ save toggle
 $cbSaveNPZ3D = New-Object System.Windows.Forms.CheckBox
 $cbSaveNPZ3D.Text = 'Save 3D NPZ (gamma/diff)'
-$cbSaveNPZ3D.Location = New-Object System.Drawing.Point(340,260)
+$cbSaveNPZ3D.Location = New-Object System.Drawing.Point(340,380)
 $cbSaveNPZ3D.AutoSize = $true
 $cbSaveNPZ3D.Checked = $false
 $form.Controls.Add($cbSaveNPZ3D)
 
 # Run / Open buttons
-$btnRun = New-Button 'Run' 20 372 120 34
-$btnCancel = New-Button 'Cancel' 160 372 120 34
+$btnRun = New-Button 'Run' 20 492 120 34
+$btnCancel = New-Button 'Cancel' 160 492 120 34
 $btnCancel.Enabled = $false
-$btnOpen = New-Button 'Open Output' 300 372 160 34
-$lblStatus = New-Label 'Status: Idle' 480 378
+$btnOpen = New-Button 'Open Output' 300 492 160 34
+$lblStatus = New-Label 'Status: Idle' 480 498
 $pb = New-Object System.Windows.Forms.ProgressBar
-$pb.Location = New-Object System.Drawing.Point(20, 412)
+$pb.Location = New-Object System.Drawing.Point(20, 532)
 $pb.Size = New-Object System.Drawing.Size(660, 12)
 $pb.Style = 'Marquee'
 $pb.MarqueeAnimationSpeed = 25
@@ -176,7 +189,7 @@ $form.Controls.Add($pb)
 
 # Log box
 $tbLog = New-Object System.Windows.Forms.TextBox
-$tbLog.Location = New-Object System.Drawing.Point(20,436)
+$tbLog.Location = New-Object System.Drawing.Point(20,556)
 $tbLog.Size = New-Object System.Drawing.Size(660,130)
 $tbLog.Multiline = $true
 $tbLog.ScrollBars = 'Vertical'
@@ -184,8 +197,8 @@ $tbLog.ReadOnly = $true
 $form.Controls.Add($tbLog)
 
 # Timer for elapsed time
-$lblElapsed = New-Label 'Elapsed: 00:00' 480 354
-$lblETA = New-Label 'ETA: --:--' 480 330
+$lblElapsed = New-Label 'Elapsed: 00:00' 480 474
+$lblETA = New-Label 'ETA: --:--' 480 450
 $form.Controls.Add($lblElapsed)
 $form.Controls.Add($lblETA)
 $timer = New-Object System.Windows.Forms.Timer
@@ -207,6 +220,7 @@ function Browse-Folder([ref]$tb){
 
 $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
 $btnEval.Add_Click({ Browse-File ([ref]$tbEval) })
+$btnStruct.Add_Click({ Browse-File ([ref]$tbStruct) })
 $btnOut.Add_Click({ Browse-Folder ([ref]$tbOut) })
 $btnOpen.Add_Click({ if([string]::IsNullOrWhiteSpace($tbOut.Text)) { return } else { Start-Process explorer.exe $tbOut.Text } })
 
@@ -241,6 +255,10 @@ function Build-Command(){
       $optArg = @('--opt-shift', $optVal)
       $gammaArg = @()
       if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
+      if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArg += @('--rtstruct', $tbStruct.Text.Trim()) }
+      if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
+        foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArg += @('--roi', $r.Trim()) } }
+      }
       $baseCmd = @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArg + $threadsArg
       if ($cbSaveNPZ3D.Checked) {
         $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
@@ -259,6 +277,10 @@ function Build-Command(){
       $optArg = @('--opt-shift', $optVal)
       $gammaArg = @()
       if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
+      if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArg += @('--rtstruct', $tbStruct.Text.Trim()) }
+      if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
+        foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArg += @('--roi', $r.Trim()) } }
+      }
       return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,'--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $gammaArg + $threadsArg
     }
   }
@@ -377,6 +399,8 @@ try {
       'clinical_3x3' { $cbProfile.SelectedIndex = 3 }
     }
   }
+  if ($cfg.rtstruct -ne $null) { $tbStruct.Text = [string]$cfg.rtstruct }
+  if ($cfg.roi -ne $null) { $tbRoi.Text = [string]$cfg.roi }
   if ($cfg.action) {
     switch ([string]$cfg.action) {
       'header' { $cbAction.SelectedIndex = 0 }
@@ -390,7 +414,7 @@ try {
 } catch {}
 
 # Save settings button
-$btnSave = New-Button 'Save Settings' 540 330 140 34
+$btnSave = New-Button 'Save Settings' 540 450 140 34
 $form.Controls.Add($btnSave)
 $btnSave.Add_Click({
   $actionMap = @('header','3d','2d')
@@ -406,6 +430,8 @@ $btnSave.Add_Click({
     progress_marquee = $true
     plane_index = $tbPlaneIndex.Text
     save_npz_3d = $cbSaveNPZ3D.Checked
+    rtstruct = $tbStruct.Text
+    roi = $tbRoi.Text
   }
   try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Saved.') } catch {}
 })
