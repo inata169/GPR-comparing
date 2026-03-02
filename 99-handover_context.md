@@ -1,0 +1,23 @@
+# 99-handover_context.md
+
+## 1. 現在の進捗 (Current Progress)
+- **目的**: Structure (RTSTRUCT) 別の Gamma Pass Rate 評価機能の実装と結合テスト。
+- **完了した作業**:
+  1. `rtgamma/io_dicom.py`: RTSTRUCTファイルを読み込み、ROIごとの輪郭データ (LPS座標) を抽出する `load_rtstruct()` の実装。
+  2. `rtgamma/mask.py`: `matplotlib.path.Path` を用いて、ROI輪郭から3Dバイナリマスクを生成するモジュールの作成。
+  3. `rtgamma/main.py`: `--rtstruct` と `--roi` のCLI引数を追加し、ROIごとの評価(`per_structure`)を出力へ連携。
+  4. `rtgamma/report.py`: MarkdownおよびJSON出力におけるテーブル・スキーマの拡張。
+  5. **結合テストと確認**: `dicom/2024101700` の実データを使用し、CLIで1478枚のスライス輪郭(patient ROI)に対する3Dマスク構築を実行 (成功、処理時間は約40秒〜60秒)。自己対向 (Self-compare: RefとEvalが同一ファイル) のテストでもGamma=100.0%を算出可能であることを確認しました。
+  6. **ドキュメントとスキーマ**: `docs/openspec/rtgamma_openspec.md` にCLI引数と出力仕様を追記。`report.schema.json` へ `per_structure` プロパティを追加し `scripts/validate_report.py` にてテストがパスすることを検証しました。
+
+## 2. 実装上の留意事項 (Implementation Notes)
+- `mask.py` の `contour_to_mask_3d` 関数は、輪郭スライス数が膨大な場合 (例えば1400層以上) の包含判定 (`contains_points`) において、Pythonの処理速度の影響で約1分近くかかる場合がありますが、正しく完了しメモリも安全な水準に保たれています。
+- `per_structure` が出力される場合、一部のROI内で計算対象ボクセル数がゼロ(全てCutoff未満など)の場合は、`pass_rate`、`gamma_mean`、`gamma_median`、`gamma_max` が数値ではなく `NaN` (JSON仕様上は文字列 `"NaN"` や `null`) で出力されます。最新のJSONスキーマはこれらを許容する設定になっています。
+
+## 3. 保留中のタスク・今後の展望 (Pending Tasks / Future)
+- (オプション) `mask.py` におけるROIのポリゴン構築が遅い場合の最適化 (例: NumbaベースのPoint-in-Polygonへの置き換えやbboxによる限定的な検査)。
+- (オプション) 複数ROIを指定した際の並列処理化、もしくは GUI/ダッシュボード への対応。
+- 今後機能が完成したと判断した場合、`Local gamma` オプションをCLIに完全に組み込むかどうかの検討。
+
+## 4. 直近で実行すべきコマンド (Next Commands)
+次回以降は、今回の機能を用いてさまざまなプラン・ROI間の比較解析を回して実用性を評価するか、他オプション（Local Gamma など）の作業に進むことができます。

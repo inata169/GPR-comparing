@@ -155,6 +155,72 @@ def load_rtplan(path: str) -> Dict:
     return meta
 
 
+def load_rtstruct(path: str) -> Dict:
+    """Load DICOM RTSTRUCT and extract ROI contour data.
+
+    Returns dict with keys:
+        roi_list: list of dicts with 'number', 'name', 'contours'
+                  where contours is a list of {'z': float, 'points': ndarray(N,2)}
+                  points are (x, y) in LPS world coordinates.
+        for_uid: FrameOfReferenceUID string
+        dataset: raw pydicom Dataset
+    """
+    if pydicom is None:
+        raise RuntimeError("pydicom is required to read RTSTRUCT DICOM.")
+    ds = pydicom.dcmread(path, force=True)
+
+    if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
+        ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
+
+    if getattr(ds, 'Modality', None) != 'RTSTRUCT':
+        raise ValueError("DICOM is not RTSTRUCT (Modality != RTSTRUCT)")
+
+    # Build ROI number -> name mapping
+    roi_name_map = {}
+    for roi_seq in getattr(ds, 'StructureSetROISequence', []):
+        roi_num = int(roi_seq.ROINumber)
+        roi_name_map[roi_num] = str(roi_seq.ROIName)
+
+    # Extract contours per ROI
+    roi_list = []
+    for roi_contour in getattr(ds, 'ROIContourSequence', []):
+        ref_num = int(roi_contour.ReferencedROINumber)
+        name = roi_name_map.get(ref_num, f'ROI_{ref_num}')
+        contours = []
+        for contour_seq in getattr(roi_contour, 'ContourSequence', []):
+            geo_type = getattr(contour_seq, 'ContourGeometricType', 'CLOSED_PLANAR')
+            if geo_type != 'CLOSED_PLANAR':
+                continue
+            data = np.array(contour_seq.ContourData, dtype=float)
+            n_pts = len(data) // 3
+            if n_pts < 3:
+                continue
+            pts = data.reshape(n_pts, 3)  # (x, y, z) in LPS
+            z_val = float(pts[0, 2])  # All points on same slice share z
+            contours.append({
+                'z': z_val,
+                'points': pts[:, :2].copy(),  # (N, 2) = (x, y)
+            })
+        roi_list.append({
+            'number': ref_num,
+            'name': name,
+            'contours': contours,
+        })
+
+    for_uid = str(getattr(ds, 'FrameOfReferenceUID', ''))
+    # Also check ReferencedFrameOfReferenceSequence
+    if not for_uid:
+        ref_for_seq = getattr(ds, 'ReferencedFrameOfReferenceSequence', [])
+        if ref_for_seq:
+            for_uid = str(getattr(ref_for_seq[0], 'FrameOfReferenceUID', ''))
+
+    return {
+        'roi_list': roi_list,
+        'for_uid': for_uid,
+        'dataset': ds,
+    }
+
+
 def voxel_to_world(ipp: np.ndarray,
                    r_dir: np.ndarray,
                    c_dir: np.ndarray,

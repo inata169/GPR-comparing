@@ -27,7 +27,7 @@ Medium priority
   - [ ] TEST_PLAN: recommended flow (Header compare → Absolute geometry → Coarse → Fine; optional ROI)
 
 Optional / stretch
-- [ ] ROI/RTSTRUCT masking for ROI-limited GPR
+- [x] ROI/RTSTRUCT masking for ROI-limited GPR (Implemented generation & JSON/MD output)
 - [ ] Local gamma option wired to CLI and report
 - [ ] 2D pre-scan to narrow 3D search space automatically
 

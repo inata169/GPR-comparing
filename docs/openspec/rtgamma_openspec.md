@@ -20,10 +20,12 @@
     - opt-shift={on|off}, shift-range="x:-3:3:1,y:-3:3:1,z:-3:3:1"
     - refine=coarse2fine, fine-range-mm=10, fine-step-mm=1, early-stop-*
     - prescan-2d={on|off}, interp={linear|bspline|nearest}, threads=<N>
+    - rtstruct=<path_to_RTSTRUCT>, roi="<roi1>,<roi2>" (オプション: ROIごとの解析)
 - Outputs
   - 2D: gamma 画像（PNG/TIFF）、dose diff 画像（%）。
   - 3D: gamma（NPZ）、dose_diff_pct（NPZ）。
   - レポート: CSV/JSON/MD（スキーマ叩き台は docs/openspec/report.schema.json）。
+    - JSONとMDには `per_structure` が含まれ、指定ROI単位での voxel_count, evaluated_count, pass_rate, mean, median, max が出力される。
   - GUI: 実行ログ run_log_*.txt、サマリ自動オープン（run3d.md / <plane>.md / header_compare.md）。
 
 ## 4. Geometry & Coordinates
@@ -113,7 +115,7 @@
 ## 11. Open Questions & Constraints
 - Coronal GPR の回帰現象（~82% vs ~93%）の要因切り分け（正規化・平面整合・スライス選択）。
 - Local gamma オプションの CLI/GUI 露出方針とレポート整合。
-- ROI/RTSTRUCT マスクの仕様（範囲、重み、閾値）。
+- ROI/RTSTRUCT マスクの仕様（v0.2で一部実装済: 輪郭ポリゴンからの3Dマスク生成と `per_structure` 集計）。
 - 将来的な GPU バックエンド（CuPy）の互換要件。
 
 ## 12. Versioning & Change Control

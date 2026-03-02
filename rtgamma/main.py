@@ -5,7 +5,8 @@ import argparse
 import numpy as np
 import logging
 
-from .io_dicom import load_rtdose, world_to_index
+from .io_dicom import load_rtdose, load_rtstruct, world_to_index
+from .mask import build_roi_masks
 from .resample import resample_eval_onto_ref
 from .gamma import compute_gamma
 from .optimize import grid_search_best_shift
@@ -148,6 +149,9 @@ def main(argv=None):
                         help='Preset typical clinical conditions (no shift)')
     parser.add_argument('--gpu', choices=['on', 'off'], default='off')
     parser.add_argument('--tolerance', type=float, default=1e-6)
+    parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file for per-structure GPR')
+    parser.add_argument('--roi', action='append', dest='roi_names',
+                        help='ROI name(s) to evaluate (repeatable). Omit for all ROIs.')
 
     args = parser.parse_args(argv)
     # Add console (stdout) logging handler for on-screen feedback
@@ -345,6 +349,38 @@ def main(argv=None):
         )
         logging.info(f"Final gamma calculation complete. Pass rate: {pass_rate}")
 
+    # --- Per-structure gamma analysis ---
+    per_structure = []
+    if args.rtstruct:
+        logging.info(f"Loading RTSTRUCT: {args.rtstruct}")
+        rtstruct_meta = load_rtstruct(args.rtstruct)
+        logging.info(f"RTSTRUCT loaded. ROIs: {[r['name'] for r in rtstruct_meta['roi_list']]}")
+        roi_masks = build_roi_masks(rtstruct_meta, meta_ref, roi_names=args.roi_names)
+        for roi_name, roi_mask in roi_masks.items():
+            # Apply mask to gamma_map
+            masked_gamma = gamma_map[roi_mask]
+            finite = np.isfinite(masked_gamma)
+            if finite.any():
+                roi_pr = float(np.sum(masked_gamma[finite] <= 1.0) / np.sum(finite) * 100.0)
+                roi_mean = float(np.nanmean(masked_gamma[finite]))
+                roi_median = float(np.nanmedian(masked_gamma[finite]))
+                roi_max = float(np.nanmax(masked_gamma[finite]))
+            else:
+                roi_pr = float('nan')
+                roi_mean = roi_median = roi_max = float('nan')
+            n_voxels = int(np.sum(roi_mask))
+            n_evaluated = int(np.sum(finite))
+            logging.info(f"ROI '{roi_name}': GPR={roi_pr:.2f}%, voxels={n_voxels}, evaluated={n_evaluated}")
+            per_structure.append({
+                'roi_name': roi_name,
+                'voxel_count': n_voxels,
+                'evaluated_count': n_evaluated,
+                'pass_rate_percent': roi_pr,
+                'gamma_mean': roi_mean,
+                'gamma_median': roi_median,
+                'gamma_max': roi_max,
+            })
+
     # Create output directories if they don't exist
     if args.save_gamma_map:
         d = os.path.dirname(args.save_gamma_map)
@@ -481,6 +517,8 @@ def main(argv=None):
             'gamma_median': gstats['gamma_median'],
             'gamma_max': gstats['gamma_max'],
         }
+        if per_structure:
+            summary['per_structure'] = per_structure
         save_summary_csv(base + '.csv', summary)
         save_summary_json(base + '.json', summary)
         save_summary_markdown(base + '.md', summary)
