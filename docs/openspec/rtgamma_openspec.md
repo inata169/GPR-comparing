@@ -114,8 +114,7 @@
 
 ## 11. Open Questions & Constraints
 - Coronal GPR の回帰現象（~82% vs ~93%）の要因切り分け（正規化・平面整合・スライス選択）。
-- Local gamma オプションの CLI/GUI 露出方針とレポート整合。
-- ROI/RTSTRUCT マスクの仕様（v0.2で一部実装済: 輪郭ポリゴンからの3Dマスク生成と `per_structure` 集計）。
+- ROI/RTSTRUCT マスクの仕様（v1.0で実装済: 輪郭ポリゴンからの3Dマスク生成と `per_structure` 集計）。
 - 将来的な GPU バックエンド（CuPy）の互換要件。
 
 ## 12. Versioning & Change Control

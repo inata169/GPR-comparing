@@ -31,6 +31,7 @@ def grid_search_best_shift(
     cutoff: float,
     norm: str,
     shift_spec: str,
+    gamma_type: str = 'global',
     refine: bool = True,
     *,
     fine_range_mm: float = 10.0,
@@ -53,7 +54,7 @@ def grid_search_best_shift(
             dd_percent=dd,
             dta_mm=dta,
             cutoff_percent=cutoff,
-            gamma_type='global',
+            gamma_type=gamma_type,
             norm=norm,
             use_pymedphys=False,
         )
@@ -81,7 +82,7 @@ def grid_search_best_shift(
                     dd_percent=dd,
                     dta_mm=dta,
                     cutoff_percent=cutoff,
-                    gamma_type='global',
+                    gamma_type=gamma_type,
                     norm=norm,
                     use_pymedphys=False,
                 )

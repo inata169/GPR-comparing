@@ -9,6 +9,7 @@
   4. `rtgamma/report.py`: MarkdownおよびJSON出力におけるテーブル・スキーマの拡張。
   5. **結合テストと確認**: `dicom/2024101700` の実データを使用し、CLIで1478枚のスライス輪郭(patient ROI)に対する3Dマスク構築を実行 (成功、処理時間は約40秒〜60秒)。自己対向 (Self-compare: RefとEvalが同一ファイル) のテストでもGamma=100.0%を算出可能であることを確認しました。
   6. **ドキュメントとスキーマ**: `docs/openspec/rtgamma_openspec.md` にCLI引数と出力仕様を追記。`report.schema.json` へ `per_structure` プロパティを追加し `scripts/validate_report.py` にてテストがパスすることを検証しました。
+  7. **Local Gamma サポートの完全統合**: シフト最適化 (`--opt-shift on`) においても `--gamma-type local` が正しく適用されるように `rtgamma/optimize.py` および `rtgamma/main.py` を修正しました。自己対向テストにて最適化ループ内で local gamma が使用されていることを確認しました。
 
 ## 2. 実装上の留意事項 (Implementation Notes)
 - `mask.py` の `contour_to_mask_3d` 関数は、輪郭スライス数が膨大な場合 (例えば1400層以上) の包含判定 (`contains_points`) において、Pythonの処理速度の影響で約1分近くかかる場合がありますが、正しく完了しメモリも安全な水準に保たれています。
@@ -20,4 +21,4 @@
 - 今後機能が完成したと判断した場合、`Local gamma` オプションをCLIに完全に組み込むかどうかの検討。
 
 ## 4. 直近で実行すべきコマンド (Next Commands)
-次回以降は、今回の機能を用いてさまざまなプラン・ROI間の比較解析を回して実用性を評価するか、他オプション（Local Gamma など）の作業に進むことができます。
+次回の作業では、今回の機能を用いてさまざまなプラン・ROI間の比較解析を回して実用性を評価したり、GUIへの Local Gamma オプションの露出（現在はCLIのみ）の検討を行うことができます。

@@ -261,6 +261,7 @@ def main(argv=None):
             cutoff=args.cutoff,
             norm=args.norm,
             shift_spec=args.shift_range,
+            gamma_type=args.gamma_type,
             refine=args.refine == 'coarse2fine',
             fine_range_mm=float(args.fine_range_mm),
             fine_step_mm=float(args.fine_step_mm),
