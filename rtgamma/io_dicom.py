@@ -45,12 +45,16 @@ def load_rtdose(path: str) -> Dict:
 
     ipp = np.array(ds.ImagePositionPatient, dtype=float)
     iop = np.array(ds.ImageOrientationPatient, dtype=float)
-    r_dir, c_dir, s_dir = _dircos_to_matrix(iop)
+    # v_col is the direction of the first row (incrementing column index i)
+    # v_row is the direction of the first column (incrementing row index j)
+    v_col, v_row, v_slice = _dircos_to_matrix(iop)
 
     # PixelSpacing is (row, column) spacing
+    # ps[0] is distance between adjacent rows (spacing along v_row)
+    # ps[1] is distance between adjacent columns (spacing along v_col)
     ps = np.array(ds.PixelSpacing, dtype=float)
-    row_spacing = float(ps[0])
-    col_spacing = float(ps[1])
+    s_row = float(ps[0])
+    s_col = float(ps[1])
 
     # GridFrameOffsetVector gives per-slice offsets (mm) along the normal from IPP
     gfov = np.array(ds.GridFrameOffsetVector, dtype=float)
@@ -67,25 +71,25 @@ def load_rtdose(path: str) -> Dict:
     dose = dose[order, :, :]
     gfov = gfov[order]
 
-    # Coordinate vectors along each image axis in mm (distances along r/c/s directions)
-    # X (columns): 0..cols-1 along c_dir spaced by col_spacing
-    # Y (rows):    0..rows-1 along r_dir spaced by row_spacing
-    x_mm = np.arange(cols, dtype=float) * col_spacing
-    y_mm = np.arange(rows, dtype=float) * row_spacing
-    z_mm = gfov.copy()
+    # Coordinate vectors along each image axis in mm (distances from IPP along dirs)
+    # i (columns): 0..cols-1 along v_col spaced by s_col
+    # j (rows):    0..rows-1 along v_row spaced by s_row
+    i_mm = np.arange(cols, dtype=float) * s_col
+    j_mm = np.arange(rows, dtype=float) * s_row
+    k_mm = gfov.copy()
 
     meta = {
-        'dose': dose.astype(np.float32),  # (z,y,x)
+        'dose': dose.astype(np.float32),  # (z,y,x) -> (k,j,i)
         'ipp': ipp,
-        'row_dir': r_dir,
-        'col_dir': c_dir,
-        'slice_dir': s_dir,
-        'row_spacing': row_spacing,
-        'col_spacing': col_spacing,
-        'z_offsets': z_mm,  # mm
-        'x_coords_mm': x_mm,
-        'y_coords_mm': y_mm,
-        'z_coords_mm': z_mm,
+        'v_col': v_col, # i-axis (horizontal in 2D)
+        'v_row': v_row, # j-axis (vertical in 2D)
+        'v_slice': v_slice, # k-axis
+        's_col': s_col, # spacing for i-index
+        's_row': s_row, # spacing for j-index
+        'z_offsets': k_mm,  # mm from IPP along v_slice
+        'x_coords_mm': i_mm, # used by legacy code as 'x' coords
+        'y_coords_mm': j_mm, # used by legacy code as 'y' coords
+        'z_coords_mm': k_mm, # used by legacy code as 'z' coords
         'units': getattr(ds, 'DoseUnits', 'UNKNOWN'),
         'dataset': ds,
         'shape': dose.shape,
@@ -222,40 +226,41 @@ def load_rtstruct(path: str) -> Dict:
 
 
 def voxel_to_world(ipp: np.ndarray,
-                   r_dir: np.ndarray,
-                   c_dir: np.ndarray,
-                   s_dir: np.ndarray,
-                   row_spacing: float,
-                   col_spacing: float,
+                   v_col: np.ndarray,
+                   v_row: np.ndarray,
+                   v_slice: np.ndarray,
+                   s_col: float,
+                   s_row: float,
                    z_offsets: np.ndarray,
                    ijk: np.ndarray) -> np.ndarray:
-    # ijk: (..., 3) with order (z,y,x)
+    """Convert grid indices (k, j, i) to world LPS coordinates."""
     k = ijk[..., 0]
     j = ijk[..., 1]
     i = ijk[..., 2]
+    # Position = IPP + j * s_row * v_row + i * s_col * v_col + k_offset * v_slice
     p = (ipp
-         + np.outer(j, r_dir) * row_spacing
-         + np.outer(i, c_dir) * col_spacing)
-    # Add slice normal contribution with per-slice offsets (non-affine along k)
-    # Broadcast k over s_dir
+         + np.outer(j, v_row) * s_row
+         + np.outer(i, v_col) * s_col)
+    # Add slice normal contribution (non-affine if z_offsets is irregular)
     z_mm = np.interp(k, np.arange(z_offsets.size, dtype=float), z_offsets)
-    p = p + np.outer(z_mm, s_dir)
+    p = p + np.outer(z_mm, v_slice)
     return p
 
 
 def world_to_index(ipp: np.ndarray,
-                   r_dir: np.ndarray,
-                   c_dir: np.ndarray,
-                   s_dir: np.ndarray,
-                   row_spacing: float,
-                   col_spacing: float,
+                   v_col: np.ndarray,
+                   v_row: np.ndarray,
+                   v_slice: np.ndarray,
+                   s_col: float,
+                   s_row: float,
                    z_offsets: np.ndarray,
                    xyz: np.ndarray) -> np.ndarray:
-    # xyz: (..., 3) world LPS coords
+    """Convert world LPS coordinates (x, y, z) to fractional grid indices (k, j, i)."""
     d = xyz - ipp
-    j = (d @ r_dir) / row_spacing
-    i = (d @ c_dir) / col_spacing
-    dist_s = (d @ s_dir)
+    i = (d @ v_col) / s_col
+    j = (d @ v_row) / s_row
+    dist_s = (d @ v_slice)
+    # Map distance along slice normal to fractional slice index k
     k = np.interp(dist_s, z_offsets, np.arange(z_offsets.size, dtype=float), left=-1, right=-1)
     ijk = np.stack([k, j, i], axis=-1)
     return ijk

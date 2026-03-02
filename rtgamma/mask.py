@@ -11,32 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 def _world_xy_to_grid_rc(points_xy: np.ndarray, meta_dose: Dict) -> np.ndarray:
-    """Convert LPS (x, y) world points to dose grid (row, col) fractional indices.
-
-    Parameters
-    ----------
-    points_xy : ndarray (N, 2)  – world x, y coordinates
-    meta_dose : dict from load_rtdose
-
-    Returns
-    -------
-    rc : ndarray (N, 2) – (row_idx, col_idx) in dose grid coordinates
-    """
+    """Convert LPS (x, y) world points to dose grid fractional indices (j, i)."""
     ipp = meta_dose['ipp']
-    r_dir = meta_dose['row_dir']
-    c_dir = meta_dose['col_dir']
-    row_sp = meta_dose['row_spacing']
-    col_sp = meta_dose['col_spacing']
+    v_col = meta_dose['v_col'] # Direction of i-index
+    v_row = meta_dose['v_row'] # Direction of j-index
+    s_col = meta_dose['s_col'] # Spacing for i-index
+    s_row = meta_dose['s_row'] # Spacing for j-index
 
-    # Only use x, y components; z is handled separately by slice matching
+    # Displacement from IPP in world (x, y)
     dx = points_xy[:, 0] - ipp[0]
     dy = points_xy[:, 1] - ipp[1]
 
-    # Project onto row and col directions (2D, ignoring z component)
-    row_idx = (dx * r_dir[0] + dy * r_dir[1]) / row_sp
-    col_idx = (dx * c_dir[0] + dy * c_dir[1]) / col_sp
+    # Project onto i and j directions (2D, ignoring z component for planar contours)
+    # i_idx is displacement along v_col divided by s_col
+    i_idx = (dx * v_col[0] + dy * v_col[1]) / s_col
+    # j_idx is displacement along v_row divided by s_row
+    j_idx = (dx * v_row[0] + dy * v_row[1]) / s_row
 
-    return np.column_stack([row_idx, col_idx])
+    return np.column_stack([j_idx, i_idx])
 
 
 def contour_to_mask_3d(contours: List[Dict], meta_dose: Dict) -> np.ndarray:
@@ -61,13 +53,10 @@ def contour_to_mask_3d(contours: List[Dict], meta_dose: Dict) -> np.ndarray:
 
     # Compute world z for each dose slice
     ipp = meta_dose['ipp']
-    s_dir = meta_dose['slice_dir']
+    v_slice = meta_dose['v_slice']
     z_offsets = meta_dose['z_offsets']
-    # World z coordinate for each slice: ipp + z_offset * s_dir -> take z component
-    # More precisely, the z world coordinate for slice k is:
-    # world_pos = ipp + z_offsets[k] * s_dir
-    # We need the LPS z-component
-    slice_world_z = np.array([ipp[2] + z_offsets[k] * s_dir[2] for k in range(nz)])
+    # World z coordinate for each slice: ipp[2] + z_offset * v_slice[2]
+    slice_world_z = np.array([ipp[2] + z_offsets[k] * v_slice[2] for k in range(nz)])
 
     # Determine slice spacing tolerance for matching
     if nz > 1:

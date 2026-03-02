@@ -10,8 +10,10 @@
   5. **結合テストと確認**: `dicom/2024101700` の実データを使用し、CLIで1478枚のスライス輪郭(patient ROI)に対する3Dマスク構築を実行 (成功、処理時間は約40秒〜60秒)。自己対向 (Self-compare: RefとEvalが同一ファイル) のテストでもGamma=100.0%を算出可能であることを確認しました。
   6. **ドキュメントとスキーマ**: `docs/openspec/rtgamma_openspec.md` にCLI引数と出力仕様を追記。`report.schema.json` へ `per_structure` プロパティを追加し `scripts/validate_report.py` にてテストがパスすることを検証しました。
   7. **Local Gamma サポートの完全統合**: シフト最適化 (`--opt-shift on`) においても `--gamma-type local` が正しく適用されるように `rtgamma/optimize.py` および `rtgamma/main.py` を修正しました。自己対向テストにて最適化ループ内で local gamma が使用されていることを確認しました。
+  8. **空間不整合の修正**: 画像配列とLPS座標系のマッピングを修正し、ROIマスクが線量グリッドと正しく重なるようにしました。
 
 ## 2. 実装上の留意事項 (Implementation Notes)
+- **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
 - `mask.py` の `contour_to_mask_3d` 関数は、輪郭スライス数が膨大な場合 (例えば1400層以上) の包含判定 (`contains_points`) において、Pythonの処理速度の影響で約1分近くかかる場合がありますが、正しく完了しメモリも安全な水準に保たれています。
 - `per_structure` が出力される場合、一部のROI内で計算対象ボクセル数がゼロ(全てCutoff未満など)の場合は、`pass_rate`、`gamma_mean`、`gamma_median`、`gamma_max` が数値ではなく `NaN` (JSON仕様上は文字列 `"NaN"` や `null`) で出力されます。最新のJSONスキーマはこれらを許容する設定になっています。
 

@@ -16,22 +16,26 @@ from .viz import save_gamma_map_2d, save_dose_diff_2d
 
 def build_ref_world_coords(meta_ref):
     # Build world coordinate arrays (LPS) for each voxel center in reference grid
-    z_mm = meta_ref['z_coords_mm']
-    y_mm = meta_ref['y_coords_mm']
-    x_mm = meta_ref['x_coords_mm']
-    # Construct 3D world coordinate for each grid point: IPP + r*y + c*x + s*z
+    i_mm = meta_ref['x_coords_mm'] # i-axis values (columns)
+    j_mm = meta_ref['y_coords_mm'] # j-axis values (rows)
+    k_mm = meta_ref['z_coords_mm'] # k-axis values (slices)
+    
     ipp = meta_ref['ipp']
-    r = meta_ref['row_dir']
-    c = meta_ref['col_dir']
-    s = meta_ref['slice_dir']
-    Y, X, Z = np.meshgrid(y_mm, x_mm, z_mm, indexing='ij')  # shapes: (y,x,z)
-    # Reorder later to (z,y,x)
+    v_col = meta_ref['v_col']
+    v_row = meta_ref['v_row']
+    v_slice = meta_ref['v_slice']
+    
+    # Meshgrid with indexing='ij' -> shapes (nj, ni, nk)
+    J, I, K = np.meshgrid(j_mm, i_mm, k_mm, indexing='ij')
+    
+    # Pw(j,i,k) = IPP + j*v_row + i*v_col + k*v_slice
     Pw = (ipp[None, None, None, :]
-          + Y[..., None] * r[None, None, None, :]
-          + X[..., None] * c[None, None, None, :]
-          + Z[..., None] * s[None, None, None, :])
-    # Return in array order (z,y,x)
-    Pw = np.moveaxis(Pw, 2, 0)  # (z,y,x,3)
+          + J[..., None] * v_row[None, None, None, :]
+          + I[..., None] * v_col[None, None, None, :]
+          + K[..., None] * v_slice[None, None, None, :])
+    
+    # Reorder to (k,j,i) to match dose array shape
+    Pw = np.moveaxis(Pw, 2, 0)  # (k,j,i,3)
     Xw = Pw[..., 0]
     Yw = Pw[..., 1]
     Zw = Pw[..., 2]
@@ -39,62 +43,51 @@ def build_ref_world_coords(meta_ref):
 
 
 def build_plane_world_coords(meta_ref, plane: str, sl: int):
-    """
-    Build world-coordinate grids for a single plane slice that align with
-    the reference dose array order (z, y, x), inserting a singleton axis
-    for the fixed dimension:
-      - axial (fix z):   shape (1, y, x)
-      - sagittal (fix x): shape (z, y, 1)
-      - coronal (fix y):  shape (z, 1, x)
-
-    Returns:
-      (Xw, Yw, Zw): world coordinate arrays with the shapes above
-      (ax_z, ax_y, ax_x): 1D axis arrays corresponding to the (z, y, x) axes
-    """
-    z_mm = meta_ref['z_coords_mm']
-    y_mm = meta_ref['y_coords_mm']
-    x_mm = meta_ref['x_coords_mm']
+    """Build world-coordinate grids for a single plane slice."""
+    k_mm = meta_ref['z_coords_mm']
+    j_mm = meta_ref['y_coords_mm']
+    i_mm = meta_ref['x_coords_mm']
     ipp = meta_ref['ipp']
-    r = meta_ref['row_dir']
-    c = meta_ref['col_dir']
-    s = meta_ref['slice_dir']
+    v_col = meta_ref['v_col']
+    v_row = meta_ref['v_row']
+    v_slice = meta_ref['v_slice']
 
     if plane == 'axial':
-        # z fixed, vary y and x -> (1, y, x)
-        Y, X = np.meshgrid(y_mm, x_mm, indexing='ij')  # (y, x)
-        Z = np.full_like(Y, fill_value=float(z_mm[sl]))  # (y, x)
-        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
-              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        # k fixed, vary j and i -> (1, j, i)
+        J, I = np.meshgrid(j_mm, i_mm, indexing='ij')
+        K = np.full_like(J, fill_value=float(k_mm[sl]))
+        Pw = (ipp[None, None, :] + J[..., None] * v_row[None, None, :]
+              + I[..., None] * v_col[None, None, :] + K[..., None] * v_slice[None, None, :])
         Xw = Pw[..., 0][None, ...]
         Yw = Pw[..., 1][None, ...]
         Zw = Pw[..., 2][None, ...]
-        ax_z = np.array([float(z_mm[sl])], dtype=float)
-        ax_y = y_mm
-        ax_x = x_mm
+        ax_z = np.array([float(k_mm[sl])], dtype=float)
+        ax_y = j_mm
+        ax_x = i_mm
     elif plane == 'sagittal':
-        # x fixed, vary z and y -> build (z, y), then expand to (z, y, 1)
-        Z, Y = np.meshgrid(z_mm, y_mm, indexing='ij')  # (z, y)
-        X = np.full_like(Z, fill_value=float(x_mm[sl]))  # (z, y)
-        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
-              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        # i fixed, vary k and j -> build (k, j), then expand to (k, j, 1)
+        K, J = np.meshgrid(k_mm, j_mm, indexing='ij')
+        I = np.full_like(K, fill_value=float(i_mm[sl]))
+        Pw = (ipp[None, None, :] + J[..., None] * v_row[None, None, :]
+              + I[..., None] * v_col[None, None, :] + K[..., None] * v_slice[None, None, :])
         Xw = Pw[..., 0][..., None]
         Yw = Pw[..., 1][..., None]
         Zw = Pw[..., 2][..., None]
-        ax_z = z_mm
-        ax_y = y_mm
-        ax_x = np.array([float(x_mm[sl])], dtype=float)
+        ax_z = k_mm
+        ax_y = j_mm
+        ax_x = np.array([float(i_mm[sl])], dtype=float)
     else:  # coronal
-        # y fixed, vary z and x -> build (z, x), then expand to (z, 1, x)
-        Z, X = np.meshgrid(z_mm, x_mm, indexing='ij')  # (z, x)
-        Y = np.full_like(Z, fill_value=float(y_mm[sl]))  # (z, x)
-        Pw = (ipp[None, None, :] + Y[..., None] * r[None, None, :]
-              + X[..., None] * c[None, None, :] + Z[..., None] * s[None, None, :])
+        # j fixed, vary k and i -> build (k, i), then expand to (k, 1, i)
+        K, I = np.meshgrid(k_mm, i_mm, indexing='ij')
+        J = np.full_like(K, fill_value=float(j_mm[sl]))
+        Pw = (ipp[None, None, :] + J[..., None] * v_row[None, None, :]
+              + I[..., None] * v_col[None, None, :] + K[..., None] * v_slice[None, None, :])
         Xw = Pw[..., 0][:, None, :]
         Yw = Pw[..., 1][:, None, :]
         Zw = Pw[..., 2][:, None, :]
-        ax_z = z_mm
-        ax_y = np.array([float(y_mm[sl])], dtype=float)
-        ax_x = x_mm
+        ax_z = k_mm
+        ax_y = np.array([float(j_mm[sl])], dtype=float)
+        ax_x = i_mm
     return (Xw, Yw, Zw), (ax_z, ax_y, ax_x)
 
 
@@ -176,8 +169,8 @@ def main(argv=None):
     logging.info("Evaluation dose loaded.")
 
     logging.info(f"Ref IPP: {meta_ref['ipp']}, Eval IPP: {meta_eval['ipp']}")
-    logging.info(f"Ref Row Dir: {meta_ref['row_dir']}, Eval Row Dir: {meta_eval['row_dir']}")
-    logging.info(f"Ref Col Dir: {meta_ref['col_dir']}, Eval Col Dir: {meta_eval['col_dir']}")
+    logging.info(f"Ref v_col: {meta_ref['v_col']}, Eval v_col: {meta_eval['v_col']}")
+    logging.info(f"Ref v_row: {meta_ref['v_row']}, Eval v_row: {meta_eval['v_row']}")
     logging.info(f"Ref PixelSpacing: {meta_ref['dataset'].PixelSpacing}, Eval PixelSpacing: {meta_eval['dataset'].PixelSpacing}")
     logging.info(f"Ref GridFrameOffsetVector (first 5): {meta_ref['dataset'].GridFrameOffsetVector[:5]}, Eval GridFrameOffsetVector (first 5): {meta_eval['dataset'].GridFrameOffsetVector[:5]}")
     logging.info(f"Ref DoseGridScaling: {meta_ref['dataset'].DoseGridScaling}, Eval DoseGridScaling: {meta_eval['dataset'].DoseGridScaling}")
@@ -189,9 +182,9 @@ def main(argv=None):
 
     # Orientation similarity checks (cosine of angle between ref and eval axes)
     try:
-        dot_row = float(abs(np.dot(meta_ref['row_dir'], meta_eval['row_dir'])))
-        dot_col = float(abs(np.dot(meta_ref['col_dir'], meta_eval['col_dir'])))
-        dot_sli = float(abs(np.dot(meta_ref['slice_dir'], meta_eval['slice_dir'])))
+        dot_col = float(abs(np.dot(meta_ref['v_col'], meta_eval['v_col'])))
+        dot_row = float(abs(np.dot(meta_ref['v_row'], meta_eval['v_row'])))
+        dot_sli = float(abs(np.dot(meta_ref['v_slice'], meta_eval['v_slice'])))
         orientation_min_dot = min(dot_row, dot_col, dot_sli)
         if orientation_min_dot < 0.99:
             logging.warning(f"Orientation mismatch suspected (min dot = {orientation_min_dot:.6f}). Check IOP consistency.")
@@ -220,10 +213,10 @@ def main(argv=None):
 
     def world_to_eval_ijk(points):
         ipp = meta_eval['ipp']
-        r = meta_eval['row_dir']
-        c = meta_eval['col_dir']
-        s = meta_eval['slice_dir']
-        return world_to_index(ipp, r, c, s, meta_eval['row_spacing'], meta_eval['col_spacing'], meta_eval['z_offsets'], points)
+        v_col = meta_eval['v_col']
+        v_row = meta_eval['v_row']
+        v_slice = meta_eval['v_slice']
+        return world_to_index(ipp, v_col, v_row, v_slice, meta_eval['s_col'], meta_eval['s_row'], meta_eval['z_offsets'], points)
 
     # Default: resample eval onto ref grid without shift
     logging.info("Performing initial resampling of evaluation dose.")
@@ -240,15 +233,16 @@ def main(argv=None):
         # Correct for the difference in origins before searching for shift.
         # Project the LPS origin delta onto the reference axis directions so that
         # eval axes are expressed in the same coordinate frame (r,c,s of ref).
+        # Projects LPS origin delta onto reference axes components (i, j, k)
         origin_offset_vec = meta_ref['ipp'] - meta_eval['ipp']
-        dz_ref = float(np.dot(origin_offset_vec, meta_ref['slice_dir']))
-        dy_ref = float(np.dot(origin_offset_vec, meta_ref['row_dir']))
-        dx_ref = float(np.dot(origin_offset_vec, meta_ref['col_dir']))
-        logging.info(f"Correcting for origin offset projected onto ref axes: dx={dx_ref:.3f}, dy={dy_ref:.3f}, dz={dz_ref:.3f} mm")
+        dz_ref = float(np.dot(origin_offset_vec, meta_ref['v_slice']))
+        dy_ref = float(np.dot(origin_offset_vec, meta_ref['v_row']))
+        dx_ref = float(np.dot(origin_offset_vec, meta_ref['v_col']))
+        logging.info(f"Origin offset projected onto ref axes: di={dx_ref:.3f}, dj={dy_ref:.3f}, dk={dz_ref:.3f} mm")
         eval_axes_mm_1d_preshifted = (
-            eval_axes_mm_1d[0] + dz_ref,  # Z along ref slice_dir
-            eval_axes_mm_1d[1] + dy_ref,  # Y along ref row_dir
-            eval_axes_mm_1d[2] + dx_ref   # X along ref col_dir
+            eval_axes_mm_1d[0] + dz_ref,  # k along ref v_slice
+            eval_axes_mm_1d[1] + dy_ref,  # j along ref v_row
+            eval_axes_mm_1d[2] + dx_ref   # i along ref v_col
         )
 
         best_shift, best_pass, extras = grid_search_best_shift(
@@ -275,12 +269,12 @@ def main(argv=None):
         # Convert best shift from ref axis components (dx along col_dir,
         # dy along row_dir, dz along slice_dir) into LPS vector components.
         if isinstance(best_shift, tuple) and len(best_shift) == 3:
-            dx_axis, dy_axis, dz_axis = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
+            di_axis, dj_axis, dk_axis = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
         else:
-            dx_axis = dy_axis = dz_axis = 0.0
-        shift_vec_lps = (dx_axis * meta_ref['col_dir']
-                         + dy_axis * meta_ref['row_dir']
-                         + dz_axis * meta_ref['slice_dir'])
+            di_axis = dj_axis = dk_axis = 0.0
+        shift_vec_lps = (di_axis * meta_ref['v_col']
+                         + dj_axis * meta_ref['v_row']
+                         + dk_axis * meta_ref['v_slice'])
         logging.info(f"Performing final resampling with best shift (axis)={best_shift} -> (LPS)={shift_vec_lps}")
         eval_on_ref = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw, Yw, Zw), interp=args.interp,
                                              shift_mm=(float(shift_vec_lps[0]), float(shift_vec_lps[1]), float(shift_vec_lps[2])))
@@ -306,8 +300,8 @@ def main(argv=None):
         # Build world coords only for this plane slice and resample eval
         (Xw1, Yw1, Zw1), (ax_z, ax_y, ax_x) = build_plane_world_coords(meta_ref, args.plane, sl)
         def world_to_eval_ijk(xyz):
-            return world_to_index(meta_eval['ipp'], meta_eval['row_dir'], meta_eval['col_dir'], meta_eval['slice_dir'],
-                                  meta_eval['row_spacing'], meta_eval['col_spacing'], meta_eval['z_offsets'], xyz)
+            return world_to_index(meta_eval['ipp'], meta_eval['v_col'], meta_eval['v_row'], meta_eval['v_slice'],
+                                  meta_eval['s_col'], meta_eval['s_row'], meta_eval['z_offsets'], xyz)
         eval_on_ref_slice = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw1, Yw1, Zw1), interp=args.interp, shift_mm=(0, 0, 0))
         # Extract ref slice
         if args.plane == 'axial':
