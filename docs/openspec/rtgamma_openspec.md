@@ -2,14 +2,14 @@
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE 比較、3D/2D ガンマ、シフト最適化、ヘッダ比較（RTPLAN補助含む）、レポート・可視化・GUI 起動。
-- Non-Goals: RTSTRUCT/ROI マスクの本格対応、GPU/CuPy 実装、Nelder–Mead 等のローカル探索（将来案）。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア（CT/Structureオーバーレイ）。
+- Future: GPU/CuPy 実装、Nelder–Mead 等のローカル探索。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
 - 2つの線量（CCC vs MC など）を 3%/2mm/10% で比較し、GPR と差の可視化を得る。
-- 幾何差（FoR/IPP/IOP/GFOV/スケール）をヘッダ比較で事前確認し、必要に応じてシフト最適化を適用。
-- GUI でファイル選択・DTA/DD/Cutoff 直接入力・2D/3D 実行・サマリ自動オープンまでをワンクリックで行う。
+- 幾何差（FoR/IPP/IOP/GFOV/スケール）をヘッダ比較で事前確認。
+- GUI でファイル（またはフォルダ）選択・DTA/DD/Cutoff 直接入力・2D/3D 実行・サマリ自動オープンまでをワンクリックで行う。
 
 ## 3. Inputs & Outputs
 - Inputs

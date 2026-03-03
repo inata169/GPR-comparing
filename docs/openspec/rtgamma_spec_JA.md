@@ -4,8 +4,7 @@
 
 ## 1. 概要
 - 目的: RTDOSE×RTDOSE の 2D/3D ガンマ解析を、幾何整合（IPP/IOP/PixelSpacing/GFOV）を厳密に保ちながら、再現性高く実行する。
-- 範囲: 2D/3D ガンマ、Global/Local、シフト最適化（粗→細）、GUI 起動、レポート生成（CSV/JSON/MD）。
-- 非対象: ROI/RTSTRUCT マスクの本格対応（将来検討）、GPU/CuPy（検討中）。
+- 範囲: 2D/3D ガンマ解析、Global/Local、シフト最適化、RTSTRUCT/ROI マスクによる部位別評価、3D インタラクティブビューア、GUI 起動、レポート生成。
 
 ## 2. システム要件
 - Python 3.9 以上

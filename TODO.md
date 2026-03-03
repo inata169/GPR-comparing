@@ -30,6 +30,8 @@ Optional / stretch
 - [x] ROI/RTSTRUCT masking for ROI-limited GPR (Implemented generation & JSON/MD output)
 - [x] DICOM/Grid Coordinate Alignment (Fixed ROI projection and coordinate system inconsistencies)
 - [x] Local gamma option wired to CLI and report
+- [x] 空間不整合の修正: 画像配列とLPS座標系のマッピングを修正し、ROIマスクが線量グリッドと正しく重なるようにしました。
+- [x] RTSTRUCT 読み込みのロバスト性向上: ディレクトリ指定時に配下の RTSTRUCT を自動検索する機能、および拡張子に依らないモダリティ判定ロジックの実装。
 - [x] GUI RTSTRUCT/ROI support (Added Browse/Input fields to run_gui.ps1)
 - [x] Coordinate round-trip unit tests (Added test_coord_roundtrip.py)
 - [ ] 2D pre-scan to narrow 3D search space automatically
@@ -39,10 +41,24 @@ Optional / stretch
 - [x] GUI デザインのダークテーマ刷新。
 - [x] GUI 文字化け修正 (Unicode em-dash/▶ 除外)。
 - [x] ログ領域の拡大 (280px) とウィンドウ縦幅 (950px) の調整。
+- [x] **3D ガンマビューアの実装**
+  - [x] CT画像シリーズ読み込み (`load_ct`)
+  - [x] CT→DOSEグリッドへのリサンプリング (`resample_ct_onto_dose`)
+  - [x] インタラクティブな3Dビューア (`scripts/gamma_viewer.py`)
+  - [x] CT/Gamma/Structureの個別ON/OFFスイッチ、1パネル集約、マルチ断面表示
+  - [x] UI視認性向上: チェックボックス（Matplotlib対応）とGPR条件（DTA等）の常時表示。
+  - [x] MC vs 標準線量の評価テストバッチ(`run_viewer_test.bat`)の更新。
+  - [x] 初期リサンプリングの遅延評価化による解析速度向上。
 
-- 今回刷新した GUI を活用し、実データでの PTV/OAR 単位の解析や最適化探索の詳細評価を継続。
-- RTSTRUCT 読み込み時のファイル名例外（拡張子が .0 で終わる場合など）へのロバスト性向上。
-- ヘッダ比較結果に基づいた幾何的な不一致のさらなる調査。
+- [x] 自己比較時の最適化バイパスおよび同等パス率時の最小シフト選択ロジック（`optimize.py`更新）。
+- [x] シフト最適化における不用意な評価点数保護ルール（80%ルール）の撤回（異なる照射野サイズでの正当なアライメント棄却防止）。
+- [x] RTSTRUCT 読み込み時のロバスト性向上（ディレクトリ指定対応、ファイル名に依らないモダリティ判定）。
+
+## 未解決・今後の課題 (2026-03-03 追加)
+- [x] **シフト探索と最終計算の不整合調査**: 
+  - (原因1) 初期座標の相違を吸収するアフィン変換の射影(`origin_offset_vec`)において、符合（ベクトル方向）が逆になっていたバグを特定し修正しました。
+  - (原因2) 最適化探索後に行う「最終ガンマ評価」において、これまでは空間を内挿(Interpolation)によるリサンプリングでRefグリッドへ固定してから評価していましたが、これによって2D/3D空間上での用量分布のピークがぼやけ(blur)、解像度以下の真の距離を評価できずパス率が急減する現象が生じることを突き止めました。
+  - (対策) 最終評価時のGamma値算出において、リサンプリングで「ボクセルを動かした」用量分布の形を評価するのではなく、原画像の用量分布データそのものを維持し、逆に「評価点用軸（`axes_eval_mm_final`）」を最適シフト分だけ物理的にずらす方式へ改修しました。これにより、純粋な位置ズレとして高解像度のサブグリッド評価が復活し、自己比較の100%パスなどを完全に保証できるようになりました。
 
 How to resume
 1) Generate header diffs (see command.txt lines 15–18) and review Notes sections.

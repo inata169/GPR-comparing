@@ -218,32 +218,49 @@ def main(argv=None):
         v_slice = meta_eval['v_slice']
         return world_to_index(ipp, v_col, v_row, v_slice, meta_eval['s_col'], meta_eval['s_row'], meta_eval['z_offsets'], points)
 
-    # Default: resample eval onto ref grid without shift
-    logging.info("Performing initial resampling of evaluation dose.")
-    eval_on_ref = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw, Yw, Zw), interp=args.interp, shift_mm=(0, 0, 0))
-    logging.info("Initial resampling complete.")
+    # Lazy resampling: only computed when eval_on_ref is actually needed
+    # (e.g. --save-dose-diff output or 2D+opt_shift=on slice extraction)
+    _eval_on_ref_cache = [None]  # mutable container for closure
+    _eval_on_ref_shift = [(0.0, 0.0, 0.0)]  # track which shift was applied
+    def get_eval_on_ref(shift_mm=(0.0, 0.0, 0.0)):
+        if _eval_on_ref_cache[0] is None or _eval_on_ref_shift[0] != shift_mm:
+            logging.info(f"Resampling evaluation dose (shift_mm={shift_mm}).")
+            _eval_on_ref_cache[0] = resample_eval_onto_ref(
+                dose_eval, world_to_eval_ijk, (Xw, Yw, Zw),
+                interp=args.interp, shift_mm=shift_mm)
+            _eval_on_ref_shift[0] = shift_mm
+            logging.info("Resampling complete.")
+        return _eval_on_ref_cache[0]
+
+    # Correct for the difference in origins to express eval axes in the reference coordinate frame.
+    # To align eval to ref, the physical point P_eval must be represented in ref's coordinate system.
+    # P_eval_physical = IPP_eval + x_eval * v_col
+    # P_ref_equivalent = P_eval_physical - IPP_ref = x_eval * v_col + (IPP_eval - IPP_ref)
+    origin_offset_vec = meta_eval['ipp'] - meta_ref['ipp']
+    dz_ref = float(np.dot(origin_offset_vec, meta_ref['v_slice']))
+    dy_ref = float(np.dot(origin_offset_vec, meta_ref['v_row']))
+    dx_ref = float(np.dot(origin_offset_vec, meta_ref['v_col']))
+    logging.info(f"Origin offset projected onto ref axes: di={dx_ref:.3f}, dj={dy_ref:.3f}, dk={dz_ref:.3f} mm")
+    eval_axes_mm_1d = (meta_eval['z_coords_mm'], meta_eval['y_coords_mm'], meta_eval['x_coords_mm'])
+    eval_axes_mm_1d_preshifted = (
+        eval_axes_mm_1d[0] + dz_ref,  # k along ref v_slice
+        eval_axes_mm_1d[1] + dy_ref,  # j along ref v_row
+        eval_axes_mm_1d[2] + dx_ref   # i along ref v_col
+    )
 
     best_shift = (0.0, 0.0, 0.0)
+    di_axis = dj_axis = dk_axis = 0.0
     search_log = None
+    
+    # Bypass optimization if Ref and Eval are the same file
+    if os.path.exists(args.ref) and os.path.exists(args.eval):
+        if os.path.abspath(args.ref) == os.path.abspath(args.eval):
+            logging.info("Identity comparison detected (Ref==Eval). Bypassing shift optimization.")
+            args.opt_shift = 'off'
+
     if args.opt_shift == 'on':
         logging.info("Starting shift optimization.")
         ref_axes_mm_1d = (meta_ref['z_coords_mm'], meta_ref['y_coords_mm'], meta_ref['x_coords_mm'])
-        eval_axes_mm_1d = (meta_eval['z_coords_mm'], meta_eval['y_coords_mm'], meta_eval['x_coords_mm'])
-
-        # Correct for the difference in origins before searching for shift.
-        # Project the LPS origin delta onto the reference axis directions so that
-        # eval axes are expressed in the same coordinate frame (r,c,s of ref).
-        # Projects LPS origin delta onto reference axes components (i, j, k)
-        origin_offset_vec = meta_ref['ipp'] - meta_eval['ipp']
-        dz_ref = float(np.dot(origin_offset_vec, meta_ref['v_slice']))
-        dy_ref = float(np.dot(origin_offset_vec, meta_ref['v_row']))
-        dx_ref = float(np.dot(origin_offset_vec, meta_ref['v_col']))
-        logging.info(f"Origin offset projected onto ref axes: di={dx_ref:.3f}, dj={dy_ref:.3f}, dk={dz_ref:.3f} mm")
-        eval_axes_mm_1d_preshifted = (
-            eval_axes_mm_1d[0] + dz_ref,  # k along ref v_slice
-            eval_axes_mm_1d[1] + dy_ref,  # j along ref v_row
-            eval_axes_mm_1d[2] + dx_ref   # i along ref v_col
-        )
 
         best_shift, best_pass, extras = grid_search_best_shift(
             ref_axes_mm_1d=ref_axes_mm_1d,
@@ -270,15 +287,13 @@ def main(argv=None):
         # dy along row_dir, dz along slice_dir) into LPS vector components.
         if isinstance(best_shift, tuple) and len(best_shift) == 3:
             di_axis, dj_axis, dk_axis = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
-        else:
-            di_axis = dj_axis = dk_axis = 0.0
         shift_vec_lps = (di_axis * meta_ref['v_col']
                          + dj_axis * meta_ref['v_row']
                          + dk_axis * meta_ref['v_slice'])
-        logging.info(f"Performing final resampling with best shift (axis)={best_shift} -> (LPS)={shift_vec_lps}")
-        eval_on_ref = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw, Yw, Zw), interp=args.interp,
-                                             shift_mm=(float(shift_vec_lps[0]), float(shift_vec_lps[1]), float(shift_vec_lps[2])))
-        logging.info("Final resampling complete.")
+        # Store the LPS shift so that lazy resampling uses the correct shift when needed
+        _eval_on_ref_shift[0] = (float(shift_vec_lps[0]), float(shift_vec_lps[1]), float(shift_vec_lps[2]))
+        _eval_on_ref_cache[0] = None  # invalidate cache so next get_eval_on_ref uses new shift
+        logging.info(f"Best shift (axis)={best_shift} -> (LPS)={shift_vec_lps}. Resampling deferred until needed.")
 
     # Final gamma calculation on the optimally shifted and resampled dose grid
     # Fast path: 2D mode without shift optimization computes only the selected slice
@@ -330,11 +345,20 @@ def main(argv=None):
     else:
         logging.info("Starting final gamma calculation.")
         axes_ref_mm = (meta_ref['z_coords_mm'], meta_ref['y_coords_mm'], meta_ref['x_coords_mm'])
+        
+        # We use the un-resampled original eval dose and its correctly shifted axes.
+        # This prevents interpolation blur and preserves sub-voxel gamma resolution!
+        axes_eval_mm_final = (
+            eval_axes_mm_1d_preshifted[0] + dk_axis,
+            eval_axes_mm_1d_preshifted[1] + dj_axis,
+            eval_axes_mm_1d_preshifted[2] + di_axis
+        )
+        
         gamma_map, pass_rate, gstats = compute_gamma(
             axes_ref_mm=axes_ref_mm,
             dose_ref=dose_ref,
-            axes_eval_mm=axes_ref_mm,  # Now eval is on the ref grid
-            dose_eval=eval_on_ref,
+            axes_eval_mm=axes_eval_mm_final, # Eval is explicitly offset to sub-grid physical coordinates
+            dose_eval=dose_eval,             # ORIGINAL un-blurred dose!
             dd_percent=args.dd,
             dta_mm=args.dta,
             cutoff_percent=args.cutoff,
@@ -430,15 +454,15 @@ def main(argv=None):
             if args.plane == 'axial':
                 g2d = gamma_map[sl, :, :]
                 r2d = dose_ref[sl, :, :]
-                e2d = eval_on_ref[sl, :, :]
+                e2d = get_eval_on_ref(_eval_on_ref_shift[0])[sl, :, :]
             elif args.plane == 'sagittal':
                 g2d = gamma_map[:, :, sl]
                 r2d = dose_ref[:, :, sl]
-                e2d = eval_on_ref[:, :, sl]
+                e2d = get_eval_on_ref(_eval_on_ref_shift[0])[:, :, sl]
             else:  # coronal
                 g2d = gamma_map[:, sl, :]
                 r2d = dose_ref[:, sl, :]
-                e2d = eval_on_ref[:, sl, :]
+                e2d = get_eval_on_ref(_eval_on_ref_shift[0])[:, sl, :]
 
         # Compute 2D pass rate on the selected slice (exclude NaN/inf and cutoff-excluded voxels)
         finite_mask = np.isfinite(g2d)
@@ -462,7 +486,8 @@ def main(argv=None):
         if args.save_dose_diff:
             logging.info(f"Saving 3D dose difference map to {args.save_dose_diff}")
             nf = np.nanmax(dose_ref) if np.isfinite(dose_ref).any() else 1.0
-            np.savez_compressed(args.save_dose_diff, dose_diff_pct=(eval_on_ref - dose_ref) / nf * 100.0)
+            eor = get_eval_on_ref(_eval_on_ref_shift[0])
+            np.savez_compressed(args.save_dose_diff, dose_diff_pct=(eor - dose_ref) / nf * 100.0)
 
     if args.report:
         logging.info(f"Saving report to {args.report}")

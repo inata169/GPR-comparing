@@ -1,0 +1,113 @@
+﻿python : FAIL: phits-linac-validation\output\rtgamma\struct_test_2024
+_all\run.json -> Additional properties are not allowed ('per_structur
+e' was unexpected)
+発生場所 行:1 文字:20
++ ... THONUTF8=1; python scripts/validate_report.py phits-linac-valid
+ation/ ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL: phits-lin...was u 
+   nexpected):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Failed validating 'additionalProperties' in schema:
+    {'$schema': 'http://json-schema.org/draft-07/schema#',
+     'title': 'rtgamma report summary',
+     'type': 'object',
+     'additionalProperties': False,
+     'properties': {'ref': {'type': ['string', 'null']},
+                    'eval': {'type': ['string', 'null']},
+                    'mode': {'type': 'string', 'enum': ['2d', '3d']},
+                    'plane': {'type': ['string', 'null'],
+                              'enum': ['axial',
+                                       'sagittal',
+                                       'coronal',
+                                       None]},
+                    'plane_index': {'type': ['integer', 'null']},
+                    'dd_percent': {'type': 'number'},
+                    'dta_mm': {'type': 'number'},
+                    'cutoff_percent': {'type': 'number'},
+                    'gamma_type': {'type': 'string',
+                                   'enum': ['global', 'local']},
+                    'norm': {'type': 'string',
+                             'enum': ['global_max', 'max_ref', 'none'
+]},
+                    'pass_rate_percent': {'oneOf': [{'type': 'number'
+},
+                                                    {'type': 'null'},
+                                                    {'type': 'string'
+,
+                                                     'enum': ['NaN']}
+],
+                                          'description': '豕ｨ諢・ 螳溯｣・・ 
+Python 縺ｮ '
+                                                         'NaN '
+                                                         '繧帝撼讓呎ｺ悶ヨ繝ｼ繧
+ｯ繝ｳ縺ｧ蜃ｺ蜉帙☆繧句ｴ蜷医′縺ゅｊ縺ｾ縺吶ゅせ繧ｭ繝ｼ繝槭・謨ｴ蠖｢貂医∩・域枚蟄怜・ '
+                                                         "'NaN' 縺ｾ縺溘・
+ "
+                                                         'null・峨ｂ險ｱ螳ｹ
+縺励∪縺吶・},
+                    'best_shift_mm': {'type': 'array',
+                                      'minItems': 3,
+                                      'maxItems': 3,
+                                      'items': {'type': 'number'}},
+                    'best_shift_mag_mm': {'type': 'number'},
+                    'absolute_geometry_only': {'type': 'boolean'},
+                    'ref_for_uid': {'type': ['string', 'null']},
+                    'eval_for_uid': {'type': ['string', 'null']},
+                    'same_for_uid': {'type': 'boolean'},
+                    'orientation_min_dot': {'oneOf': [{'type': 'numbe
+r'},
+                                                      {'type': 'null'
+},
+                                                      {'type': 'strin
+g',
+                                                       'enum': ['NaN'
+]}]},
+                    'warnings': {'type': 'string'},
+                    'gamma_mean': {'type': 'number'},
+                    'gamma_median': {'type': 'number'},
+                    'gamma_max': {'type': 'number'}},
+     'required': ['mode',
+                  'dd_percent',
+                  'dta_mm',
+                  'cutoff_percent',
+                  'gamma_type',
+                  'norm',
+                  'best_shift_mm',
+                  'absolute_geometry_only']}
+
+On instance:
+    {'ref': 'RTDOSE_2.16.840.1.114337.1.6420.1764295957.1',
+     'eval': 'RTDOSE_2.16.840.1.114337.1.6420.1764295957.2',
+     'mode': '3d',
+     'plane': None,
+     'plane_index': None,
+     'dd_percent': 3.0,
+     'dta_mm': 2.0,
+     'cutoff_percent': 10.0,
+     'gamma_type': 'global',
+     'norm': 'global_max',
+     'pass_rate_percent': 1.9655235315578254,
+     'best_shift_mm': [0.0, 0.0, 0.0],
+     'best_shift_mag_mm': 0.0,
+     'absolute_geometry_only': False,
+     'ref_for_uid': '1.2.840.113619.2.278.3.2831163296.627.1729117993
+.68.13480.1',
+     'eval_for_uid': '1.2.840.113619.2.278.3.2831163296.627.172911799
+3.68.13480.1',
+     'same_for_uid': True,
+     'orientation_min_dot': 1.0,
+     'warnings': '',
+     'gamma_mean': 11.54104995727539,
+     'gamma_median': 13.255035400390625,
+     'gamma_max': 21.709028244018555,
+     'per_structure': [{'roi_name': 'patient',
+                        'voxel_count': 738578,
+                        'evaluated_count': 0,
+                        'pass_rate_percent': nan,
+                        'gamma_mean': nan,
+                        'gamma_median': nan,
+                        'gamma_max': nan}]}

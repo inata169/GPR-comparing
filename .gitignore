@@ -4,3 +4,20 @@ docs/openspec/images/*.jpg
 docs/openspec/images/*.jpeg
 # Allow a curated example screenshot to be committed
 !docs/openspec/images/Gui-screenshot.png
+
+# Data and large files
+dicom/
+output/
+*.npz
+*.log
+__pycache__/
+*.pyc
+
+# Temporary files
+_git_*.txt
+_msg.txt
+com-res.txt
+commit_docs_message.txt
+codex_inet_gitpy_v4.ps1
+debug_dicom_info*.py
+create_graph.py

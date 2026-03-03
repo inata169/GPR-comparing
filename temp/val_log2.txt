@@ -1,0 +1,1 @@
+﻿OK: phits-linac-validation\output\rtgamma\struct_test_2024_all\run.json

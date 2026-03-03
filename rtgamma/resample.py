@@ -38,3 +38,61 @@ def resample_eval_onto_ref(
     sampled = ndimage.map_coordinates(eval_dose, [ijk[..., 0], ijk[..., 1], ijk[..., 2]],
                                       order=order, mode='constant', cval=cval)
     return sampled.reshape(Zs.shape)
+
+
+def resample_ct_onto_dose(ct_meta: dict, dose_meta: dict, interp: InterpMode = 'linear') -> np.ndarray:
+    """Resample CT (HU) volume onto the DOSE grid using world coordinates.
+
+    Parameters
+    ----------
+    ct_meta : dict from load_ct
+    dose_meta : dict from load_rtdose
+    interp : interpolation mode
+
+    Returns
+    -------
+    ct_on_dose : ndarray float32, shape matching dose grid (z, y, x), HU values
+    """
+    # Build fractional CT voxel indices for each DOSE grid world position
+    dose = dose_meta['dose']
+    nz_d, ny_d, nx_d = dose.shape
+
+    # DOSE grid world coordinates
+    ipp_d = dose_meta['ipp']
+    v_col_d = dose_meta['v_col']
+    v_row_d = dose_meta['v_row']
+    v_slice_d = dose_meta['v_slice']
+    i_mm = dose_meta['x_coords_mm']
+    j_mm = dose_meta['y_coords_mm']
+    k_mm = dose_meta['z_coords_mm']
+
+    # Build flat world coordinate array for dose voxel centers
+    J, I, K = np.meshgrid(j_mm, i_mm, k_mm, indexing='ij')
+    Pw = (ipp_d[None, None, None, :]
+          + J[..., None] * v_row_d[None, None, None, :]
+          + I[..., None] * v_col_d[None, None, None, :]
+          + K[..., None] * v_slice_d[None, None, None, :])
+    Pw = np.moveaxis(Pw, 2, 0)  # (k, j, i, 3)
+
+    # CT grid parameters
+    ipp_ct = ct_meta['ipp']
+    v_col_ct = ct_meta['v_col']
+    v_row_ct = ct_meta['v_row']
+    z_pos_ct = ct_meta['z_positions']
+    s_col_ct = ct_meta['s_col']
+    s_row_ct = ct_meta['s_row']
+
+    # Project dose world points into CT voxel indices
+    d = Pw.reshape(-1, 3) - ipp_ct
+    i_ct = (d @ v_col_ct) / s_col_ct
+    j_ct = (d @ v_row_ct) / s_row_ct
+    # Z: interpolate using CT z_positions
+    z_world = Pw[..., 2].ravel()  # world Z of each dose point
+    k_ct = np.interp(z_world, z_pos_ct, np.arange(len(z_pos_ct), dtype=float),
+                     left=-1, right=-1)
+
+    coords = np.stack([k_ct, j_ct, i_ct], axis=0)
+    order = _order_from_interp(interp)
+    ct_on_dose = ndimage.map_coordinates(ct_meta['ct_hu'], coords,
+                                         order=order, mode='constant', cval=-1000.0)
+    return ct_on_dose.reshape(dose.shape).astype(np.float32)

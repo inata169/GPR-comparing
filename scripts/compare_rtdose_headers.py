@@ -11,8 +11,8 @@ def summarize(meta):
     rows, cols = int(ds.Rows), int(ds.Columns)
     nframes = int(getattr(ds, 'NumberOfFrames', 1))
     ipp = meta['ipp']
-    r, c, s = meta['row_dir'], meta['col_dir'], meta['slice_dir']
-    row_spacing, col_spacing = meta['row_spacing'], meta['col_spacing']
+    r, c, s = meta['v_row'], meta['v_col'], meta['v_slice']
+    row_spacing, col_spacing = meta['s_row'], meta['s_col']
     z_offsets = meta['z_offsets']
     x_mm, y_mm, z_mm = meta['x_coords_mm'], meta['y_coords_mm'], meta['z_coords_mm']
 
@@ -59,16 +59,16 @@ def summarize(meta):
 def project_origin_delta(meta_a, meta_b):
     # delta from b to a in ref (a) axes
     d = meta_a['ipp'] - meta_b['ipp']
-    dx = float(np.dot(d, meta_a['col_dir']))
-    dy = float(np.dot(d, meta_a['row_dir']))
-    dz = float(np.dot(d, meta_a['slice_dir']))
+    dx = float(np.dot(d, meta_a['v_col']))
+    dy = float(np.dot(d, meta_a['v_row']))
+    dz = float(np.dot(d, meta_a['v_slice']))
     return dx, dy, dz
 
 
 def orientation_similarity(meta_a, meta_b):
-    dot_row = float(abs(np.dot(meta_a['row_dir'], meta_b['row_dir'])))
-    dot_col = float(abs(np.dot(meta_a['col_dir'], meta_b['col_dir'])))
-    dot_sli = float(abs(np.dot(meta_a['slice_dir'], meta_b['slice_dir'])))
+    dot_row = float(abs(np.dot(meta_a['v_row'], meta_b['v_row'])))
+    dot_col = float(abs(np.dot(meta_a['v_col'], meta_b['v_col'])))
+    dot_sli = float(abs(np.dot(meta_a['v_slice'], meta_b['v_slice'])))
     return min(dot_row, dot_col, dot_sli)
 
 

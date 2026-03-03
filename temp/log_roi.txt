@@ -1,0 +1,28 @@
+﻿2026-03-02 12:31:31,904 - INFO - Arguments: Namespace(ref='dicom/2024101700/RTDOSE_2.16.840.1.114337.1.6420.1764295957.1', eval='dicom/2024101700/RTDOSE_2.16.840.1.114337.1.6420.1764295957.2', mode='3d', plane=None, plane_index='auto', dd=3.0, dta=2.0, cutoff=10.0, gamma_type='global', norm='global_max', cutoff_mask='ref', low_dose_exclusion=None, opt_shift='off', shift_range='x:-3:3:1,y:-3:3:1,z:-3:3:1', refine='coarse2fine', fine_range_mm=10.0, fine_step_mm=1.0, early_stop_epsilon=0.05, early_stop_patience=100, prescan_2d='on', spacing=None, interp='linear', save_gamma_map=None, save_dose_diff=None, report='phits-linac-validation/output/rtgamma/struct_test_2024_roi', log_level='INFO', warn_large_shift_mm=20.0, seed=None, threads=None, profile=None, gpu='off', tolerance=1e-06, rtstruct='dicom/2024101700/RTSTRUCT_2.16.840.1.114337.1.6420.1764295945.0', roi_names=['patient'])
+2026-03-02 12:31:31,904 - INFO - Loading reference dose: dicom/2024101700/RTDOSE_2.16.840.1.114337.1.6420.1764295957.1
+2026-03-02 12:31:31,966 - INFO - Reference dose loaded.
+2026-03-02 12:31:31,966 - INFO - Loading evaluation dose: dicom/2024101700/RTDOSE_2.16.840.1.114337.1.6420.1764295957.2
+2026-03-02 12:31:32,028 - INFO - Evaluation dose loaded.
+2026-03-02 12:31:32,030 - INFO - Ref IPP: [-269.  -109.  -457.3], Eval IPP: [-269.  -109.  -457.3]
+2026-03-02 12:31:32,030 - INFO - Ref Row Dir: [1. 0. 0.], Eval Row Dir: [1. 0. 0.]
+2026-03-02 12:31:32,030 - INFO - Ref Col Dir: [0. 1. 0.], Eval Col Dir: [0. 1. 0.]
+2026-03-02 12:31:32,030 - INFO - Ref PixelSpacing: [3, 3], Eval PixelSpacing: [3, 3]
+2026-03-02 12:31:32,030 - INFO - Ref GridFrameOffsetVector (first 5): ['0.0', '3.0', '6.0', '9.0', '12.0'], Eval GridFrameOffsetVector (first 5): ['0.0', '3.0', '6.0', '9.0', '12.0']
+2026-03-02 12:31:32,030 - INFO - Ref DoseGridScaling: 0.000703014, Eval DoseGridScaling: 0.000379857
+2026-03-02 12:31:32,030 - INFO - Ref DoseUnits: GY, Eval DoseUnits: GY
+2026-03-02 12:31:32,032 - INFO - Ref FoR UID: 1.2.840.113619.2.278.3.2831163296.627.1729117993.68.13480.1, Eval FoR UID: 1.2.840.113619.2.278.3.2831163296.627.1729117993.68.13480.1
+2026-03-02 12:31:32,035 - INFO - Ref Dose Min/Max: 0.0, 46.072021484375
+2026-03-02 12:31:32,037 - INFO - Eval Dose Min/Max (after normalization): 0.0, 24.89392852783203
+2026-03-02 12:31:32,037 - INFO - Building reference world coordinates.
+2026-03-02 12:31:32,791 - INFO - Reference world coordinates built.
+2026-03-02 12:31:32,791 - INFO - Performing initial resampling of evaluation dose.
+2026-03-02 12:31:34,210 - INFO - Initial resampling complete.
+2026-03-02 12:31:34,212 - INFO - Starting final gamma calculation.
+2026-03-02 12:31:39,900 - INFO - Final gamma calculation complete. Pass rate: 1.9655235315578254
+2026-03-02 12:31:39,900 - INFO - Loading RTSTRUCT: dicom/2024101700/RTSTRUCT_2.16.840.1.114337.1.6420.1764295945.0
+2026-03-02 12:31:43,776 - INFO - RTSTRUCT loaded. ROIs: ['patient']
+2026-03-02 12:31:43,776 - INFO - Building mask for ROI 'patient' (1478 contour slices)
+2026-03-02 12:32:11,412 - INFO - ROI mask: 738578 voxels across 240 slices
+2026-03-02 12:32:11,426 - INFO - ROI 'patient': GPR=nan%, voxels=738578, evaluated=0
+2026-03-02 12:32:11,428 - INFO - Saving report to phits-linac-validation/output/rtgamma/struct_test_2024_roi
+2026-03-02 12:32:11,432 - INFO - Gamma analysis finished.

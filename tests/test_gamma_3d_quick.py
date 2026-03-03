@@ -29,9 +29,9 @@ def test_gamma_quick_3d_crop():
     x_mm = ref['x_coords_mm'][x_slice]
     z_mm = ref['z_coords_mm'][z_slice]
     ipp = ref['ipp']
-    r = ref['row_dir']
-    c = ref['col_dir']
-    s = ref['slice_dir']
+    r = ref['v_row']
+    c = ref['v_col']
+    s = ref['v_slice']
     Y, X, Z = np.meshgrid(y_mm, x_mm, z_mm, indexing='ij')
     Pw = (ipp[None, None, None, :]
           + Y[..., None] * r[None, None, None, :]
@@ -43,8 +43,8 @@ def test_gamma_quick_3d_crop():
     # Resample eval onto the cropped ref world coords (no shift)
     from rtgamma.io_dicom import world_to_index
     def world_to_eval_ijk(xyz):
-        return world_to_index(eva['ipp'], eva['row_dir'], eva['col_dir'], eva['slice_dir'],
-                              eva['row_spacing'], eva['col_spacing'], eva['z_offsets'], xyz)
+        return world_to_index(eva['ipp'], eva['v_col'], eva['v_row'], eva['v_slice'],
+                              eva['s_col'], eva['s_row'], eva['z_offsets'], xyz)
 
     eval_on_ref_crop = resample_eval_onto_ref(eva['dose'], world_to_eval_ijk, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
 

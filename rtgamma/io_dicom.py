@@ -97,6 +97,88 @@ def load_rtdose(path: str) -> Dict:
     return meta
 
 
+def load_ct(path: str) -> Dict:
+    """Load a CT DICOM series from a directory.
+
+    Arguments:
+        path: Directory containing CT DICOM slice files.
+
+    Returns dict with keys:
+        ct_hu: 3D ndarray float32 (z, y, x) in Hounsfield Units
+        ipp: ImagePositionPatient of the first slice (LPS, mm)
+        v_col, v_row, v_slice: direction cosines (same convention as RTDOSE)
+        s_col, s_row: pixel spacing (mm)
+        z_positions: 1D array of world-Z for each slice (mm)
+        shape: tuple (nz, ny, nx)
+    """
+    import os
+    if pydicom is None:
+        raise RuntimeError("pydicom is required to read CT DICOM.")
+
+    if not os.path.isdir(path):
+        raise ValueError(f"load_ct requires a directory, got: {path}")
+
+    # Collect CT slices
+    slices = []
+    for f in os.listdir(path):
+        fpath = os.path.join(path, f)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            ds = pydicom.dcmread(fpath, stop_before_pixels=False, force=True)
+            if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
+                ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
+            if getattr(ds, 'Modality', None) == 'CT':
+                slices.append(ds)
+        except Exception:
+            continue
+
+    if not slices:
+        raise FileNotFoundError(f"No CT slices found in: {path}")
+
+    # Sort by ImagePositionPatient Z (or InstanceNumber fallback)
+    try:
+        slices.sort(key=lambda s: float(s.ImagePositionPatient[2]))
+    except Exception:
+        slices.sort(key=lambda s: int(getattr(s, 'InstanceNumber', 0)))
+
+    # Extract geometry from first slice
+    ds0 = slices[0]
+    ipp = np.array(ds0.ImagePositionPatient, dtype=float)
+    iop = np.array(ds0.ImageOrientationPatient, dtype=float)
+    v_col, v_row, v_slice = _dircos_to_matrix(iop)
+
+    ps = np.array(ds0.PixelSpacing, dtype=float)
+    s_row = float(ps[0])
+    s_col = float(ps[1])
+
+    rows = int(ds0.Rows)
+    cols = int(ds0.Columns)
+    nz = len(slices)
+
+    # Build 3D HU array
+    ct_hu = np.zeros((nz, rows, cols), dtype=np.float32)
+    z_positions = np.zeros(nz, dtype=float)
+
+    for k, ds in enumerate(slices):
+        slope = float(getattr(ds, 'RescaleSlope', 1.0))
+        intercept = float(getattr(ds, 'RescaleIntercept', 0.0))
+        ct_hu[k] = ds.pixel_array.astype(np.float32) * slope + intercept
+        z_positions[k] = float(ds.ImagePositionPatient[2])
+
+    return {
+        'ct_hu': ct_hu,
+        'ipp': ipp,
+        'v_col': v_col,
+        'v_row': v_row,
+        'v_slice': v_slice,
+        's_col': s_col,
+        's_row': s_row,
+        'z_positions': z_positions,
+        'shape': ct_hu.shape,
+    }
+
+
 def load_rtplan(path: str) -> Dict:
     if pydicom is None:
         raise RuntimeError("pydicom is required to read RTPLAN DICOM. Install pydicom.")
@@ -162,6 +244,9 @@ def load_rtplan(path: str) -> Dict:
 def load_rtstruct(path: str) -> Dict:
     """Load DICOM RTSTRUCT and extract ROI contour data.
 
+    Arguments:
+        path: Path to RTSTRUCT file, or a directory containing one.
+
     Returns dict with keys:
         roi_list: list of dicts with 'number', 'name', 'contours'
                   where contours is a list of {'z': float, 'points': ndarray(N,2)}
@@ -169,15 +254,36 @@ def load_rtstruct(path: str) -> Dict:
         for_uid: FrameOfReferenceUID string
         dataset: raw pydicom Dataset
     """
+    import os
     if pydicom is None:
         raise RuntimeError("pydicom is required to read RTSTRUCT DICOM.")
-    ds = pydicom.dcmread(path, force=True)
+
+    target_path = path
+    if os.path.isdir(path):
+        # Search for RTSTRUCT in directory
+        found = None
+        for f in os.listdir(path):
+            fpath = os.path.join(path, f)
+            if os.path.isfile(fpath):
+                try:
+                    ds_test = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
+                    if getattr(ds_test, 'Modality', None) == 'RTSTRUCT':
+                        found = fpath
+                        break
+                except Exception:
+                    continue
+        if found:
+            target_path = found
+        else:
+            raise FileNotFoundError(f"No RTSTRUCT found in directory: {path}")
+
+    ds = pydicom.dcmread(target_path, force=True)
 
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
         ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
 
     if getattr(ds, 'Modality', None) != 'RTSTRUCT':
-        raise ValueError("DICOM is not RTSTRUCT (Modality != RTSTRUCT)")
+        raise ValueError(f"DICOM is not RTSTRUCT (Modality={getattr(ds, 'Modality', 'UNKNOWN')}) at {target_path}")
 
     # Build ROI number -> name mapping
     roi_name_map = {}

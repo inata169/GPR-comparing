@@ -82,7 +82,7 @@ def test_roundtrip_oblique_orientation():
 # ── Test 3: Real DICOM round-trip ────────────────────────────────────────────
 
 @pytest.mark.parametrize("dose_subpath", [
-    'PROSTATE/RTDOSE_2.16.840.1.114337.1.11224.1772428288.1',
+    'PROSTATE/RTDOSE_2.16.840.1.114337.1.11224.1772428288.1.dcm',
     '2024101700/RTDOSE_2.16.840.1.114337.1.6420.1764295957.1',
 ])
 def test_roundtrip_with_real_dicom(dose_subpath):
@@ -111,8 +111,8 @@ def test_roundtrip_with_real_dicom(dose_subpath):
 # ── Test 4: Mask overlap self-compare ────────────────────────────────────────
 
 _PROSTATE = ROOT / 'dicom' / 'PROSTATE'
-_P_DOSE = _PROSTATE / 'RTDOSE_2.16.840.1.114337.1.11224.1772428288.1'
-_P_STRUCT = _PROSTATE / 'RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0'
+_P_DOSE = _PROSTATE / 'RTDOSE_2.16.840.1.114337.1.11224.1772428288.1.dcm'
+_P_STRUCT = _PROSTATE / 'RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0.dcm'
 
 
 def test_mask_overlap_self_compare():
