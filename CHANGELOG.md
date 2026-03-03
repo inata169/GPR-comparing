@@ -2,10 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-- ROI/RTSTRUCT-based masking (planned)
-- Local search (Nelder–Mead) option (planned)
-- Optional GPU (CuPy) backend (investigating)
+## [0.2.0] - 2026-03-03
+### Added
+- 3D Gamma Viewer (`scripts/gamma_viewer.py`): Interactive visualization with ROI overlays and toggleable structure visibility.
+- RTSTRUCT support: Ability to calculate and display per-structure GPR (Gamma Pass Rate) in both CLI and GUI.
+- Evaluation condition display: The viewer now shows current DD/DTA/Cutoff settings.
+
+### Changed
+- GUI Redesign: Dark theme implementation with improved layout and direct input fields for analysis parameters.
+- Performance Optimization: Implemented lazy evaluation for resampling, significantly reducing startup time and improving UI responsiveness.
+
+### Fixed
+- Coordinate Alignment: Resolved inconsistencies in LPS coordinate projection when comparing DICOM volumes with different origins.
+- UI Toggling: Fixed a visual bug in the 3D viewer where checkboxes sometimes failed to update their checkmarks visually despite data toggling correctly.
 
 ## [0.1.0] - 2025-10-23
 ### Added
