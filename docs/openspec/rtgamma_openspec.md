@@ -9,7 +9,7 @@
 ## 2. Use Cases
 - 2つの線量（CCC vs MC など）を 3%/2mm/10% で比較し、GPR と差の可視化を得る。
 - 幾何差（FoR/IPP/IOP/GFOV/スケール）をヘッダ比較で事前確認し、必要に応じてシフト最適化を適用。
-- GUI でファイル選択・臨床プリセット・2D/3D 実行・サマリ自動オープンまでをワンクリックで行う。
+- GUI でファイル選択・DTA/DD/Cutoff 直接入力・2D/3D 実行・サマリ自動オープンまでをワンクリックで行う。
 
 ## 3. Inputs & Outputs
 - Inputs
@@ -125,5 +125,5 @@
 - CLI/入出力・実行: rtgamma/main.py
 - DICOM I/O・幾何: rtgamma/io_dicom.py
 - レポート出力: rtgamma/report.py
-- GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json
+- GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md

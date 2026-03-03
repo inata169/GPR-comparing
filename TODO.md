@@ -28,8 +28,21 @@ Medium priority
 
 Optional / stretch
 - [x] ROI/RTSTRUCT masking for ROI-limited GPR (Implemented generation & JSON/MD output)
-- [ ] Local gamma option wired to CLI and report
+- [x] DICOM/Grid Coordinate Alignment (Fixed ROI projection and coordinate system inconsistencies)
+- [x] Local gamma option wired to CLI and report
+- [x] GUI RTSTRUCT/ROI support (Added Browse/Input fields to run_gui.ps1)
+- [x] Coordinate round-trip unit tests (Added test_coord_roundtrip.py)
 - [ ] 2D pre-scan to narrow 3D search space automatically
+
+## 次のステップ (2026-03-03)
+- [x] clinical preset 廃止と DTA/DD/Cutoff 直接入力への移行 (dd_percent 指定ミスバグの恒久対策)。
+- [x] GUI デザインのダークテーマ刷新。
+- [x] GUI 文字化け修正 (Unicode em-dash/▶ 除外)。
+- [x] ログ領域の拡大 (280px) とウィンドウ縦幅 (950px) の調整。
+
+- 今回刷新した GUI を活用し、実データでの PTV/OAR 単位の解析や最適化探索の詳細評価を継続。
+- RTSTRUCT 読み込み時のファイル名例外（拡張子が .0 で終わる場合など）へのロバスト性向上。
+- ヘッダ比較結果に基づいた幾何的な不一致のさらなる調査。
 
 How to resume
 1) Generate header diffs (see command.txt lines 15–18) and review Notes sections.

@@ -17,195 +17,311 @@ if (Test-Path $cfgPath) {
   try { $cfg = Get-Content -Raw -Path $cfgPath | ConvertFrom-Json } catch { $cfg = @{} }
 }
 
-function New-Label($text, $x, $y){
+# =============================================
+#  Dark Theme Color Palette
+# =============================================
+$clrBg        = [System.Drawing.Color]::FromArgb(30, 30, 46)
+$clrPanel     = [System.Drawing.Color]::FromArgb(40, 42, 60)
+$clrInput     = [System.Drawing.Color]::FromArgb(55, 58, 80)
+$clrAccent    = [System.Drawing.Color]::FromArgb(100, 149, 237)  # cornflower blue
+$clrAccentH   = [System.Drawing.Color]::FromArgb(130, 170, 255)  # lighter hover
+$clrGreen     = [System.Drawing.Color]::FromArgb(80, 200, 120)
+$clrRed       = [System.Drawing.Color]::FromArgb(255, 100, 100)
+$clrYellow    = [System.Drawing.Color]::FromArgb(255, 200, 60)
+$clrText      = [System.Drawing.Color]::FromArgb(220, 225, 240)
+$clrDimTxt    = [System.Drawing.Color]::FromArgb(140, 150, 170)
+$clrSep       = [System.Drawing.Color]::FromArgb(60, 65, 90)
+
+$fontMain     = New-Object System.Drawing.Font('Segoe UI', 9.5)
+$fontTitle    = New-Object System.Drawing.Font('Segoe UI Semibold', 11)
+$fontSect     = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
+$fontMono     = New-Object System.Drawing.Font('Consolas', 9)
+
+# =============================================
+#  Helper: Themed Controls
+# =============================================
+function New-DarkLabel($text, $x, $y, [System.Drawing.Font]$f = $fontMain, [System.Drawing.Color]$fg = $clrDimTxt){
   $lbl = New-Object System.Windows.Forms.Label
-  $lbl.Text = $text
-  $lbl.Location = New-Object System.Drawing.Point($x,$y)
-  $lbl.AutoSize = $true
+  $lbl.Text = $text; $lbl.Font = $f; $lbl.ForeColor = $fg
+  $lbl.BackColor = [System.Drawing.Color]::Transparent
+  $lbl.Location = New-Object System.Drawing.Point($x,$y); $lbl.AutoSize = $true
   return $lbl
 }
-function New-Button($text, $x, $y, $w=80, $h=28){
-  $btn = New-Object System.Windows.Forms.Button
-  $btn.Text = $text
-  $btn.Location = New-Object System.Drawing.Point($x,$y)
-  $btn.Size = New-Object System.Drawing.Size($w,$h)
-  return $btn
-}
-function New-TextBox($x, $y, $w=420){
+function New-DarkTextBox($x, $y, $w=520, [bool]$ro=$true){
   $tb = New-Object System.Windows.Forms.TextBox
   $tb.Location = New-Object System.Drawing.Point($x,$y)
-  $tb.Size = New-Object System.Drawing.Size($w,24)
-  $tb.ReadOnly = $true
+  $tb.Size = New-Object System.Drawing.Size($w,26)
+  $tb.Font = $fontMain; $tb.ReadOnly = $ro
+  $tb.BackColor = $clrInput; $tb.ForeColor = $clrText
+  $tb.BorderStyle = 'FixedSingle'
   return $tb
 }
+function New-DarkButton($text, $x, $y, $w=90, $h=30){
+  $btn = New-Object System.Windows.Forms.Button
+  $btn.Text = $text; $btn.Font = $fontMain
+  $btn.Location = New-Object System.Drawing.Point($x,$y)
+  $btn.Size = New-Object System.Drawing.Size($w,$h)
+  $btn.FlatStyle = 'Flat'
+  $btn.FlatAppearance.BorderColor = $clrAccent
+  $btn.FlatAppearance.BorderSize = 1
+  $btn.BackColor = $clrPanel; $btn.ForeColor = $clrAccent
+  $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
+  $btn.Add_MouseEnter({ $this.BackColor = $clrAccent; $this.ForeColor = $clrBg })
+  $btn.Add_MouseLeave({ $this.BackColor = $clrPanel; $this.ForeColor = $clrAccent })
+  return $btn
+}
+function New-DarkCheck($text, $x, $y, [bool]$checked=$false){
+  $cb = New-Object System.Windows.Forms.CheckBox
+  $cb.Text = $text; $cb.Font = $fontMain
+  $cb.Location = New-Object System.Drawing.Point($x,$y)
+  $cb.AutoSize = $true; $cb.Checked = $checked
+  $cb.ForeColor = $clrText; $cb.BackColor = [System.Drawing.Color]::Transparent
+  return $cb
+}
+function New-DarkCombo($x, $y, $w=220, $items){
+  $cb = New-Object System.Windows.Forms.ComboBox
+  $cb.Location = New-Object System.Drawing.Point($x,$y)
+  $cb.Size = New-Object System.Drawing.Size($w,26)
+  $cb.DropDownStyle = 'DropDownList'
+  $cb.Font = $fontMain; $cb.BackColor = $clrInput; $cb.ForeColor = $clrText
+  $cb.FlatStyle = 'Flat'
+  $cb.Items.AddRange($items)
+  return $cb
+}
+function New-Separator($y, $w=720){
+  $p = New-Object System.Windows.Forms.Panel
+  $p.Location = New-Object System.Drawing.Point(20, $y)
+  $p.Size = New-Object System.Drawing.Size($w, 1)
+  $p.BackColor = $clrSep
+  return $p
+}
 
-# Form
+# =============================================
+#  Form
+# =============================================
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'rtgamma GUI Runner'
-$form.Size = New-Object System.Drawing.Size(720,720)
+$form.Text = 'rtgamma  |  Gamma Analysis Tool'
+$form.Size = New-Object System.Drawing.Size(780,950)
 $form.StartPosition = 'CenterScreen'
-$form.Font = New-Object System.Drawing.Font('Segoe UI',9)
-$form.BackColor = [System.Drawing.Color]::FromArgb(245,250,255)
+$form.Font = $fontMain
+$form.BackColor = $clrBg
+$form.ForeColor = $clrText
+$form.FormBorderStyle = 'FixedSingle'
+$form.MaximizeBox = $false
 
-# REF / EVAL selectors
-$form.Controls.Add((New-Label 'Ref RTDOSE (.dcm)' 20 20))
-$tbRef = New-TextBox 20 44 560
-$btnRef = New-Button 'Browse...' 600 42
-$form.Controls.Add($tbRef)
-$form.Controls.Add($btnRef)
+# Title banner
+$lblTitle = New-DarkLabel 'rtgamma  -  DICOM RTDOSE Gamma Analysis' 24 14 $fontTitle $clrAccent
+$form.Controls.Add($lblTitle)
+$lblSubTitle = New-DarkLabel 'Configure parameters and run 2D / 3D gamma pass-rate evaluation' 24 38 $fontMain $clrDimTxt
+$form.Controls.Add($lblSubTitle)
+$form.Controls.Add((New-Separator 62 720))
 
-$form.Controls.Add((New-Label 'Eval RTDOSE (.dcm)' 20 80))
-$tbEval = New-TextBox 20 104 560
-$btnEval = New-Button 'Browse...' 600 102
-$form.Controls.Add($tbEval)
-$form.Controls.Add($btnEval)
+# =============================================
+#  Section: File Paths
+# =============================================
+$yf = 72
+$form.Controls.Add((New-DarkLabel 'FILE PATHS' 24 $yf $fontSect $clrAccent))
+$yf += 24
+
+# Ref
+$form.Controls.Add((New-DarkLabel 'Reference RTDOSE' 24 $yf))
+$yf += 20
+$tbRef = New-DarkTextBox 24 $yf 600
+$btnRef = New-DarkButton 'Browse' 640 $yf
+$form.Controls.Add($tbRef); $form.Controls.Add($btnRef)
+$yf += 34
+
+# Eval
+$form.Controls.Add((New-DarkLabel 'Evaluation RTDOSE' 24 $yf))
+$yf += 20
+$tbEval = New-DarkTextBox 24 $yf 600
+$btnEval = New-DarkButton 'Browse' 640 $yf
+$form.Controls.Add($tbEval); $form.Controls.Add($btnEval)
+$yf += 34
 
 # RTSTRUCT
-$form.Controls.Add((New-Label 'RTSTRUCT (.dcm, optional)' 20 140))
-$tbStruct = New-TextBox 20 164 560
-$btnStruct = New-Button 'Browse...' 600 162
-$form.Controls.Add($tbStruct)
-$form.Controls.Add($btnStruct)
+$form.Controls.Add((New-DarkLabel 'RTSTRUCT  (optional)' 24 $yf))
+$yf += 20
+$tbStruct = New-DarkTextBox 24 $yf 600
+$btnStruct = New-DarkButton 'Browse' 640 $yf
+$form.Controls.Add($tbStruct); $form.Controls.Add($btnStruct)
+$yf += 34
 
 # ROI
-$form.Controls.Add((New-Label 'ROI Name (optional, comma separated, e.g. PTV,GTV)' 20 200))
-$tbRoi = New-TextBox 20 224 560
-$tbRoi.ReadOnly = $false
+$form.Controls.Add((New-DarkLabel 'ROI Names  (comma separated, e.g. PTV,GTV - blank = all)' 24 $yf))
+$yf += 20
+$tbRoi = New-DarkTextBox 24 $yf 600 $false
 $form.Controls.Add($tbRoi)
+$yf += 34
 
-# Output folder
-$form.Controls.Add((New-Label 'Output Folder' 20 260))
-$tbOut = New-TextBox 20 284 560
-$btnOut = New-Button 'Select...' 600 282
-$form.Controls.Add($tbOut)
-$form.Controls.Add($btnOut)
+# Output
+$form.Controls.Add((New-DarkLabel 'Output Folder' 24 $yf))
+$yf += 20
+$tbOut = New-DarkTextBox 24 $yf 600
+$btnOut = New-DarkButton 'Select' 640 $yf
+$form.Controls.Add($tbOut); $form.Controls.Add($btnOut)
+$yf += 38
+
+$form.Controls.Add((New-Separator ($yf) 720))
+$yf += 10
+
+# =============================================
+#  Section: Gamma Parameters  (DTA / DD / Cutoff)
+# =============================================
+$form.Controls.Add((New-DarkLabel 'GAMMA PARAMETERS' 24 $yf $fontSect $clrAccent))
+$yf += 28
+
+# DTA
+$form.Controls.Add((New-DarkLabel 'DTA  [mm]' 24 $yf))
+$tbDTA = New-DarkTextBox 130 ($yf - 2) 80 $false
+$tbDTA.Text = '2.0'; $tbDTA.TextAlign = 'Center'
+$form.Controls.Add($tbDTA)
+
+# DD
+$form.Controls.Add((New-DarkLabel 'DD  [%]' 250 $yf))
+$tbDD = New-DarkTextBox 340 ($yf - 2) 80 $false
+$tbDD.Text = '3.0'; $tbDD.TextAlign = 'Center'
+$form.Controls.Add($tbDD)
+
+# Cutoff
+$form.Controls.Add((New-DarkLabel 'Cutoff  [%]' 460 $yf))
+$tbCutoff = New-DarkTextBox 570 ($yf - 2) 80 $false
+$tbCutoff.Text = '10.0'; $tbCutoff.TextAlign = 'Center'
+$form.Controls.Add($tbCutoff)
+
+$yf += 36
+$form.Controls.Add((New-Separator ($yf) 720))
+$yf += 10
+
+# =============================================
+#  Section: Analysis Settings
+# =============================================
+$form.Controls.Add((New-DarkLabel 'ANALYSIS SETTINGS' 24 $yf $fontSect $clrAccent))
+$yf += 28
 
 # Action
-$form.Controls.Add((New-Label 'Action' 20 324))
-$cbAction = New-Object System.Windows.Forms.ComboBox
-$cbAction.Location = New-Object System.Drawing.Point(20,348)
-$cbAction.Size = New-Object System.Drawing.Size(260,24)
-$cbAction.DropDownStyle = 'DropDownList'
-$cbAction.Items.AddRange(@('Header Compare','3D (clinical preset)','2D (clinical preset)'))
+$form.Controls.Add((New-DarkLabel 'Action' 24 $yf))
+$cbAction = New-DarkCombo 130 ($yf - 2) 180 @('Header Compare','3D Gamma','2D Gamma')
 $cbAction.SelectedIndex = 1
 $form.Controls.Add($cbAction)
 
-# Preset profile
-$form.Controls.Add((New-Label 'Clinical Preset' 320 324))
-$cbProfile = New-Object System.Windows.Forms.ComboBox
-$cbProfile.Location = New-Object System.Drawing.Point(320,348)
-$cbProfile.Size = New-Object System.Drawing.Size(260,24)
-$cbProfile.DropDownStyle = 'DropDownList'
-$cbProfile.Items.AddRange(@('clinical_abs (abs 3%/2mm/10%)','clinical_rel (rel 3%/2mm/10%)','clinical_2x2 (2%/2mm/10%)','clinical_3x3 (3%/3mm/10%)'))
-$cbProfile.SelectedIndex = 1
-$form.Controls.Add($cbProfile)
+# Norm
+$form.Controls.Add((New-DarkLabel 'Norm' 340 $yf))
+$cbNorm = New-DarkCombo 410 ($yf - 2) 180 @('global_max','max_ref','none')
+$cbNorm.SelectedIndex = 0
+$form.Controls.Add($cbNorm)
 
-# 2D plane
-$form.Controls.Add((New-Label '2D Plane' 20 384))
-$cbPlane = New-Object System.Windows.Forms.ComboBox
-$cbPlane.Location = New-Object System.Drawing.Point(20,408)
-$cbPlane.Size = New-Object System.Drawing.Size(180,24)
-$cbPlane.DropDownStyle = 'DropDownList'
-$cbPlane.Items.AddRange(@('axial','sagittal','coronal'))
+$yf += 36
+
+# 2D Plane
+$form.Controls.Add((New-DarkLabel '2D Plane' 24 $yf))
+$cbPlane = New-DarkCombo 130 ($yf - 2) 120 @('axial','sagittal','coronal')
 $cbPlane.SelectedIndex = 0
 $form.Controls.Add($cbPlane)
 
-# Plane index (auto or number)
-$form.Controls.Add((New-Label 'Plane Index (auto or number)' 20 436))
-$tbPlaneIndex = New-Object System.Windows.Forms.TextBox
-$tbPlaneIndex.Location = New-Object System.Drawing.Point(20,460)
-$tbPlaneIndex.Size = New-Object System.Drawing.Size(180,24)
-$tbPlaneIndex.ReadOnly = $false
-$tbPlaneIndex.Text = 'auto'
-$form.Controls.Add($tbPlaneIndex)
-
-# Optimize shift checkbox (default: off)
-$cbOpt = New-Object System.Windows.Forms.CheckBox
-$cbOpt.Text = 'Optimize shift'
-$cbOpt.Location = New-Object System.Drawing.Point(320,380)
-$cbOpt.AutoSize = $true
-$cbOpt.Checked = $false
-$form.Controls.Add($cbOpt)
-
-# Local gamma checkbox (default: global)
-$cbLocal = New-Object System.Windows.Forms.CheckBox
-$cbLocal.Text = 'Local gamma'
-$cbLocal.Location = New-Object System.Drawing.Point(320,408)
-$cbLocal.AutoSize = $true
-$cbLocal.Checked = $false
-$form.Controls.Add($cbLocal)
+# Plane Index
+$form.Controls.Add((New-DarkLabel 'Plane Index' 270 $yf))
+$tbPlaneIdx = New-DarkTextBox 370 ($yf - 2) 80 $false
+$tbPlaneIdx.Text = 'auto'; $tbPlaneIdx.TextAlign = 'Center'
+$form.Controls.Add($tbPlaneIdx)
 
 # Threads
 $cpu = [Environment]::ProcessorCount
-$form.Controls.Add((New-Label "Threads (optional, 0=auto, max=$cpu)" 220 384))
+$form.Controls.Add((New-DarkLabel "Threads (max=$cpu)" 480 $yf))
 $nudThreads = New-Object System.Windows.Forms.NumericUpDown
-$nudThreads.Location = New-Object System.Drawing.Point(220,408)
-$nudThreads.Size = New-Object System.Drawing.Size(100,24)
-$nudThreads.Minimum = 0
-$nudThreads.Maximum = [decimal]$cpu
-$nudThreads.Value = [decimal]$cpu
+$nudThreads.Location = New-Object System.Drawing.Point(620, ($yf - 2))
+$nudThreads.Size = New-Object System.Drawing.Size(80, 26)
+$nudThreads.Font = $fontMain; $nudThreads.BackColor = $clrInput; $nudThreads.ForeColor = $clrText
+$nudThreads.Minimum = 0; $nudThreads.Maximum = [decimal]$cpu; $nudThreads.Value = [decimal]$cpu
+$nudThreads.BorderStyle = 'FixedSingle'
 $form.Controls.Add($nudThreads)
 
-# Options: open on finish, save log
-$cbOpen = New-Object System.Windows.Forms.CheckBox
-$cbOpen.Text = 'Open summary on finish'
-$cbOpen.Location = New-Object System.Drawing.Point(340,408)
-$cbOpen.AutoSize = $true
-$cbOpen.Checked = $true
+$yf += 38
+
+# Checkboxes row
+$cbOpt    = New-DarkCheck 'Optimize Shift' 24 $yf $false
+$cbLocal  = New-DarkCheck 'Local Gamma' 180 $yf $false
+$cbNPZ    = New-DarkCheck 'Save 3D NPZ' 330 $yf $false
+$cbLog    = New-DarkCheck 'Save Log' 480 $yf $true
+$form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbLog)
+$yf += 28
+$cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
 $form.Controls.Add($cbOpen)
+$yf += 34
 
-$cbSaveLog = New-Object System.Windows.Forms.CheckBox
-$cbSaveLog.Text = 'Save log to file'
-$cbSaveLog.Location = New-Object System.Drawing.Point(520,408)
-$cbSaveLog.AutoSize = $true
-$cbSaveLog.Checked = $true
-$form.Controls.Add($cbSaveLog)
+$form.Controls.Add((New-Separator ($yf) 720))
+$yf += 10
 
-# 3D NPZ save toggle
-$cbSaveNPZ3D = New-Object System.Windows.Forms.CheckBox
-$cbSaveNPZ3D.Text = 'Save 3D NPZ (gamma/diff)'
-$cbSaveNPZ3D.Location = New-Object System.Drawing.Point(340,380)
-$cbSaveNPZ3D.AutoSize = $true
-$cbSaveNPZ3D.Checked = $false
-$form.Controls.Add($cbSaveNPZ3D)
+# =============================================
+#  Section: Run Controls
+# =============================================
+$form.Controls.Add((New-DarkLabel 'RUN' 24 $yf $fontSect $clrAccent))
+$yf += 28
 
-# Run / Open buttons
-$btnRun = New-Button 'Run' 20 492 120 34
-$btnCancel = New-Button 'Cancel' 160 492 120 34
-$btnCancel.Enabled = $false
-$btnOpen = New-Button 'Open Output' 300 492 160 34
-$lblStatus = New-Label 'Status: Idle' 480 498
-$pb = New-Object System.Windows.Forms.ProgressBar
-$pb.Location = New-Object System.Drawing.Point(20, 532)
-$pb.Size = New-Object System.Drawing.Size(660, 12)
-$pb.Style = 'Marquee'
-$pb.MarqueeAnimationSpeed = 25
-$pb.Visible = $false
-$form.Controls.Add($lblStatus)
+# Run button (prominent green)
+$btnRun = New-Object System.Windows.Forms.Button
+$btnRun.Text = '>> Run'; $btnRun.Font = New-Object System.Drawing.Font('Segoe UI Semibold',11)
+$btnRun.Location = New-Object System.Drawing.Point(24, $yf)
+$btnRun.Size = New-Object System.Drawing.Size(140, 40)
+$btnRun.FlatStyle = 'Flat'; $btnRun.FlatAppearance.BorderSize = 0
+$btnRun.BackColor = $clrGreen; $btnRun.ForeColor = $clrBg
+$btnRun.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnRun.Add_MouseEnter({ $this.BackColor = [System.Drawing.Color]::FromArgb(100, 230, 140) })
+$btnRun.Add_MouseLeave({ $this.BackColor = $clrGreen })
 $form.Controls.Add($btnRun)
-$form.Controls.Add($btnCancel)
-$form.Controls.Add($btnOpen)
-$form.Controls.Add($pb)
 
-# Log box
+# Cancel
+$btnCancel = New-DarkButton 'Cancel' 180 $yf 100 40
+$btnCancel.Enabled = $false
+$btnCancel.FlatAppearance.BorderColor = $clrRed; $btnCancel.ForeColor = $clrRed
+$btnCancel.Add_MouseEnter({ $this.BackColor = $clrRed; $this.ForeColor = $clrBg })
+$btnCancel.Add_MouseLeave({ $this.BackColor = $clrPanel; $this.ForeColor = $clrRed })
+$form.Controls.Add($btnCancel)
+
+# Open Output
+$btnOpen = New-DarkButton 'Open Output' 300 $yf 130 40
+$form.Controls.Add($btnOpen)
+
+# Save Settings
+$btnSave = New-DarkButton 'Save Settings' 570 $yf 140 40
+$form.Controls.Add($btnSave)
+
+$yf += 48
+
+# Status / Elapsed
+$lblStatus  = New-DarkLabel 'Status: Idle' 24 $yf $fontMain $clrDimTxt
+$lblElapsed = New-DarkLabel 'Elapsed: --:--' 480 $yf $fontMain $clrDimTxt
+$form.Controls.Add($lblStatus); $form.Controls.Add($lblElapsed)
+$yf += 22
+
+# Progress bar
+$pb = New-Object System.Windows.Forms.ProgressBar
+$pb.Location = New-Object System.Drawing.Point(24, $yf)
+$pb.Size = New-Object System.Drawing.Size(710, 6)
+$pb.Style = 'Marquee'; $pb.MarqueeAnimationSpeed = 20; $pb.Visible = $false
+$form.Controls.Add($pb)
+$yf += 14
+
+# Log output
 $tbLog = New-Object System.Windows.Forms.TextBox
-$tbLog.Location = New-Object System.Drawing.Point(20,556)
-$tbLog.Size = New-Object System.Drawing.Size(660,130)
-$tbLog.Multiline = $true
-$tbLog.ScrollBars = 'Vertical'
-$tbLog.ReadOnly = $true
+$tbLog.Location = New-Object System.Drawing.Point(24, $yf)
+$tbLog.Size = New-Object System.Drawing.Size(710, 280)
+$tbLog.Multiline = $true; $tbLog.ScrollBars = 'Vertical'; $tbLog.ReadOnly = $true
+$tbLog.Font = $fontMono; $tbLog.BackColor = [System.Drawing.Color]::FromArgb(22, 22, 34); $tbLog.ForeColor = $clrGreen
+$tbLog.BorderStyle = 'FixedSingle'
 $form.Controls.Add($tbLog)
 
-# Timer for elapsed time
-$lblElapsed = New-Label 'Elapsed: 00:00' 480 474
-$lblETA = New-Label 'ETA: --:--' 480 450
-$form.Controls.Add($lblElapsed)
-$form.Controls.Add($lblETA)
+# =============================================
+#  Timer
+# =============================================
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 500
 $script:startTime = $null
 $script:proc = $null
 
+# =============================================
+#  Events
+# =============================================
 function Append-Log($text){ $tbLog.AppendText("$text`r`n") }
 
 function Browse-File([ref]$tb){
@@ -222,85 +338,89 @@ $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
 $btnEval.Add_Click({ Browse-File ([ref]$tbEval) })
 $btnStruct.Add_Click({ Browse-File ([ref]$tbStruct) })
 $btnOut.Add_Click({ Browse-Folder ([ref]$tbOut) })
-$btnOpen.Add_Click({ if([string]::IsNullOrWhiteSpace($tbOut.Text)) { return } else { Start-Process explorer.exe $tbOut.Text } })
+$btnOpen.Add_Click({ if(-not [string]::IsNullOrWhiteSpace($tbOut.Text)) { Start-Process explorer.exe $tbOut.Text } })
 
-function Get-ProfileKey(){
-  switch ($cbProfile.SelectedIndex){
-    0 { 'clinical_abs' }
-    1 { 'clinical_rel' }
-    2 { 'clinical_2x2' }
-    3 { 'clinical_3x3' }
-    default { 'clinical_rel' }
-  }
-}
-
+# =============================================
+#  Build Command
+# =============================================
 function Build-Command(){
   $ref = $tbRef.Text; $eval = $tbEval.Text; $out = $tbOut.Text
   if([string]::IsNullOrWhiteSpace($ref) -or [string]::IsNullOrWhiteSpace($eval) -or [string]::IsNullOrWhiteSpace($out)){
-    [System.Windows.Forms.MessageBox]::Show('Please select Ref/Eval/Output folder.'); return $null
+    [System.Windows.Forms.MessageBox]::Show('Please select Ref / Eval / Output folder.','Missing Input','OK','Warning')
+    return $null
   }
   New-Item -ItemType Directory -Force -Path $out | Out-Null
 
+  # Validate numeric inputs
+  $dd = 0.0; $dta = 0.0; $cutoff = 0.0
+  if (-not [double]::TryParse($tbDD.Text, [ref]$dd) -or $dd -le 0) {
+    [System.Windows.Forms.MessageBox]::Show('DD must be a positive number.','Invalid Input','OK','Warning'); return $null
+  }
+  if (-not [double]::TryParse($tbDTA.Text, [ref]$dta) -or $dta -le 0) {
+    [System.Windows.Forms.MessageBox]::Show('DTA must be a positive number.','Invalid Input','OK','Warning'); return $null
+  }
+  if (-not [double]::TryParse($tbCutoff.Text, [ref]$cutoff) -or $cutoff -lt 0) {
+    [System.Windows.Forms.MessageBox]::Show('Cutoff must be a non-negative number.','Invalid Input','OK','Warning'); return $null
+  }
+
   $threadsArg = @()
   if([int]$nudThreads.Value -gt 0){ $threadsArg = @('--threads', [int]$nudThreads.Value) }
+
+  $normVal = $cbNorm.SelectedItem
+  if ([string]::IsNullOrWhiteSpace($normVal)) { $normVal = 'global_max' }
+
+  # Common gamma args
+  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal)
+  if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
+  if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
+  if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
+    foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArgs += @('--roi', $r.Trim()) } }
+  }
+
+  $optVal = if ($cbOpt.Checked) { 'on' } else { 'off' }
+  $optArg = @('--opt-shift', $optVal)
 
   switch ($cbAction.SelectedIndex){
     0 { # Header compare
       return @('python','-u','scripts/compare_rtdose_headers.py','--a',$ref,'--b',$eval,'--out',(Join-Path $out 'header_compare.md'))
     }
-    1 { # 3D clinical
-      $profile = Get-ProfileKey
-      $optVal = 'off'
-      if ($cbOpt.Checked) { $optVal = 'on' }
-      $optArg = @('--opt-shift', $optVal)
-      $gammaArg = @()
-      if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
-      if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArg += @('--rtstruct', $tbStruct.Text.Trim()) }
-      if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
-        foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArg += @('--roi', $r.Trim()) } }
-      }
-      $baseCmd = @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArg + $threadsArg
-      if ($cbSaveNPZ3D.Checked) {
+    1 { # 3D
+      $baseCmd = @('python','-u','-m','rtgamma.main','--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
+      if ($cbNPZ.Checked) {
         $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
       }
       return $baseCmd
     }
-    2 { # 2D clinical central slice
-      $profile = Get-ProfileKey
+    2 { # 2D
       $plane = $cbPlane.SelectedItem
       $pindex = 'auto'
-      if (-not [string]::IsNullOrWhiteSpace($tbPlaneIndex.Text)) {
-        $pindex = $tbPlaneIndex.Text.Trim()
-      }
-      $optVal = 'off'
-      if ($cbOpt.Checked) { $optVal = 'on' }
-      $optArg = @('--opt-shift', $optVal)
-      $gammaArg = @()
-      if ($cbLocal.Checked) { $gammaArg = @('--gamma-type','local') }
-      if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArg += @('--rtstruct', $tbStruct.Text.Trim()) }
-      if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
-        foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArg += @('--roi', $r.Trim()) } }
-      }
-      return @('python','-u','-m','rtgamma.main','--profile',$profile,'--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,'--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),'--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),'--report',(Join-Path $out ("${plane}"))) + $optArg + $gammaArg + $threadsArg
+      if (-not [string]::IsNullOrWhiteSpace($tbPlaneIdx.Text)) { $pindex = $tbPlaneIdx.Text.Trim() }
+      return @('python','-u','-m','rtgamma.main','--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
+        '--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),
+        '--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),
+        '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg
     }
   }
 }
 
+# =============================================
+#  Run process
+# =============================================
 function Run-Cmd([string[]]$cmd){
   Append-Log ("> " + ($cmd -join ' '))
-  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $btnCancel.Enabled = $true; $lblStatus.Text = 'Status: Running'; $pb.Visible = $true
+  $btnRun.Enabled = $false; $btnRun.Text = 'Running...'; $btnCancel.Enabled = $true
+  $lblStatus.Text = 'Status: Running'; $lblStatus.ForeColor = $clrYellow
+  $pb.Visible = $true
   $script:startTime = Get-Date
   $timer.add_Tick({
     if ($script:startTime) {
       $elapsed = (Get-Date) - $script:startTime
-      $mm = [int]$elapsed.TotalMinutes
-      $ss = $elapsed.Seconds.ToString('00')
+      $mm = [int]$elapsed.TotalMinutes; $ss = $elapsed.Seconds.ToString('00')
       $lblElapsed.Text = "Elapsed: $($mm):$($ss)"
-      $lblETA.Text = 'ETA: --:--'
     }
   })
   $timer.Start()
-  # Resolve python path for reliability
+
   $pyCmd = $cmd[0]
   if ($pyCmd -eq 'python') {
     $py = (Get-Command python -ErrorAction SilentlyContinue).Source
@@ -323,16 +443,20 @@ function Run-Cmd([string[]]$cmd){
   $p.StartInfo = $psi
   $p.EnableRaisingEvents = $true
   $script:proc = $p
-
-  # Output event handlers
-  # Marshal events to UI thread
   $p.SynchronizingObject = $form
+
   $null = $p.add_OutputDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
   $null = $p.add_ErrorDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
   $null = $p.add_Exited({ param($sender,$e)
       $code = $sender.ExitCode
-      $btnRun.Enabled = $true; $btnRun.Text = 'Run'; $btnCancel.Enabled = $false; $lblStatus.Text = "Status: Done (Exit $code)"; $pb.Visible = $false; $timer.Stop(); $script:startTime = $null; $script:proc = $null
-      if ($cbSaveLog.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
+      $btnRun.Enabled = $true; $btnRun.Text = '>> Run'; $btnCancel.Enabled = $false
+      $pb.Visible = $false; $timer.Stop(); $script:startTime = $null; $script:proc = $null
+      if ($code -eq 0) {
+        $lblStatus.Text = "Status: Done (Exit 0)"; $lblStatus.ForeColor = $clrGreen
+      } else {
+        $lblStatus.Text = "Status: Error (Exit $code)"; $lblStatus.ForeColor = $clrRed
+      }
+      if ($cbLog.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
           $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
           $logPath = Join-Path $tbOut.Text ("run_log_" + $stamp + ".txt")
@@ -341,22 +465,17 @@ function Run-Cmd([string[]]$cmd){
       }
       if ($cbOpen.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
-          # Prefer a summary PDF if present
           $pdf = Get-ChildItem -Path $tbOut.Text -Filter '*summary.pdf' -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($pdf) { Start-Process $pdf.FullName }
           else {
-            # Prefer an expected report name based on action
             $preferred = $null
             switch ($cbAction.SelectedIndex) {
               0 { $preferred = Join-Path $tbOut.Text 'header_compare.md' }
               1 { $preferred = Join-Path $tbOut.Text 'run3d.md' }
               2 { $preferred = Join-Path $tbOut.Text ("{0}.md" -f $cbPlane.SelectedItem) }
             }
-            if ($preferred -and (Test-Path $preferred)) {
-              Start-Process $preferred
-            }
+            if ($preferred -and (Test-Path $preferred)) { Start-Process $preferred }
             else {
-              # Fallback: open the most recently modified *.md under the folder
               $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
               if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
             }
@@ -370,70 +489,70 @@ function Run-Cmd([string[]]$cmd){
   $p.BeginErrorReadLine()
 }
 
-# Cancel support
+# Cancel
 $btnCancel.Add_Click({
   try {
     if ($script:proc -and -not $script:proc.HasExited) {
       $script:proc.Kill()
-      $lblStatus.Text = 'Status: Canceled'
-      $pb.Visible = $false
-      $btnCancel.Enabled = $false
-      $btnRun.Enabled = $true
-      $btnRun.Text = 'Run'
+      $lblStatus.Text = 'Status: Canceled'; $lblStatus.ForeColor = $clrRed
+      $pb.Visible = $false; $btnCancel.Enabled = $false
+      $btnRun.Enabled = $true; $btnRun.Text = '>> Run'
       $timer.Stop(); $script:startTime = $null; $script:proc = $null
       Append-Log('Process canceled by user.')
     }
   } catch {}
 })
 
-# Apply config defaults to UI
+# =============================================
+#  Apply saved config defaults
+# =============================================
 try {
-  if ($cfg.output_dir) { $tbOut.Text = [string]$cfg.output_dir }
-  if ($cfg.plane_index) { $tbPlaneIndex.Text = [string]$cfg.plane_index } else { $tbPlaneIndex.Text = 'auto' }
-  if ($cfg.save_npz_3d -ne $null) { $cbSaveNPZ3D.Checked = [bool]$cfg.save_npz_3d }
-  if ($cfg.profile) {
-    switch ([string]$cfg.profile) {
-      'clinical_abs' { $cbProfile.SelectedIndex = 0 }
-      'clinical_rel' { $cbProfile.SelectedIndex = 1 }
-      'clinical_2x2' { $cbProfile.SelectedIndex = 2 }
-      'clinical_3x3' { $cbProfile.SelectedIndex = 3 }
-    }
-  }
-  if ($cfg.rtstruct -ne $null) { $tbStruct.Text = [string]$cfg.rtstruct }
-  if ($cfg.roi -ne $null) { $tbRoi.Text = [string]$cfg.roi }
+  if ($cfg.output_dir)  { $tbOut.Text = [string]$cfg.output_dir }
+  if ($cfg.plane_index) { $tbPlaneIdx.Text = [string]$cfg.plane_index } else { $tbPlaneIdx.Text = 'auto' }
+  if ($cfg.save_npz_3d -ne $null)    { $cbNPZ.Checked = [bool]$cfg.save_npz_3d }
+  if ($cfg.rtstruct -ne $null)       { $tbStruct.Text = [string]$cfg.rtstruct }
+  if ($cfg.roi -ne $null)            { $tbRoi.Text = [string]$cfg.roi }
+  if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
+  if ($cfg.save_log -ne $null)       { $cbLog.Checked = [bool]$cfg.save_log }
+  if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
   if ($cfg.action) {
     switch ([string]$cfg.action) {
       'header' { $cbAction.SelectedIndex = 0 }
-      '3d' { $cbAction.SelectedIndex = 1 }
-      '2d' { $cbAction.SelectedIndex = 2 }
+      '3d'     { $cbAction.SelectedIndex = 1 }
+      '2d'     { $cbAction.SelectedIndex = 2 }
     }
   }
-  if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
-  if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
-  if ($cfg.save_log -ne $null) { $cbSaveLog.Checked = [bool]$cfg.save_log }
+  # Load gamma params from config
+  if ($cfg.dd)     { $tbDD.Text     = [string]$cfg.dd }
+  if ($cfg.dta)    { $tbDTA.Text    = [string]$cfg.dta }
+  if ($cfg.cutoff) { $tbCutoff.Text = [string]$cfg.cutoff }
+  if ($cfg.norm)   {
+    $normIdx = $cbNorm.Items.IndexOf([string]$cfg.norm)
+    if ($normIdx -ge 0) { $cbNorm.SelectedIndex = $normIdx }
+  }
 } catch {}
 
-# Save settings button
-$btnSave = New-Button 'Save Settings' 540 450 140 34
-$form.Controls.Add($btnSave)
+# Save settings
 $btnSave.Add_Click({
   $actionMap = @('header','3d','2d')
   $actionKey = $actionMap[[int]$cbAction.SelectedIndex]
   if (-not $actionKey) { $actionKey = '3d' }
   $new = [ordered]@{
-    profile = (Get-ProfileKey)
-    action = $actionKey
-    threads = [int]$nudThreads.Value
-    output_dir = $tbOut.Text
+    dd          = $tbDD.Text
+    dta         = $tbDTA.Text
+    cutoff      = $tbCutoff.Text
+    norm        = $cbNorm.SelectedItem
+    action      = $actionKey
+    threads     = [int]$nudThreads.Value
+    output_dir  = $tbOut.Text
     open_on_finish = $cbOpen.Checked
-    save_log = $cbSaveLog.Checked
-    progress_marquee = $true
-    plane_index = $tbPlaneIndex.Text
-    save_npz_3d = $cbSaveNPZ3D.Checked
-    rtstruct = $tbStruct.Text
-    roi = $tbRoi.Text
+    save_log    = $cbLog.Checked
+    plane_index = $tbPlaneIdx.Text
+    save_npz_3d = $cbNPZ.Checked
+    rtstruct    = $tbStruct.Text
+    roi         = $tbRoi.Text
   }
-  try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Saved.') } catch {}
+  try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Settings saved.','rtgamma','OK','Information') } catch {}
 })
 
 $btnRun.Add_Click({
