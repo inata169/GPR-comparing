@@ -1,3 +1,22 @@
+# Daily Summary: 2026-03-04
+
+## 作業内容サマリ
+1. **3D ガンマビューアの大幅強化 (`scripts/gamma_viewer.py`)**
+   - **Ref / Eval 線量表示**: Ref と Eval の線量分布を CT 上にオーバーレイ表示する機能を追加。`jet` カラーマップでカラーバー付き。`main()` から `ref_dose` (RefのDOSE配列) と `eval_on_ref` (Evalのリサンプリング済み配列) をビューアに渡す構造に拡張。
+   - **5モード切替**: RadioButtons を `Gamma` / `Pass/Fail` / `Ref Dose` / `Eval Dose` / `Dose Ratio` の5択に拡張し、瞬時に切替可能に。
+   - **Pass/Fail モード**: ガンマ値 <= 1.0 を緑(OK)、> 1.0 を赤(NG) で表示する二値マップ。各スライスの GPR と OK/NG ボクセル数を画面左下にオーバーレイ表示。
+   - **Dose Ratio モード**: Eval/Ref の線量比を `bwr` (赤青) カラーマップで表示 (スケール 0.8-1.2)。Cutoff 未満のボクセルは自動マスク。
+   - **ファイル名表示**: ビューア画面左上に Ref / Eval の DICOM ファイル名 (basename) をモノスペースフォントで常時表示。
+   - **チェックボックス修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
+   - **カラーバー**: 専用 Axes にモード切替時にラベル・スケールが自動更新されるカラーバーを追加。
+   - **NPZ + Eval 併用対応**: `--gamma-npz` で事前計算ガンマを読み込む場合でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能に。
+
+## 次のステップ
+- 強化されたビューアを活用し、MC vs CCC の線量分布と Pass/Fail の視覚的評価を実施。
+- Dose Ratio モードで系統的な線量差のある領域の特定と解析を行う。
+
+---
+
 # Daily Summary: 2026-03-03
 
 ## 作業内容サマリ

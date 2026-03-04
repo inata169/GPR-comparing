@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Interactive 3D Gamma Viewer with CT background and Structure overlay.
+"""Interactive 3D Gamma Viewer with CT background, Dose overlay, and Structure overlay.
 
 Usage:
     python scripts/gamma_viewer.py \
@@ -13,6 +13,7 @@ Usage:
     python scripts/gamma_viewer.py \
         --ct dicom/PROSTATE/ \
         --ref dicom/PROSTATE/RTDOSE_*.dcm \
+        --eval dicom/PROSTATE/RTDOSE_*.dcm \
         --gamma-npz output/gamma3d.npz \
         --rtstruct dicom/PROSTATE/RTSTRUCT_*.dcm
 """
@@ -26,6 +27,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, RadioButtons, CheckButtons
 from matplotlib.patches import Polygon
+from matplotlib.colors import ListedColormap
 from matplotlib.collections import PatchCollection
 
 # Ensure repo root is on path
@@ -41,7 +43,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ── Predefined ROI colors ────────────────────────────────────────────────────
+# -- Predefined ROI colors -----------------------------------------------
 ROI_COLORS = [
     '#FF4444',  # red
     '#4488FF',  # blue
@@ -54,6 +56,9 @@ ROI_COLORS = [
     '#FF8888',  # light red
     '#88AAFF',  # light blue
 ]
+
+# -- Pass/Fail colormap (green=OK, red=NG) --------------------------------
+_PASS_FAIL_CMAP = ListedColormap(['#00CC00', '#FF2222'])
 
 
 def get_contours_for_slice(roi_contours, z_world, z_tol):
@@ -74,23 +79,48 @@ def compute_dose_z_world(dose_meta, k):
 
 
 class GammaViewer:
-    def __init__(self, ct_on_dose, gamma_map, dose_meta, rtstruct_meta=None,
+    def __init__(self, ct_on_dose, gamma_map, dose_meta,
+                 ref_dose=None, eval_dose=None,
+                 rtstruct_meta=None,
                  roi_names=None, roi_masks=None, per_structure_stats=None,
-                 gpr_cond=None):
+                 gpr_cond=None, ref_label='', eval_label=''):
         self.ct = ct_on_dose  # (z, y, x) HU
         self.gamma = gamma_map  # (z, y, x)
         self.dose_meta = dose_meta
+        self.ref_dose = ref_dose    # (z, y, x) Gy
+        self.eval_dose = eval_dose  # (z, y, x) Gy resampled onto ref grid
         self.rtstruct_meta = rtstruct_meta
         self.roi_names = roi_names or []
         self.per_structure_stats = per_structure_stats or []
         self.gpr_cond = gpr_cond
-        
+        self.ref_label = ref_label
+        self.eval_label = eval_label
+
         self.plane = 'axial'
         self.nz, self.ny, self.nx = self.ct.shape
         self.slice_idx = self.nz // 2
-        
-        self.visible = {'CT': True, 'Gamma': True, 'Structure': True}
+
+        self.visible = {'CT': True, 'Structure': True}
         self.roi_visible = {name: True for name in self.roi_names}
+
+        # Overlay mode
+        self.overlay_mode = 'Gamma'
+
+        # Precompute dose vmax for consistent color scaling
+        self._dose_vmax = 0.0
+        if ref_dose is not None:
+            self._dose_vmax = max(self._dose_vmax, float(np.nanmax(ref_dose)))
+        if eval_dose is not None:
+            self._dose_vmax = max(self._dose_vmax, float(np.nanmax(eval_dose)))
+        if self._dose_vmax == 0:
+            self._dose_vmax = 1.0
+
+        # Precompute dose ratio (Eval / Ref)
+        self.dose_ratio = None
+        if ref_dose is not None and eval_dose is not None:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ratio = np.where(ref_dose > 0, eval_dose / ref_dose, np.nan)
+            self.dose_ratio = ratio
 
         # Precompute world Z for dose slices
         self.dose_z_world = np.array([compute_dose_z_world(dose_meta, k) for k in range(self.nz)])
@@ -114,54 +144,85 @@ class GammaViewer:
         return vol[:, s, :]
 
     def _build_ui(self):
-        self.fig = plt.figure(figsize=(12, 8), facecolor='#111111')
+        self.fig = plt.figure(figsize=(14, 9), facecolor='#111111')
         self.fig.canvas.manager.set_window_title('rtgamma 3D Viewer')
-        self.ax = self.fig.add_axes([0.05, 0.15, 0.70, 0.80])
+        self.ax = self.fig.add_axes([0.05, 0.13, 0.62, 0.78])
         self.ax.set_facecolor('#000000')
+        self._cbar_ax = self.fig.add_axes([0.68, 0.13, 0.012, 0.78])
+        self._cbar_ax.set_visible(False)
+
+        # -- File info text (top-left) --
+        info_lines = []
+        if self.ref_label:
+            info_lines.append(f"Ref : {self.ref_label}")
+        if self.eval_label:
+            info_lines.append(f"Eval: {self.eval_label}")
+        if info_lines:
+            self.fig.text(0.05, 0.97, '\n'.join(info_lines),
+                          color='#AAAAAA', family='monospace', fontsize=7,
+                          va='top', ha='left')
 
         # Slider
-        ax_slider = self.fig.add_axes([0.05, 0.05, 0.70, 0.03], facecolor='#222222')
-        self.slider = Slider(ax_slider, 'Slice', 0, self.nz-1, valinit=self.slice_idx, valstep=1, color='#4466FF')
-        # Use a wrapper to avoid recursion
+        ax_slider = self.fig.add_axes([0.05, 0.04, 0.62, 0.03], facecolor='#222222')
+        self.slider = Slider(ax_slider, 'Slice', 0, self.nz-1,
+                             valinit=self.slice_idx, valstep=1, color='#4466FF')
         self.slider.on_changed(self._on_slider_move)
 
-        # Toggles (Layer & ROIs)
-        ax_toggles = self.fig.add_axes([0.80, 0.60, 0.15, 0.35], facecolor='#222222')
-        self.check = CheckButtons(ax_toggles, ['CT', 'Gamma', 'Structure'] + self.roi_names, 
-                                 [True] * (3 + len(self.roi_names)))
+        # -- Right panel layout --
+        # CheckButtons: CT / Structure / ROIs
+        toggle_labels = ['CT', 'Structure'] + self.roi_names
+        toggle_defaults = [True] * len(toggle_labels)
+        n_toggles = len(toggle_labels)
+        toggle_h = min(0.28, 0.04 * n_toggles + 0.04)
+        ax_toggles = self.fig.add_axes([0.75, 0.96 - toggle_h, 0.22, toggle_h], facecolor='#222222')
+        self.check = CheckButtons(ax_toggles, toggle_labels, toggle_defaults)
         self.check.on_clicked(self._on_toggle)
         for lbl in self.check.labels:
-            lbl.set_color('#FFFFFF') # White text
+            lbl.set_color('#FFFFFF')
             lbl.set_fontsize(8)
-        
-        # Checkbox visibility and size adaptations
-            # Matplotlib >= 3.7: Use props dictionary to modify color/linewidth
+
+        # Style checkboxes
+        if hasattr(self.check, 'set_frame_props'):
             self.check.set_frame_props({'edgecolor': '#AAAAAA', 'facecolor': '#222222', 'linewidths': 1.0})
             self.check.set_check_props({'color': '#00FF00', 'linewidths': 2.0})
-            # To have larger checkboxes that actually toggle, we must update sizes manually
             self._update_check_sizes()
         else:
-            # Older Matplotlib versions using rectangles/lines
             if hasattr(self.check, 'rectangles'):
                 for rect in self.check.rectangles:
                     rect.set_edgecolor('#AAAAAA')
                     rect.set_facecolor('#222222')
                     rect.set_linewidth(1.5)
-                    
             if hasattr(self.check, 'lines'):
                 for line in self.check.lines:
                     for l in line:
-                        l.set_color('#00FF00') 
+                        l.set_color('#00FF00')
                         l.set_linewidth(2.0)
 
-        # Plane
-        ax_plane = self.fig.add_axes([0.80, 0.45, 0.15, 0.12], facecolor='#222222')
+        # Overlay mode RadioButtons
+        overlay_labels = ['Gamma', 'Pass/Fail', 'Ref Dose', 'Eval Dose', 'Dose Ratio']
+        overlay_top = 0.96 - toggle_h - 0.02
+        overlay_h = 0.22
+        ax_overlay = self.fig.add_axes([0.75, overlay_top - overlay_h, 0.22, overlay_h], facecolor='#222222')
+        self.overlay_radio = RadioButtons(ax_overlay, overlay_labels, active=0)
+        self.overlay_radio.on_clicked(self._on_overlay_mode)
+        for lbl in self.overlay_radio.labels:
+            lbl.set_color('#EEEEEE')
+            lbl.set_fontsize(9)
+
+        # Plane RadioButtons
+        plane_top = overlay_top - overlay_h - 0.02
+        plane_h = 0.12
+        ax_plane = self.fig.add_axes([0.75, plane_top - plane_h, 0.22, plane_h], facecolor='#222222')
         self.radio = RadioButtons(ax_plane, ('axial', 'sagittal', 'coronal'), active=0)
         self.radio.on_clicked(self._on_plane)
-        for lbl in self.radio.labels: lbl.set_color('#EEEEEE'); lbl.set_fontsize(9)
+        for lbl in self.radio.labels:
+            lbl.set_color('#EEEEEE')
+            lbl.set_fontsize(9)
 
-        # GPR Table
-        self.txt = self.fig.text(0.80, 0.30, self._gpr_text(), color='#00FF00', family='monospace', fontsize=8, va='top')
+        # GPR / info text
+        txt_top = plane_top - plane_h - 0.02
+        self.txt = self.fig.text(0.75, txt_top, self._gpr_text(),
+                                 color='#00FF00', family='monospace', fontsize=8, va='top')
 
         self._draw()
         self.fig.canvas.mpl_connect('scroll_event', self._on_scroll)
@@ -173,7 +234,7 @@ class GammaViewer:
             res += "-"*22 + "\n"
         else:
             res = ""
-            
+
         res += "ROI GPR[%]\n" + "-"*15 + "\n"
         for ps in self.per_structure_stats:
             v = ps['pass_rate_percent']
@@ -193,68 +254,148 @@ class GammaViewer:
         new_idx = max(0, min(self.slice_idx + step, mx))
         if new_idx != self.slice_idx:
             self.slice_idx = new_idx
-            self.slider.set_val(new_idx) # This triggers _on_slider_move but guards prevent recursion
+            self.slider.set_val(new_idx)
             self._draw()
 
     def _on_toggle(self, label):
-        if label in self.visible: self.visible[label] = not self.visible[label]
-        else: self.roi_visible[label] = not self.roi_visible[label]
+        if label in self.visible:
+            self.visible[label] = not self.visible[label]
+        else:
+            self.roi_visible[label] = not self.roi_visible[label]
         self._update_check_sizes()
         self._draw()
 
     def _update_check_sizes(self):
         """Manually update sizes to ensure toggling works with custom styles."""
-        if not hasattr(self.check, 'set_check_props'): return
-        # In newer Matplotlib, CheckButtons uses a scatter (PathCollection) for checks
+        if not hasattr(self.check, 'set_check_props'):
+            return
         try:
             status = self.check.get_status()
-            # The 'checks' property is the scatter collection (usually named 'checks')
             if hasattr(self.check, 'checks'):
-                # Size 70 if checked, 0 if unchecked
                 sizes = [70 if s else 0 for s in status]
                 self.check.checks.set_sizes(sizes)
-        except: pass
+        except Exception:
+            pass
+        self.fig.canvas.draw_idle()
+
+    def _on_overlay_mode(self, label):
+        self.overlay_mode = label
+        self._draw()
 
     def _on_plane(self, label):
         self.plane = label
-        mx = self.nz-1 if label=='axial' else (self.nx-1 if label=='sagittal' else self.ny-1)
+        mx = self.nz-1 if label == 'axial' else (self.nx-1 if label == 'sagittal' else self.ny-1)
         self.slider.valmax = mx
         self.slice_idx = min(self.slice_idx, mx)
-        # Update slider without recursive trigger if possible, or just set_val
         self.slider.set_val(self.slice_idx)
         self.slider.ax.set_xlim(0, mx)
         self._draw()
 
     def _draw(self):
         self.ax.clear()
+
+        # -- CT background --
         if self.visible['CT']:
             ct2d = self._get_slice(self.ct)
-            self.ax.imshow(ct2d, cmap='gray', vmin=-200, vmax=300, aspect='auto', origin='lower')
-        
-        if self.visible['Gamma']:
+            self.ax.imshow(ct2d, cmap='gray', vmin=-200, vmax=300,
+                           aspect='auto', origin='lower')
+
+        # -- Overlay --
+        self._cbar_ax.clear()
+        self._cbar_ax.set_visible(False)
+
+        mode = self.overlay_mode
+
+        if mode == 'Gamma':
             g2d = self._get_slice(self.gamma)
             gm = np.ma.masked_where(~np.isfinite(g2d) | (g2d == 0), g2d)
-            self.ax.imshow(gm, cmap='turbo', vmin=0, vmax=2, alpha=0.5, aspect='auto', origin='lower')
+            im = self.ax.imshow(gm, cmap='turbo', vmin=0, vmax=2,
+                                alpha=0.5, aspect='auto', origin='lower')
+            self._cbar_ax.set_visible(True)
+            self.fig.colorbar(im, cax=self._cbar_ax)
+            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
+            self._cbar_ax.set_ylabel('Gamma Index', color='white', fontsize=8)
 
+        elif mode == 'Pass/Fail':
+            g2d = self._get_slice(self.gamma)
+            # Build pass/fail: 0 = pass (gamma <= 1), 1 = fail (gamma > 1)
+            pf = np.full_like(g2d, np.nan)
+            valid = np.isfinite(g2d) & (g2d != 0)
+            pf[valid & (g2d <= 1.0)] = 0.0  # OK
+            pf[valid & (g2d > 1.0)] = 1.0   # NG
+            pfm = np.ma.masked_where(~valid, pf)
+            self.ax.imshow(pfm, cmap=_PASS_FAIL_CMAP, vmin=0, vmax=1,
+                           alpha=0.55, aspect='auto', origin='lower',
+                           interpolation='nearest')
+            # Count pass/fail for this slice
+            n_pass = int(np.sum(pf[valid] == 0))
+            n_fail = int(np.sum(pf[valid] == 1))
+            n_total = n_pass + n_fail
+            if n_total > 0:
+                slice_gpr = n_pass / n_total * 100.0
+                self.ax.text(0.02, 0.02,
+                             f"Slice GPR: {slice_gpr:.1f}%  (OK:{n_pass} / NG:{n_fail})",
+                             transform=self.ax.transAxes, color='white', fontsize=9,
+                             bbox=dict(boxstyle='round,pad=0.3', fc='#000000', alpha=0.7))
+
+        elif mode == 'Ref Dose' and self.ref_dose is not None:
+            d2d = self._get_slice(self.ref_dose)
+            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
+            dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
+            im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
+                                alpha=0.5, aspect='auto', origin='lower')
+            self._cbar_ax.set_visible(True)
+            self.fig.colorbar(im, cax=self._cbar_ax)
+            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
+            self._cbar_ax.set_ylabel('Dose [Gy]', color='white', fontsize=8)
+
+        elif mode == 'Eval Dose' and self.eval_dose is not None:
+            d2d = self._get_slice(self.eval_dose)
+            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
+            dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
+            im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
+                                alpha=0.5, aspect='auto', origin='lower')
+            self._cbar_ax.set_visible(True)
+            self.fig.colorbar(im, cax=self._cbar_ax)
+            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
+            self._cbar_ax.set_ylabel('Dose [Gy]', color='white', fontsize=8)
+
+        elif mode == 'Dose Ratio' and self.dose_ratio is not None:
+            r2d = self._get_slice(self.dose_ratio)
+            # Mask where ref dose is below cutoff (ratio is meaningless)
+            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
+            ref2d = self._get_slice(self.ref_dose)
+            rm = np.ma.masked_where(~np.isfinite(r2d) | (ref2d < cutoff_abs), r2d)
+            im = self.ax.imshow(rm, cmap='bwr', vmin=0.8, vmax=1.2,
+                                alpha=0.55, aspect='auto', origin='lower')
+            self._cbar_ax.set_visible(True)
+            self.fig.colorbar(im, cax=self._cbar_ax)
+            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
+            self._cbar_ax.set_ylabel('Eval / Ref', color='white', fontsize=8)
+
+        # -- Structure contours --
         if self.visible['Structure'] and self.plane == 'axial' and self.rtstruct_meta:
             z_w = self.dose_z_world[self.slice_idx]
             from rtgamma.mask import _world_xy_to_grid_rc
             for i, name in enumerate(self.roi_names):
-                if not self.roi_visible[name]: continue
+                if not self.roi_visible[name]:
+                    continue
                 for pts in get_contours_for_slice(self.roi_contour_data[name], z_w, self.z_tol):
                     rc = _world_xy_to_grid_rc(pts, self.dose_meta)
-                    self.ax.add_patch(Polygon(rc[:, [1, 0]], closed=True, fill=False, 
-                                            edgecolor=ROI_COLORS[i % len(ROI_COLORS)], lw=1))
-        
-        self.ax.set_title(f"{self.plane} view - slice {self.slice_idx}", color='white', fontsize=10)
-        self.fig.canvas.draw()
+                    self.ax.add_patch(Polygon(rc[:, [1, 0]], closed=True, fill=False,
+                                             edgecolor=ROI_COLORS[i % len(ROI_COLORS)], lw=1))
+
+        # -- Title --
+        self.ax.set_title(f"{self.plane} view - slice {self.slice_idx}  [{mode}]",
+                          color='white', fontsize=10)
+        self.fig.canvas.draw_idle()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='3D Gamma Viewer with CT + Structure overlay')
+    parser = argparse.ArgumentParser(description='3D Gamma Viewer with CT + Dose + Structure overlay')
     parser.add_argument('--ct', required=True, help='Directory containing CT DICOM slices')
     parser.add_argument('--ref', required=True, help='Reference RTDOSE DICOM file')
-    parser.add_argument('--eval', help='Evaluation RTDOSE DICOM file (omit if using --gamma-npz)')
+    parser.add_argument('--eval', help='Evaluation RTDOSE DICOM file (omit if using --gamma-npz only)')
     parser.add_argument('--gamma-npz', help='Pre-computed gamma NPZ file (skip gamma calculation)')
     parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file or directory')
     parser.add_argument('--roi', help='Comma-separated ROI names (default: all)')
@@ -265,6 +406,10 @@ def main():
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
     args = parser.parse_args()
 
+    # Extract filenames for display
+    ref_label = os.path.basename(args.ref) if args.ref else ''
+    eval_label = os.path.basename(args.eval) if args.eval else ''
+
     # Load CT
     logger.info(f'Loading CT from: {args.ct}')
     ct_meta = load_ct(args.ct)
@@ -274,17 +419,37 @@ def main():
     logger.info(f'Loading reference DOSE: {args.ref}')
     dose_meta = load_rtdose(args.ref)
     logger.info(f'DOSE loaded: {dose_meta["shape"]}')
+    ref_dose = dose_meta['dose']  # (z, y, x)
 
     # Resample CT onto DOSE grid
     logger.info('Resampling CT onto DOSE grid...')
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
     logger.info(f'CT resampled: {ct_on_dose.shape}')
 
+    # Eval dose (resampled onto ref grid)
+    eval_on_ref = None
+
     # Gamma map: compute or load
     if args.gamma_npz:
         logger.info(f'Loading pre-computed gamma from: {args.gamma_npz}')
         npz = np.load(args.gamma_npz)
         gamma_map = npz['gamma']
+
+        # If --eval is also provided, load and resample for dose display
+        if args.eval:
+            logger.info(f'Loading evaluation DOSE for display: {args.eval}')
+            eval_meta = load_rtdose(args.eval)
+            from rtgamma.main import build_ref_world_coords
+            Xw, Yw, Zw = build_ref_world_coords(dose_meta)
+            from rtgamma.io_dicom import world_to_index
+            def world_to_eval_ijk(pts):
+                return world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'],
+                                      eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'],
+                                      eval_meta['z_offsets'], pts)
+            from rtgamma.resample import resample_eval_onto_ref
+            logger.info('Resampling eval onto ref grid for display...')
+            eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], world_to_eval_ijk,
+                                                  (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
         if not args.eval:
             parser.error('--eval is required when --gamma-npz is not provided')
@@ -346,9 +511,11 @@ def main():
     logger.info('Launching viewer...')
     gpr_cond = {'dd': args.dd, 'dta': args.dta, 'cutoff': args.cutoff}
     viewer = GammaViewer(ct_on_dose, gamma_map, dose_meta,
+                         ref_dose=ref_dose, eval_dose=eval_on_ref,
                          rtstruct_meta=rtstruct_meta, roi_names=roi_names,
                          roi_masks=roi_masks, per_structure_stats=per_structure,
-                         gpr_cond=gpr_cond)
+                         gpr_cond=gpr_cond,
+                         ref_label=ref_label, eval_label=eval_label)
     plt.show()
 
 

@@ -1,7 +1,7 @@
 # 99-handover_context.md
 
 ## 1. 現在の進捗 (Current Progress)
-- **目的**: Structure (RTSTRUCT) 別の Gamma Pass Rate 評価機能の実装と結合テスト。
+- **目的**: Structure (RTSTRUCT) 別の Gamma Pass Rate 評価機能の実装と結合テスト。3Dインタラクティブビューアの開発。
 - **完了した作業**:
   1. `rtgamma/io_dicom.py`: RTSTRUCTファイルを読み込み、ROIごとの輪郭データ (LPS座標) を抽出する `load_rtstruct()` の実装。
   2. `rtgamma/mask.py`: `matplotlib.path.Path` を用いて、ROI輪郭から3Dバイナリマスクを生成するモジュールの作成。
@@ -35,9 +35,16 @@
       - ダークテーマ上でチェックボックス（の枠線）が見えなくなる問題を `set_frame_props` 等を駆使して解消。
       - 画面右下に評価条件（DTA/DD/Cutoff）を表示し、スクリーンショット等で条件が確認できるように改善。
       - CCC(標準)線量とMC線量を比較するための `run_viewer_test.bat` を改修。
-      - ※一部環境でチェックボックスのトグル（バツ印の消去）が視覚的に反映されない問題が残っていますが、データの表示切替自体は動作します。
   - **パフォーマンス最適化 (2026-03-03)**:
       - 初期リサンプリング(`eval_on_ref`)を遅延評価(Lazy Evaluation)に変更。線量差表示（`--save-dose-diff`）やスライス抽出が行われない場合、不要な計算がスキップされるようになりました。
+  16. **3D ガンマビューアの大幅強化 (2026-03-04)**:
+      - **Ref / Eval 線量分布の表示**: RefのDOSE配列およびEvalのリサンプリング済みDOSE配列をビューアに引き渡し、`jet` カラーマップ + カラーバーで CT 上にオーバーレイ表示可能に。
+      - **5モード切替 RadioButtons**: `Gamma` / `Pass/Fail` / `Ref Dose` / `Eval Dose` / `Dose Ratio` を瞬時に切り替えるUIを追加。
+      - **Pass/Fail モード**: ガンマ値 <= 1.0 を緑(OK)、> 1.0 を赤(NG) で二値表示。スライス毎の GPR と OK/NG ボクセル数を画面左下にオーバーレイ。
+      - **Dose Ratio モード**: Eval/Ref の線量比を `bwr` カラーマップ (0.8-1.2) で表示。Cutoff 未満のボクセルは自動マスク。
+      - **ファイル名表示**: ビューア左上に Ref / Eval の DICOM ファイル名 (basename) を常時表示。
+      - **チェックボックス描画の修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
+      - **`--gamma-npz` + `--eval` 併用対応**: NPZ使用時でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能。
 
 ## 2. 実装上の留意事項 (Implementation Notes)
 - **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
@@ -51,4 +58,4 @@
 - (オプション) ROI に特化したシフト最適化（ROI 内のガンマパス率を最大にする専用の最適化探索）。
 
 ## 4. 直近で実行すべきコマンド (Next Commands)
-次回の作業では、刷新された GUI を活用して、実データを用いた ROI 別の評価やシフト最適化の運用解析を行うことができます。必要に応じて `scripts/compare_rtdose_headers.py` による幾何整合の事前確認も併用してください。
+次回の作業では、強化された 3D ビューアを活用して、MC vs CCC の線量分布比較（Ref Dose / Eval Dose / Dose Ratio 表示）や Pass/Fail モードによる視覚的評価を実施できます。`run_viewer_test.bat` でビューアを起動し、5つの表示モードを切り替えて解析してください。必要に応じて `scripts/compare_rtdose_headers.py` による幾何整合の事前確認も併用してください。

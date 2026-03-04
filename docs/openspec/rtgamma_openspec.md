@@ -2,7 +2,7 @@
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア（CT/Structureオーバーレイ）。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア（CT/Dose/Gamma/Pass-Fail/Dose-Ratioオーバーレイ、5モード切替）。
 - Future: GPU/CuPy 実装、Nelder–Mead 等のローカル探索。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
@@ -127,3 +127,4 @@
 - レポート出力: rtgamma/report.py
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
+- 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示)
