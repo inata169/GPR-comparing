@@ -274,6 +274,10 @@ class GammaViewer:
             if hasattr(self.check, 'checks'):
                 sizes = [70 if s else 0 for s in status]
                 self.check.checks.set_sizes(sizes)
+            elif hasattr(self.check, '_checks'):
+                colors = ['#00FF00' if s else 'none' for s in status]
+                self.check._checks.set_facecolor(colors)
+                self.check._checks.set_edgecolor(colors)
         except Exception:
             pass
         self.fig.canvas.draw_idle()
