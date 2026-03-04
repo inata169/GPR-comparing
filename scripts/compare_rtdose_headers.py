@@ -163,7 +163,9 @@ def main():
     plan_b = load_rtplan(args.plan_b) if args.plan_b else None
     md = render_markdown(summ_a, summ_b, dxdyz, mindot, plan_a=plan_a, plan_b=plan_b)
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    out_dir = os.path.dirname(args.out)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:
         f.write(md)
 
