@@ -128,3 +128,10 @@
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示)
+
+## 14. Commercial Roadmap (商用化ロードマップ)
+「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
+- **Tier 1: コア品質と信頼性**: バッチ処理一括化、PDF帳票自動生成、CIテストカバレッジ強化
+- **Tier 2: ユーザー体験の飛躍**: Web GUI設計、マルチプレーン/DVH 表示、SQLトレンド保存・プリセット管理
+- **Tier 3: 高度解析機能**: 多基準（3%/2mm等）並行計算、ヒストグラム化、不確かさ推論
+- **Tier 4: 運用エコシステム**: `.exe`/`pip` による配布パッケージ化、多言語（i18n）対応、監査・コンプライアンス準拠
