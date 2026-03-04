@@ -29,10 +29,26 @@ Covers core gamma workflows: DICOM I/O, resampling, shift optimization, gamma co
 - Reports written (CSV/JSON/MD) with plausible stats and search logs.
 - Self-compare meets 100%; cross-pairs within expected bands.
 
+## Recommended Workflow (トラブルシューティング用)
+ガンマパス率が予想以上に低い場合は、以下の順序で要因分析と最適化を行うことを推奨します：
+
+1. **Header compare (ヘッダ比較)**
+   - `scripts/compare_rtdose_headers.py` または GUIの "Header Compare" を使用し、Ref と Eval の DICOM メタデータを比較します。
+   - IPP(原点)、SSD/SAD (RTPLAN)、Dose Grid Scaling の違いをここで事前に特定します。
+2. **Absolute geometry (絶対座標系による評価)**
+   - 最適化オフ (`--opt-shift off`) かつ 正規化なし (`--norm none`) または `global_max` で素のガンマパス率を確認します。
+   - ヘッダ比較で特定した物理的なズレがそのまま反映されている状態です。
+3. **Coarse search (粗い探索)**
+   - `--opt-shift on` とし、広範囲 (`--shift-range`) を粗いステップ (`2mm`など) で探索し、パス率が改善するおおよその絶対位置のズレ（例: -114mm）を特定します。
+4. **Fine search (密な探索)**
+   - Coarse で見つけた位置周辺を `--fine-range-mm 10`, `--fine-step-mm 1` などの詳細レベルで最適化し、最大パス率を得ます。
+5. **ROI 限定解析 (オプション)**
+   - 全体評価の後に特定の臓器（GTVなど）のみのパス率にボトルネックがないか `--rtstruct` と `--roi` を用いて検証します。
+
 ## Geometry Sanity (Header Compare)
-- Run: `python scripts/compare_rtdose_headers.py --a <ref.dcm> --b <eval.dcm> --out phits-linac-validation/output/rtgamma/<pair>_dose_compare.md`
+- Run: `python scripts/compare_rtdose_headers.py --a <ref.dcm> --b <eval.dcm> --plan-a <ref_plan.dcm> --plan-b <eval_plan.dcm> --out phits-linac-validation/output/rtgamma/<pair>_dose_compare.md`
 - Verify:
   - `FrameOfReferenceUID` matches.
   - `origin_delta_projected_mm (dx,dy,dz)` is small unless a known setup shift exists.
-  - `orientation_min_dot` ~ 1.0.
+  - `plan_isocenter_delta_mag_mm` is ~0.
   - Pixel spacing and GFOV look reasonable (monotonic; median step ~ slice spacing).

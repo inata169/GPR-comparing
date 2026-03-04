@@ -67,6 +67,13 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
    - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
 
+### 💡 ガンマパス率が低い場合の推奨ワークフロー
+パス率が著しく低い場合、座標系やセットアップの違いが原因であるケースがあります。
+1. **Header Compare**: `Action` を `Header Compare` にし、RTDOSE (可能なら RTPLAN も) のヘッダを比較します。Isocenter のズレや、**SSD (Source-to-Surface Distance) vs SAD (Source-to-Axis Distance) の定義の違い**により、初期座標(IPP)が数十mm〜100mm規模でズレて出力されているケース（例: `-114mm` のズレ等）を発見できます。
+2. **Absolute**: `Optimize shift` OFF でそのまま実行し、座標差を把握します。
+3. **Optimize Shift**: ズレが判明している場合は `Optimize shift` を ON にして補正計算を行います。
+*(詳細は [TEST_PLAN.md](TEST_PLAN.md) の Recommended Workflow を参照してください)*
+
 ## テストと検証
 - 座標系丸め誤差（Round-trip）テストや、合成データを用いた単体テストを完備しています。
   ```bash
