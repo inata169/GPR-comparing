@@ -13,6 +13,47 @@ def _norm_factor(dose_ref: np.ndarray, dose_eval: np.ndarray, norm: NormType) ->
     return 1.0
 
 
+@numba.jit(nopython=True)
+def _trilinear(dose_eval, nz, ny, nx,
+               kf, jf, if_):
+    """Trilinear interpolation of dose_eval at fractional indices (kf, jf, if_).
+    Returns (value, valid) where valid=False if out of bounds."""
+    if kf < 0.0 or jf < 0.0 or if_ < 0.0:
+        return 0.0, False
+    if kf > nz - 1.0 or jf > ny - 1.0 or if_ > nx - 1.0:
+        return 0.0, False
+
+    k0 = int(kf)
+    j0 = int(jf)
+    i0 = int(if_)
+    k1 = min(k0 + 1, nz - 1)
+    j1 = min(j0 + 1, ny - 1)
+    i1 = min(i0 + 1, nx - 1)
+
+    dk = kf - k0
+    dj = jf - j0
+    di = if_ - i0
+
+    c000 = dose_eval[k0, j0, i0]
+    c100 = dose_eval[k1, j0, i0]
+    c010 = dose_eval[k0, j1, i0]
+    c110 = dose_eval[k1, j1, i0]
+    c001 = dose_eval[k0, j0, i1]
+    c101 = dose_eval[k1, j0, i1]
+    c011 = dose_eval[k0, j1, i1]
+    c111 = dose_eval[k1, j1, i1]
+
+    val = (c000 * (1 - dk) * (1 - dj) * (1 - di) +
+           c100 * dk * (1 - dj) * (1 - di) +
+           c010 * (1 - dk) * dj * (1 - di) +
+           c110 * dk * dj * (1 - di) +
+           c001 * (1 - dk) * (1 - dj) * di +
+           c101 * dk * (1 - dj) * di +
+           c011 * (1 - dk) * dj * di +
+           c111 * dk * dj * di)
+    return val, True
+
+
 @numba.jit(nopython=True, parallel=True)
 def _numba_gamma_3d(
     axes_ref_mm: Tuple[np.ndarray, np.ndarray, np.ndarray],
@@ -91,6 +132,157 @@ def _numba_gamma_3d(
     return gamma
 
 
+@numba.jit(nopython=True, parallel=True)
+def _numba_gamma_3d_interp(
+    axes_ref_mm: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    dose_ref: np.ndarray,
+    axes_eval_mm: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    dose_eval: np.ndarray,
+    dd_percent: float,
+    dta_mm: float,
+    cutoff_percent: float,
+    norm_factor: float,
+    local_mode: int,
+    tiny: float,
+    interp_fraction: int,
+) -> np.ndarray:
+    """Gamma kernel with sub-voxel interpolation.
+    
+    Searches DTA sphere at resolution dta_mm/interp_fraction using
+    trilinear interpolation of eval dose. Uses early exit when gamma<=1.
+    """
+    gamma = np.full_like(dose_ref, np.nan)
+    dta_mm_sq = dta_mm ** 2
+    dd_percent_sq = dd_percent ** 2
+    shape_ref = dose_ref.shape
+    nz_e, ny_e, nx_e = dose_eval.shape
+
+    z_ref_ax, y_ref_ax, x_ref_ax = axes_ref_mm
+    z_eval_ax, y_eval_ax, x_eval_ax = axes_eval_mm
+
+    # Eval grid spacing (assume uniform)
+    if len(z_eval_ax) > 1:
+        dz_eval = z_eval_ax[1] - z_eval_ax[0]
+    else:
+        dz_eval = 1.0
+    if len(y_eval_ax) > 1:
+        dy_eval = y_eval_ax[1] - y_eval_ax[0]
+    else:
+        dy_eval = 1.0
+    if len(x_eval_ax) > 1:
+        dx_eval = x_eval_ax[1] - x_eval_ax[0]
+    else:
+        dx_eval = 1.0
+
+    z_eval_origin = z_eval_ax[0]
+    y_eval_origin = y_eval_ax[0]
+    x_eval_origin = x_eval_ax[0]
+
+    step = dta_mm / interp_fraction
+
+    # Pre-compute search offsets (half-axis)
+    n_steps = interp_fraction  # number of steps from 0 to dta_mm
+
+    for k_ref in numba.prange(shape_ref[0]):
+        for j_ref in range(shape_ref[1]):
+            for i_ref in range(shape_ref[2]):
+                dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
+
+                if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
+                    continue
+
+                min_gamma_sq = np.inf
+                found_pass = False
+
+                z_ref = z_ref_ax[k_ref]
+                y_ref = y_ref_ax[j_ref]
+                x_ref = x_ref_ax[i_ref]
+
+                # Search in expanding shells for early exit
+                # Shell radius r goes from 0 to dta_mm in steps
+                for shell in range(n_steps + 1):
+                    if found_pass:
+                        break
+                    r = shell * step
+
+                    # iterate over all grid points at distance ~r
+                    iz_start = int(np.floor(-r / step)) if shell > 0 else 0
+                    iz_end = int(np.ceil(r / step)) if shell > 0 else 0
+
+                    for iz in range(iz_start, iz_end + 1):
+                        if found_pass:
+                            break
+                        dz = iz * step
+                        dz_sq = dz * dz
+                        if dz_sq > dta_mm_sq:
+                            continue
+                        remain_yz = dta_mm_sq - dz_sq
+
+                        iy_lim = int(np.floor(np.sqrt(max(remain_yz, 0.0)) / step))
+
+                        for iy in range(-iy_lim, iy_lim + 1):
+                            if found_pass:
+                                break
+                            dy = iy * step
+                            dy_sq = dy * dy
+                            dzy_sq = dz_sq + dy_sq
+                            if dzy_sq > dta_mm_sq:
+                                continue
+                            remain_x = dta_mm_sq - dzy_sq
+
+                            ix_lim = int(np.floor(np.sqrt(max(remain_x, 0.0)) / step))
+
+                            for ix in range(-ix_lim, ix_lim + 1):
+                                dx = ix * step
+                                dist_sq = dzy_sq + dx * dx
+                                if dist_sq > dta_mm_sq:
+                                    continue
+
+                                # Check if this point is on the current shell
+                                # (on shell boundary or shell==0 for center)
+                                max_abs = max(abs(iz), max(abs(iy), abs(ix)))
+                                if shell == 0:
+                                    if max_abs != 0:
+                                        continue
+                                else:
+                                    if max_abs != shell:
+                                        continue
+
+                                # Fractional indices into eval grid
+                                eval_z = z_ref + dz
+                                eval_y = y_ref + dy
+                                eval_x = x_ref + dx
+
+                                kf = (eval_z - z_eval_origin) / dz_eval
+                                jf = (eval_y - y_eval_origin) / dy_eval
+                                if_ = (eval_x - x_eval_origin) / dx_eval
+
+                                dose_eval_val, valid = _trilinear(
+                                    dose_eval, nz_e, ny_e, nx_e,
+                                    kf, jf, if_)
+                                if not valid:
+                                    continue
+
+                                if local_mode == 1:
+                                    denom = dose_ref_val
+                                    if denom < tiny and denom > -tiny:
+                                        continue
+                                    dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
+                                else:
+                                    dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
+
+                                gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
+                                if gamma_sq < min_gamma_sq:
+                                    min_gamma_sq = gamma_sq
+                                    if min_gamma_sq <= 1.0:
+                                        found_pass = True
+
+                if np.isfinite(min_gamma_sq):
+                    gamma[k_ref, j_ref, i_ref] = np.sqrt(min_gamma_sq)
+
+    return gamma
+
+
 def compute_gamma(
     axes_ref_mm: Tuple[np.ndarray, ...],
     dose_ref: np.ndarray,
@@ -103,6 +295,7 @@ def compute_gamma(
     norm: NormType = 'global_max',
     use_pymedphys: bool = False, # Default to False now
     norm_factor_override: Optional[float] = None,
+    interp_fraction: int = 1,
 ) -> Tuple[np.ndarray, float, dict]:
     
     nf = float(norm_factor_override) if (norm_factor_override is not None) else _norm_factor(dose_ref, dose_eval, norm)
@@ -120,18 +313,34 @@ def compute_gamma(
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
         
         local_mode = 1 if gamma_type == 'local' else 0
-        g = _numba_gamma_3d(
-            axes_ref_mm,
-            dose_ref,
-            axes_eval_mm,
-            dose_eval,
-            dd_percent,
-            dta_mm,
-            cutoff_percent,
-            nf,
-            local_mode,
-            1e-12,
-        )
+
+        if interp_fraction > 1:
+            g = _numba_gamma_3d_interp(
+                axes_ref_mm,
+                dose_ref,
+                axes_eval_mm,
+                dose_eval,
+                dd_percent,
+                dta_mm,
+                cutoff_percent,
+                nf,
+                local_mode,
+                1e-12,
+                interp_fraction,
+            )
+        else:
+            g = _numba_gamma_3d(
+                axes_ref_mm,
+                dose_ref,
+                axes_eval_mm,
+                dose_eval,
+                dd_percent,
+                dta_mm,
+                cutoff_percent,
+                nf,
+                local_mode,
+                1e-12,
+            )
 
     valid = ~np.isnan(g)
     if valid.any():
@@ -146,5 +355,3 @@ def compute_gamma(
         'valid_points': int(np.sum(valid)),
     }
     return g, pass_rate, stats
-
-

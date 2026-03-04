@@ -1,13 +1,15 @@
 ﻿{
-    "profile":  "clinical_2x2",
+    "dd":  "3.0",
+    "dta":  "2.0",
+    "cutoff":  "10.0",
+    "norm":  "global_max",
     "action":  "3d",
     "threads":  1,
     "output_dir":  "C:\\Repositories\\GPR-comparing\\phits-linac-validation\\output\\rtgamma\\Test06_guiTest",
     "open_on_finish":  true,
     "save_log":  true,
-    "progress_marquee":  true,
     "plane_index":  "auto",
     "save_npz_3d":  false,
-    "rtstruct":  "C:\\Repositories\\GPR-comparing\\dicom\\PROSTATE\\RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0",
+    "rtstruct":  "C:\\Repositories\\GPR-comparing\\dicom\\PROSTATE\\RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0.dcm",
     "roi":  ""
 }

@@ -49,6 +49,10 @@
       - `scripts/compare_rtdose_headers.py` に `--plan-a`, `--plan-b` 引数を追加。
       - RTPLAN の Isocenter 座標平均値 (`plan_isocenter_mean_lps_mm`) の比較とデルタ（ズレ量）を出力し、SAD (`plan_sad_mm_mean`) および SSD (`plan_ssd_mm_mean`) の比較にも対応。
       - `os.makedirs` に起因するカレントディレクトリ指定時の `FileNotFoundError` を修正。
+  18. **Sub-voxel Interpolation によるガンマ解析精度の向上 (2026-03-04)**:
+      - 3DVH とのガンマパス率の乖離 (約20pp) を解消するため、`gamma.py` のカーネルに trilinear サブボクセル内挿を導入しました。
+      - `--interp-fraction` 引数で指定された刻み幅で DTA 球内を密に探索し、gamma <= 1.0 に達した時点で即時 Early Exit する最適化を実装。
+      - Test06 データにおいて `--interp-fraction 10` 指定時、Overall GPR が 85.82% に達し、3DVH (84.7%) との差を 1.1pp に短縮しました (計算時間の増加は数秒)。
 ## 2. 実装上の留意事項 (Implementation Notes)
 - **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
 - **最終評価時のガンママップ解像度低下の解決**: `optimize.py` のシフト探索時におけるパス率と、最終評価時のパス率が一致しない（大幅に低下する）バグが生じていました。調査の結果、(1) 前処理時のIPP起点のオフセット吸収における符合（ベクトル）の逆転設定エラー、および (2) 最終の `resample_eval_onto_ref` によって内挿(Interpolation)されることによる解像度以下の座標ピークの消失が原因であることを突き止めました。

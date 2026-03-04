@@ -19,7 +19,7 @@
     - mode={3d|2d}, plane={axial|sagittal|coronal}, plane-index={int|auto}
     - opt-shift={on|off}, shift-range="x:-3:3:1,y:-3:3:1,z:-3:3:1"
     - refine=coarse2fine, fine-range-mm=10, fine-step-mm=1, early-stop-*
-    - prescan-2d={on|off}, interp={linear|bspline|nearest}, threads=<N>
+    - prescan-2d={on|off}, interp={linear|bspline|nearest}, interp-fraction=<N>, threads=<N>
     - rtstruct=<path_to_RTSTRUCT>, roi="<roi1>,<roi2>" (オプション: ROIごとの解析)
 - Outputs
   - 2D: gamma 画像（PNG/TIFF）、dose diff 画像（%）。

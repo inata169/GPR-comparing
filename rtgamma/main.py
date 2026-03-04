@@ -145,6 +145,10 @@ def main(argv=None):
     parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file for per-structure GPR')
     parser.add_argument('--roi', action='append', dest='roi_names',
                         help='ROI name(s) to evaluate (repeatable). Omit for all ROIs.')
+    parser.add_argument('--interp-fraction', type=int, default=1,
+                        help='Sub-voxel interpolation fraction (default 1=discrete grid only). '
+                             'Higher values (e.g. 10) enable trilinear sub-voxel search within DTA sphere '
+                             'at dta/interp_fraction mm resolution. Recommended: 5-10 for 3DVH-level accuracy.')
 
     args = parser.parse_args(argv)
     # Add console (stdout) logging handler for on-screen feedback
@@ -340,6 +344,7 @@ def main(argv=None):
             norm=args.norm,
             use_pymedphys=False,
             norm_factor_override=full_ref_max if args.norm in ('global_max','max_ref') else None,
+            interp_fraction=args.interp_fraction,
         )
         logging.info(f"2D gamma calculation complete. Slice pass rate: {pass_rate}")
     else:
@@ -365,6 +370,7 @@ def main(argv=None):
             gamma_type=args.gamma_type,
             norm=args.norm,
             use_pymedphys=False,
+            interp_fraction=args.interp_fraction,
         )
         logging.info(f"Final gamma calculation complete. Pass rate: {pass_rate}")
 

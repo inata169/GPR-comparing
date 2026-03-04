@@ -1,0 +1,11 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\放射治療研究用PC\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Repositories\GPR-comparing
+plugins: anyio-4.11.0
+collecting ... collected 2 items
+
+tests/test_gamma_synthetic.py::test_self_compare_uniform_global PASSED   [ 50%]
+tests/test_gamma_synthetic.py::test_local_is_stricter_on_scaled_eval_synth PASSED [100%]
+
+============================== 2 passed in 6.83s ==============================

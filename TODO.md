@@ -65,6 +65,11 @@ Optional / stretch
   - [x] カラーバーの追加（モード切替時にラベル・スケール自動更新）
   - [x] `--gamma-npz` と `--eval` の併用対応（NPZ使用時でも Eval Dose 表示が可能に）
 
+- [x] **Sub-voxel Interpolation (trilinear) の実装** (`gamma.py`, `main.py`)
+  - [x] `_numba_gamma_3d_interp` カーネルの実装。DTA球内を `dta/interp_fraction` mm単位で探索し、early exit 最適化を含める。
+  - [x] `--interp-fraction` CLI引数の追加。
+  - [x] Test06の実測データにおいて SunNuclear 3DVH (84.7%) との GPR の差異を 1.1pp (85.82%) にまで大幅に短縮することに成功。
+
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 
   - (原因1) 初期座標の相違を吸収するアフィン変換の射影(`origin_offset_vec`)において、符合（ベクトル方向）が逆になっていたバグを特定し修正しました。

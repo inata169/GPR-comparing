@@ -1,0 +1,37 @@
+2026-03-04 14:21:23,690 - INFO - Arguments: Namespace(ref='dicom\\PROSTATE\\RTDOSE_2.16.840.1.114337.1.11224.1772428288.1.dcm', eval='dicom\\PROSTATE_MC\\RTDOSE_2.16.840.1.114337.1.14324.1772511250.1.dcm', mode='3d', plane=None, plane_index='auto', dd=3.0, dta=2.0, cutoff=10.0, gamma_type='global', norm='global_max', cutoff_mask='ref', low_dose_exclusion=None, opt_shift='off', shift_range='x:-3:3:1,y:-3:3:1,z:-3:3:1', refine='coarse2fine', fine_range_mm=10.0, fine_step_mm=1.0, early_stop_epsilon=0.05, early_stop_patience=100, prescan_2d='on', spacing=None, interp='linear', save_gamma_map=None, save_dose_diff=None, report='phits-linac-validation\\output\\rtgamma\\Test06_guiTest\\run3d_interp10', log_level='INFO', warn_large_shift_mm=20.0, seed=None, threads=1, profile=None, gpu='off', tolerance=1e-06, rtstruct='dicom\\PROSTATE\\RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0.dcm', roi_names=None, interp_fraction=10)
+2026-03-04 14:21:23,690 - INFO - Loading reference dose: dicom\PROSTATE\RTDOSE_2.16.840.1.114337.1.11224.1772428288.1.dcm
+2026-03-04 14:21:23,760 - INFO - Reference dose loaded.
+2026-03-04 14:21:23,760 - INFO - Loading evaluation dose: dicom\PROSTATE_MC\RTDOSE_2.16.840.1.114337.1.14324.1772511250.1.dcm
+2026-03-04 14:21:23,782 - INFO - Evaluation dose loaded.
+2026-03-04 14:21:23,782 - INFO - Ref IPP: [   61.   108. -1289.], Eval IPP: [   61.   108. -1289.]
+2026-03-04 14:21:23,782 - INFO - Ref v_col: [1. 0. 0.], Eval v_col: [1. 0. 0.]
+2026-03-04 14:21:23,784 - INFO - Ref v_row: [0. 1. 0.], Eval v_row: [0. 1. 0.]
+2026-03-04 14:21:23,784 - INFO - Ref PixelSpacing: [3, 3], Eval PixelSpacing: [3, 3]
+2026-03-04 14:21:23,784 - INFO - Ref GridFrameOffsetVector (first 5): ['0.0', '3.0', '6.0', '9.0', '12.0'], Eval GridFrameOffsetVector (first 5): ['0.0', '3.0', '6.0', '9.0', '12.0']
+2026-03-04 14:21:23,784 - INFO - Ref DoseGridScaling: 0.0012731, Eval DoseGridScaling: 0.00125293
+2026-03-04 14:21:23,784 - INFO - Ref DoseUnits: GY, Eval DoseUnits: GY
+2026-03-04 14:21:23,784 - INFO - Ref FoR UID: 2.16.840.1.113662.2.2693077654964966010104150504.1, Eval FoR UID: 2.16.840.1.113662.2.2693077654964966010104150504.1
+2026-03-04 14:21:23,786 - INFO - Ref Dose Min/Max: 0.0, 83.43260955810547
+2026-03-04 14:21:23,786 - INFO - Eval Dose Min/Max (after normalization): 0.0, 82.11077117919922
+2026-03-04 14:21:23,786 - INFO - Building reference world coordinates.
+2026-03-04 14:21:23,929 - INFO - Reference world coordinates built.
+2026-03-04 14:21:23,930 - INFO - Origin offset projected onto ref axes: di=0.000, dj=0.000, dk=0.000 mm
+2026-03-04 14:21:23,930 - INFO - Starting final gamma calculation.
+2026-03-04 14:21:32,642 - INFO - Final gamma calculation complete. Pass rate: 85.82005067476504
+2026-03-04 14:21:32,643 - INFO - Loading RTSTRUCT: dicom\PROSTATE\RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0.dcm
+2026-03-04 14:21:33,082 - INFO - RTSTRUCT loaded. ROIs: ['patient', 'Bladder', 'GTV', 'dummy', 'ref1']
+2026-03-04 14:21:33,082 - INFO - Building mask for ROI 'patient' (78 contour slices)
+2026-03-04 14:21:33,882 - INFO - ROI mask: 436491 voxels across 65 slices
+2026-03-04 14:21:33,882 - INFO - Building mask for ROI 'Bladder' (42 contour slices)
+2026-03-04 14:21:34,135 - INFO - ROI mask: 13639 voxels across 29 slices
+2026-03-04 14:21:34,135 - INFO - Building mask for ROI 'GTV' (10 contour slices)
+2026-03-04 14:21:34,207 - INFO - ROI mask: 1757 voxels across 10 slices
+2026-03-04 14:21:34,207 - INFO - Building mask for ROI 'dummy' (53 contour slices)
+2026-03-04 14:21:34,457 - INFO - ROI mask: 62231 voxels across 46 slices
+2026-03-04 14:21:34,457 - WARNING - ROI 'ref1' has no contours, skipping.
+2026-03-04 14:21:34,465 - INFO - ROI 'patient': GPR=85.73%, voxels=436491, evaluated=55226
+2026-03-04 14:21:34,467 - INFO - ROI 'Bladder': GPR=97.50%, voxels=13639, evaluated=1677
+2026-03-04 14:21:34,468 - INFO - ROI 'GTV': GPR=82.01%, voxels=1757, evaluated=1757
+2026-03-04 14:21:34,470 - INFO - ROI 'dummy': GPR=84.65%, voxels=62231, evaluated=13522
+2026-03-04 14:21:34,472 - INFO - Saving report to phits-linac-validation\output\rtgamma\Test06_guiTest\run3d_interp10
+2026-03-04 14:21:34,476 - INFO - Gamma analysis finished.
