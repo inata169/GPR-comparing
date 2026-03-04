@@ -10,10 +10,10 @@ High priority
   - [ ] Test04 → phits-linac-validation/output/rtgamma/Test04_dose_compare.md
   - [ ] Summarize findings (SSD vs SCD/SAD; origin deltas; FoR; orientation) into headers_summary.md
 
-- [ ] RTPLAN support in header compare
-  - [ ] Extend scripts/compare_rtdose_headers.py with --plan-a/--plan-b
-  - [ ] Extract: IsocenterPosition, SAD (and SSD estimate if derivable), BeamName if available
-  - [ ] Report deltas: plan_isocenter_delta_mm, SAD/SSD differences
+- [x] RTPLAN support in header compare
+  - [x] Extend scripts/compare_rtdose_headers.py with --plan-a/--plan-b
+  - [x] Extract: IsocenterPosition, SAD (and SSD estimate if derivable), BeamName if available
+  - [x] Report deltas: plan_isocenter_delta_mm, SAD/SSD differences
 
 - [ ] Auto-fallback improvements
   - [ ] Standardize two-stage search: coarse (e.g., x:-150:150:10,y:-30:30:10,z:-30:30:10, --refine none) → fine (±10 mm, 1 mm)
