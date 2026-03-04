@@ -2,10 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2026-03-03
+## [0.3.0] - 2026-03-04
 ### Added
-- 3D Gamma Viewer (`scripts/gamma_viewer.py`): Interactive visualization with ROI overlays and toggleable structure visibility.
+- 3D Gamma Viewer (`scripts/gamma_viewer.py`): Interactive visualization with ROI overlays and toggleable structure visibility, Dose Ratio, and Pass/Fail modes.
 - RTSTRUCT support: Ability to calculate and display per-structure GPR (Gamma Pass Rate) in both CLI and GUI.
+- RTPLAN support: `compare_rtdose_headers.py` now accepts `--plan-a`/`--plan-b` to compare Isocenter, SAD, and SSD settings.
 - Evaluation condition display: The viewer now shows current DD/DTA/Cutoff settings.
 
 ### Changed
