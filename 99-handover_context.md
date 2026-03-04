@@ -47,9 +47,11 @@
       - **`--gamma-npz` + `--eval` 併用対応**: NPZ使用時でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能。
   17. **RTPLAN 統合ヘッダ比較の追加 (2026-03-04)**:
       - `scripts/compare_rtdose_headers.py` に `--plan-a`, `--plan-b` 引数を追加。
-      - RTPLAN の Isocenter 座標平均値 (`plan_isocenter_mean_lps_mm`) の比較とデルタ（ズレ量）を出力し、SAD (`plan_sad_mm_mean`) および SSD (`plan_ssd_mm_mean`) の比較にも対応。
-      - `os.makedirs` に起因するカレントディレクトリ指定時の `FileNotFoundError` を修正。
-  18. **Sub-voxel Interpolation によるガンマ解析精度の向上 (2026-03-04)**:
+      - Isocenterの差分（`plan_isocenter_delta_mag_mm`）とSSD/SADの情報が表示されるように拡張しました。
+  18. **ジオメトリヘッダの徹底比較 (2026-03-04)**:
+      - Test01〜Test04 のテスト用データペアに対してヘッダ比較を行い検証結果を `headers_summary.md` に出力しました。
+      - SSD や Dose Unit の違いなどの要因よる大きなジオメトリズレ（>50mm）が Test01 および Test02 で検出され、対処フローをドキュメント化しました。
+  19. **Sub-voxel Interpolation によるガンマ解析精度の向上 (2026-03-04)**:
       - 3DVH とのガンマパス率の乖離 (約20pp) を解消するため、`gamma.py` のカーネルに trilinear サブボクセル内挿を導入しました。
       - `--interp-fraction` 引数で指定された刻み幅で DTA 球内を密に探索し、gamma <= 1.0 に達した時点で即時 Early Exit する最適化を実装。
       - Test06 データにおいて `--interp-fraction 10` 指定時、Overall GPR が 85.82% に達し、3DVH (84.7%) との差を 1.1pp に短縮しました (計算時間の増加は数秒)。
@@ -65,4 +67,7 @@
 - (オプション) ROI に特化したシフト最適化（ROI 内のガンマパス率を最大にする専用の最適化探索）。
 
 ## 4. 直近で実行すべきコマンド (Next Commands)
-次回の作業では、強化された 3D ビューアを活用して、MC vs CCC の線量分布比較（Ref Dose / Eval Dose / Dose Ratio 表示）や Pass/Fail モードによる視覚的評価を実施できます。`run_viewer_test.bat` でビューアを起動し、5つの表示モードを切り替えて解析してください。必要に応じて `scripts/compare_rtdose_headers.py` による幾何整合の事前確認も併用してください。
+次回の作業では、強化された 3D ビューアを活用して、Test06 (MC vs CCC) などの線量分布比較（Ref Dose / Eval Dose / Dose Ratio 表示）を実施する予定です。
+`run_gui.bat` (または `scripts/run_gui.ps1`) でビューアを利用したり、Dose Ratio モードで系統的な線量差の強い領域（例：ビルドアップ領域や不均質部）の局所的な違いを特定します。
+
+※ また、大きなガンマパス率が予想されるケースに対しては `Action` を `Header Compare` に設定して、ジオメトリ差異の事前確認を行うことが `TEST_PLAN.md` で推奨されています。

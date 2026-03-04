@@ -65,10 +65,15 @@ Optional / stretch
   - [x] カラーバーの追加（モード切替時にラベル・スケール自動更新）
   - [x] `--gamma-npz` と `--eval` の併用対応（NPZ使用時でも Eval Dose 表示が可能に）
 
-- [x] **Sub-voxel Interpolation (trilinear) の実装** (`gamma.py`, `main.py`)
-  - [x] `_numba_gamma_3d_interp` カーネルの実装。DTA球内を `dta/interp_fraction` mm単位で探索し、early exit 最適化を含める。
-  - [x] `--interp-fraction` CLI引数の追加。
+- [x] **Sub-voxel interpolation (Trilinear) の実装**
+  - [x] Numba JIT での 3D ガンマ検索時に指定された `interp_fraction` (デフォルト 10) 分だけボクセルを細分化して検索するアルゴリズムを導入。
   - [x] Test06の実測データにおいて SunNuclear 3DVH (84.7%) との GPR の差異を 1.1pp (85.82%) にまで大幅に短縮することに成功。
+  - [x] GUI に `Sub-voxel Interp` の数値を指定するオプションを追加し、デフォルトを10へ変更。
+- [x] **Test01〜Test04 のヘッダ情報の比較とサマリ化**
+  - [x] `compare_rtdose_headers.py` を用いて、各テストペアの IPP / SSD / SAD / 解像度 / DoseUnit を解析。
+  - [x] 結果を `phits-linac-validation/output/rtgamma/headers_summary.md` に出力し、原因を考察。
+- [ ] **3D ガンマビューアを用いた Test06 解析**
+  - [ ] Dose Ratio 機能などを利用し、MC と CCC 間の空間的な線量差の特徴を特定・記録する。
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 

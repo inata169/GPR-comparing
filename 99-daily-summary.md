@@ -17,13 +17,20 @@
    - **バグ修正**: `--out` に単一のファイル名を指定した際に `os.makedirs` がカレントディレクトリを処理できずエラーになる問題を修正しました。
 
 3. **Sub-voxel Interpolation によるガンマ解析精度の飛躍的向上と 3DVH との整合 (`gamma.py`)**
-   - **課題**: 3DVH (SunNuclear金標準) との比較において、ガンマパス率 (GPR) に最大約20ppの乖離が発生していました。これはグリッド間隔(3mm) > DTA基準(2mm) の条件において、従来の離散座標での探索が eval の周辺ボクセルを捉えられずパス率が極端に下がるためでした。
-   - **実装**: `_numba_gamma_3d_interp` にて、trilinear サブボクセル内挿 (Sub-Voxel Interpolation) を導入。DTA 球内を `--interp-fraction` (既定1、推奨10) 分割の微小間隔で expanding shell アプローチを用いて探索し、gamma <= 1.0 に達した時点で即時 Early Exit する最適化アルゴリズムを新設しました。
-   - **結果**: `--interp-fraction 10` 指定下で、Overall GPR が **63.2% から 85.82%** へと劇的に改善され、3DVH の結果 (84.7%) との**差異をわずか 1.1pp** にまで短縮することに成功し目標を達成。実行時間への影響も Early Exit のおかげで +3秒 程度という極めて小さなペナルティに抑えきりました。
+   - **内容**: Trilinear 補間を用いたサブボクセル単位での線量検索 (`_numba_gamma_3d_interp`) を実装しました。
+   - 効果: Test06 値が大幅に改善され、Gold standardである 3DVH (84.7%) の極めて近い GPR 85.82% を達成しました。CLI オプション `--interp-fraction` を追加し、本番の精度向上のためにデフォルト値を 10 としました（GUI にも設定欄を追加）。
 
-## 次のステップ
-- 強化されたビューアを活用し、MC vs CCC の線量分布と Pass/Fail の視覚的評価を実施。
-- Dose Ratio モードで系統的な線量差のある領域の特定と解析を行う。
+4. **Test01〜Test04 のヘッダ比較と分析 (`headers_summary.md`)**
+   - ヘッダ比較機能を活用し、Test01 から Test04 の全ペアのジオメトリ差異を調査し、`headers_summary.md` に結果をまとめました。
+   - **結果**:
+     - **Test01**: X軸方向に 114mm の IPP ズレ。
+     - **Test02**: DoseUnit 不一致（GY vs RELATIVE）および極めて大きな IPP ズレ（SSD定義の違い等）。
+     - **Test03 / Test04**: 座標系ならびにアイソセンタ等完全に一致。
+   - この知見をもとに、`TEST_PLAN.md` と `README.md` にガンマパス率が低い場合のトラブルシューティング手順 (Header Compare機能の先行利用) を追記しました。
+
+## 次のステップ (Next Steps)
+- 強化されたビューアを活用し、Test06 (MC vs CCC) の線量分布と Pass/Fail を視覚的に評価・解析するタスク。
+- Dose Ratio モードで系統的な線量差のある領域を特定する。
 
 ---
 
