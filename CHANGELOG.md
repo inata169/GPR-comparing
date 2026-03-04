@@ -1,6 +1,14 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [0.4.0] - 2026-03-04
+### 追加 (Added)
+- **サブボクセル内挿 (Sub-voxel Interpolation)**: 3Dガンマ探索において、ボクセル解像度が DTA 基準より大きい場合に生じる極端なパス率低下を修正するため、トリリニア・サブボクセル内挿表示 (`--interp-fraction`) を導入しました。これにより 3DVH との GPR 差分が ~1.1pp まで改善されました。
+- **商用化ロードマップ**: 計19項目の機能強化ロードマップをドキュメント (`docs/feature_roadmap.md`, `TODO.md`, `99-handover_context.md`) に復元・統合しました。
+- **ヘッダ比較分析**: テストデータセットにおける IPP / DoseUnit / SSD の差異を比較分析したレポートを生成しました。
+
+### 変更 (Changed)
+- GUI: `Sub-voxel Interp` パラメータをUIに露出し、臨床の推奨デフォルト値を 10 に設定しました。
+- ドキュメント: GPR低下時の特定と推奨ワークフロー (Header Compare -> Absolute -> Coarse -> Fine) を追加して `README.md` と `TEST_PLAN.md` を更新しました。
 
 ## [0.3.0] - 2026-03-04
 ### Added
