@@ -250,7 +250,7 @@ $nudInterp = New-Object System.Windows.Forms.NumericUpDown
 $nudInterp.Location = New-Object System.Drawing.Point(640, $yf)
 $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
-$nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 1
+$nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 10
 $nudInterp.BorderStyle = 'FixedSingle'
 $form.Controls.Add($nudInterp)
 

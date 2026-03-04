@@ -145,10 +145,10 @@ def main(argv=None):
     parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file for per-structure GPR')
     parser.add_argument('--roi', action='append', dest='roi_names',
                         help='ROI name(s) to evaluate (repeatable). Omit for all ROIs.')
-    parser.add_argument('--interp-fraction', type=int, default=1,
-                        help='Sub-voxel interpolation fraction (default 1=discrete grid only). '
+    parser.add_argument('--interp-fraction', type=int, default=10,
+                        help='Sub-voxel interpolation fraction for 3D/2D search. (default: 10)\n'
                              'Higher values (e.g. 10) enable trilinear sub-voxel search within DTA sphere '
-                             'at dta/interp_fraction mm resolution. Recommended: 5-10 for 3DVH-level accuracy.')
+                             'at dta/interp_fraction mm resolution. 1 disables sub-voxel interpolation.')
 
     args = parser.parse_args(argv)
     # Add console (stdout) logging handler for on-screen feedback
