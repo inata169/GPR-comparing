@@ -240,10 +240,20 @@ $yf += 38
 
 # Checkboxes row
 $cbOpt    = New-DarkCheck 'Optimize Shift' 24 $yf $false
-$cbLocal  = New-DarkCheck 'Local Gamma' 180 $yf $false
-$cbNPZ    = New-DarkCheck 'Save 3D NPZ' 330 $yf $false
-$cbLog    = New-DarkCheck 'Save Log' 480 $yf $true
+$cbLocal  = New-DarkCheck 'Local Gamma' 160 $yf $false
+$cbNPZ    = New-DarkCheck 'Save 3D NPZ' 290 $yf $false
+$cbLog    = New-DarkCheck 'Save Log' 420 $yf $true
 $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbLog)
+
+$form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 520 ($yf + 2)))
+$nudInterp = New-Object System.Windows.Forms.NumericUpDown
+$nudInterp.Location = New-Object System.Drawing.Point(640, $yf)
+$nudInterp.Size = New-Object System.Drawing.Size(60, 26)
+$nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
+$nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 1
+$nudInterp.BorderStyle = 'FixedSingle'
+$form.Controls.Add($nudInterp)
+
 $yf += 28
 $cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
 $form.Controls.Add($cbOpen)
@@ -370,7 +380,8 @@ function Build-Command(){
   if ([string]::IsNullOrWhiteSpace($normVal)) { $normVal = 'global_max' }
 
   # Common gamma args
-  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal)
+  $interpVal = [int]$nudInterp.Value
+  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--interp-fraction', $interpVal)
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
   if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
@@ -515,6 +526,7 @@ try {
   if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
   if ($cfg.save_log -ne $null)       { $cbLog.Checked = [bool]$cfg.save_log }
   if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
+  if ($cfg.interp_fraction -ge 1) { $val = [int]$cfg.interp_fraction; if ($val -ge 1 -and $val -le 20) { $nudInterp.Value = [decimal]$val } }
   if ($cfg.action) {
     switch ([string]$cfg.action) {
       'header' { $cbAction.SelectedIndex = 0 }
@@ -551,6 +563,7 @@ $btnSave.Add_Click({
     save_npz_3d = $cbNPZ.Checked
     rtstruct    = $tbStruct.Text
     roi         = $tbRoi.Text
+    interp_fraction = [int]$nudInterp.Value
   }
   try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Settings saved.','rtgamma','OK','Information') } catch {}
 })
