@@ -45,7 +45,10 @@
       - **ファイル名表示**: ビューア左上に Ref / Eval の DICOM ファイル名 (basename) を常時表示。
       - **チェックボックス描画の修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
       - **`--gamma-npz` + `--eval` 併用対応**: NPZ使用時でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能。
-
+  17. **RTPLAN 統合ヘッダ比較の追加 (2026-03-04)**:
+      - `scripts/compare_rtdose_headers.py` に `--plan-a`, `--plan-b` 引数を追加。
+      - RTPLAN の Isocenter 座標平均値 (`plan_isocenter_mean_lps_mm`) の比較とデルタ（ズレ量）を出力し、SAD (`plan_sad_mm_mean`) および SSD (`plan_ssd_mm_mean`) の比較にも対応。
+      - `os.makedirs` に起因するカレントディレクトリ指定時の `FileNotFoundError` を修正。
 ## 2. 実装上の留意事項 (Implementation Notes)
 - **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
 - **最終評価時のガンママップ解像度低下の解決**: `optimize.py` のシフト探索時におけるパス率と、最終評価時のパス率が一致しない（大幅に低下する）バグが生じていました。調査の結果、(1) 前処理時のIPP起点のオフセット吸収における符合（ベクトル）の逆転設定エラー、および (2) 最終の `resample_eval_onto_ref` によって内挿(Interpolation)されることによる解像度以下の座標ピークの消失が原因であることを突き止めました。

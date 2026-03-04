@@ -10,6 +10,11 @@
    - **チェックボックス修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
    - **カラーバー**: 専用 Axes にモード切替時にラベル・スケールが自動更新されるカラーバーを追加。
    - **NPZ + Eval 併用対応**: `--gamma-npz` で事前計算ガンマを読み込む場合でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能に。
+2. **RTPLAN 統合ヘッダ比較の実装 (`scripts/compare_rtdose_headers.py`)**
+   - **機能追加**: `--plan-a` および `--plan-b` 引数を追加し、RTDOSE に加えて RTPLAN DICOM ファイルの読み込みをサポートしました。
+   - **出力内容**: RTPLAN の Isocenter 座標平均値とプラン間のズレ量 (`plan_isocenter_delta_mag_mm`)、SAD/SSD の平均値の比較を Markdown レポートに出力可能にしました。
+   - **原因究明**: ガンマ解析の不一致が「Isocenterのズレ」や「SSDの違い」起因であるかどうかを、ファイルから直接客観的に証明しやすくなりました。
+   - **バグ修正**: `--out` に単一のファイル名を指定した際に `os.makedirs` がカレントディレクトリを処理できずエラーになる問題を修正しました。
 
 ## 次のステップ
 - 強化されたビューアを活用し、MC vs CCC の線量分布と Pass/Fail の視覚的評価を実施。
