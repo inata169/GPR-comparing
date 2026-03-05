@@ -1,0 +1,26 @@
+{
+    "TG218_IMRT": {
+        "dta": 3.0,
+        "dd": 3.0,
+        "cutoff": 10.0,
+        "norm": "global_max"
+    },
+    "TG218_Stereotactic": {
+        "dta": 2.0,
+        "dd": 2.0,
+        "cutoff": 10.0,
+        "norm": "global_max"
+    },
+    "Strict_1x1": {
+        "dta": 1.0,
+        "dd": 1.0,
+        "cutoff": 10.0,
+        "norm": "global_max"
+    },
+    "Absolute_2x2": {
+        "dta": 2.0,
+        "dd": 2.0,
+        "cutoff": 10.0,
+        "norm": "none"
+    }
+}

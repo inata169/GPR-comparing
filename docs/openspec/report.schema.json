@@ -16,6 +16,12 @@
         "null"
       ]
     },
+    "profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "mode": {
       "type": "string",
       "enum": [
@@ -138,6 +144,12 @@
     },
     "gamma_max": {
       "type": "number"
+    },
+    "save_gamma_map_path": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "per_structure": {
       "type": "array",

@@ -12,6 +12,7 @@ from .mask import build_roi_masks
 from .optimize import grid_search_best_shift
 from .pdf_report import save_summary_pdf
 from .report import save_summary_csv, save_summary_json, save_summary_markdown
+from .db import save_summary_db
 from .resample import resample_eval_onto_ref
 from .viz import save_dose_diff_2d, save_gamma_map_2d
 
@@ -141,8 +142,10 @@ def main(argv=None):
                         help='Warn if |best_shift| exceeds this magnitude (mm)')
     parser.add_argument('--seed', type=int)
     parser.add_argument('--threads', type=int)
-    parser.add_argument('--profile', choices=['clinical_abs', 'clinical_rel', 'clinical_2x2', 'clinical_3x3'],
-                        help='Preset typical clinical conditions (no shift)')
+    parser.add_argument('--profile', type=str,
+                        help='Preset profile name from config/presets.json (overrides dta/dd/cutoff/norm)')
+    parser.add_argument('--db', type=str, nargs='?', const='rtgamma.db',
+                        help='Save result to SQLite database (default: rtgamma.db in current directory if flag passed without value)')
     parser.add_argument('--gpu', choices=['on', 'off'], default='off')
     parser.add_argument('--tolerance', type=float, default=1e-6)
     parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file for per-structure GPR')
@@ -165,7 +168,41 @@ def main(argv=None):
     except Exception:
         pass
 
+    if args.profile:
+        preset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'presets.json')
+        if os.path.exists(preset_path):
+            try:
+                with open(preset_path, 'r', encoding='utf-8') as f:
+                    presets = json.load(f)
+                if args.profile in presets:
+                    p = presets[args.profile]
+                    if 'dta' in p: args.dta = float(p['dta'])
+                    if 'dd' in p: args.dd = float(p['dd'])
+                    if 'cutoff' in p: args.cutoff = float(p['cutoff'])
+                    if 'norm' in p: args.norm = str(p['norm'])
+                    # We output this after logging is configured properly.
+                else:
+                    pass # Will log below
+            except Exception as e:
+                pass
+
+
     logging.info(f"Arguments: {args}")
+
+    if args.profile:
+        preset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'presets.json')
+        if os.path.exists(preset_path):
+            try:
+                with open(preset_path, 'r', encoding='utf-8') as f:
+                    presets = json.load(f)
+                if args.profile in presets:
+                    logging.info(f"Loaded profile '{args.profile}': overriden values to DTA={args.dta}, DD={args.dd}, Cutoff={args.cutoff}, Norm={args.norm}")
+                else:
+                    logging.warning(f"Profile '{args.profile}' not found in {preset_path}")
+            except Exception as e:
+                logging.error(f"Failed to load presets: {e}")
+        else:
+            logging.warning(f"Preset file not found at {preset_path}")
 
     logging.info(f"Loading reference dose: {args.ref}")
     meta_ref = load_rtdose(args.ref)
@@ -522,6 +559,7 @@ def main(argv=None):
     summary = {
         'ref': os.path.basename(args.ref),
         'eval': os.path.basename(args.eval),
+        'profile': getattr(args, 'profile', None),
         'mode': args.mode,
         'plane': getattr(args, 'plane', None),
         'plane_index': int(sl) if args.mode == '2d' else None,
@@ -563,6 +601,9 @@ def main(argv=None):
         if search_log is not None:
             with open(base + '_search_log.json', 'w', encoding='utf-8') as f:
                 json.dump(search_log, f, ensure_ascii=False, indent=2)
+
+    if args.db:
+        save_summary_db(args.db, summary)
 
     logging.info("Gamma analysis finished.")
     return summary

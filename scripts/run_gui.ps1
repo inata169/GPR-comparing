@@ -171,6 +171,24 @@ $yf += 10
 $form.Controls.Add((New-DarkLabel 'GAMMA PARAMETERS' 24 $yf $fontSect $clrAccent))
 $yf += 28
 
+# Preset Profile
+$presetsPath = Join-Path $ROOT 'config/presets.json'
+$script:presets = @{}
+if (Test-Path $presetsPath) {
+  try { $script:presets = Get-Content -Raw -Path $presetsPath -Encoding UTF8 | ConvertFrom-Json } catch { $script:presets = @{} }
+}
+$form.Controls.Add((New-DarkLabel 'Preset' 24 $yf))
+$cbPreset = New-DarkCombo 90 ($yf - 2) 150 @('Custom')
+if ($script:presets.PSObject.Properties.Name.Count -gt 0) {
+  foreach ($p in $script:presets.PSObject.Properties) {
+    $null = $cbPreset.Items.Add($p.Name)
+  }
+}
+$cbPreset.SelectedIndex = 0
+$form.Controls.Add($cbPreset)
+
+$yf += 36
+
 # DTA
 $form.Controls.Add((New-DarkLabel 'DTA  [mm]' 24 $yf))
 $tbDTA = New-DarkTextBox 130 ($yf - 2) 80 $false
@@ -211,6 +229,20 @@ $cbNorm = New-DarkCombo 410 ($yf - 2) 180 @('global_max','max_ref','none')
 $cbNorm.SelectedIndex = 0
 $form.Controls.Add($cbNorm)
 
+# Event to populate parameters when preset changes (requires cbNorm to be initialized)
+$cbPreset.add_SelectedIndexChanged({
+  $sel = $cbPreset.SelectedItem
+  if ($sel -ne 'Custom' -and $script:presets.$sel) {
+    if ($script:presets.$sel.dta -ne $null) { $tbDTA.Text = [string]$script:presets.$sel.dta }
+    if ($script:presets.$sel.dd -ne $null) { $tbDD.Text = [string]$script:presets.$sel.dd }
+    if ($script:presets.$sel.cutoff -ne $null) { $tbCutoff.Text = [string]$script:presets.$sel.cutoff }
+    if ($script:presets.$sel.norm) {
+      $idx = $cbNorm.Items.IndexOf([string]$script:presets.$sel.norm)
+      if ($idx -ge 0) { $cbNorm.SelectedIndex = $idx }
+    }
+  }
+})
+
 $yf += 36
 
 # 2D Plane
@@ -242,12 +274,13 @@ $yf += 38
 $cbOpt    = New-DarkCheck 'Optimize Shift' 24 $yf $false
 $cbLocal  = New-DarkCheck 'Local Gamma' 160 $yf $false
 $cbNPZ    = New-DarkCheck 'Save 3D NPZ' 290 $yf $false
-$cbLog    = New-DarkCheck 'Save Log' 420 $yf $true
-$form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbLog)
+$cbDB     = New-DarkCheck 'Save to DB' 420 $yf $true
+$cbLog    = New-DarkCheck 'Save Log' 540 $yf $true
+$form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbDB); $form.Controls.Add($cbLog)
 
-$form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 520 ($yf + 2)))
+$form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 620 ($yf - 28)))
 $nudInterp = New-Object System.Windows.Forms.NumericUpDown
-$nudInterp.Location = New-Object System.Drawing.Point(640, $yf)
+$nudInterp.Location = New-Object System.Drawing.Point(620, ($yf - 8))
 $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
 $nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 10
@@ -382,7 +415,9 @@ function Build-Command(){
   # Common gamma args
   $interpVal = [int]$nudInterp.Value
   $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--interp-fraction', $interpVal)
+  if ($cbPreset.SelectedItem -ne 'Custom') { $gammaArgs += @('--profile', $cbPreset.SelectedItem) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
+  if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
   if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
   if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
     foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArgs += @('--roi', $r.Trim()) } }
@@ -521,6 +556,7 @@ try {
   if ($cfg.output_dir)  { $tbOut.Text = [string]$cfg.output_dir }
   if ($cfg.plane_index) { $tbPlaneIdx.Text = [string]$cfg.plane_index } else { $tbPlaneIdx.Text = 'auto' }
   if ($cfg.save_npz_3d -ne $null)    { $cbNPZ.Checked = [bool]$cfg.save_npz_3d }
+  if ($cfg.save_db -ne $null)        { $cbDB.Checked = [bool]$cfg.save_db }
   if ($cfg.rtstruct -ne $null)       { $tbStruct.Text = [string]$cfg.rtstruct }
   if ($cfg.roi -ne $null)            { $tbRoi.Text = [string]$cfg.roi }
   if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
@@ -542,6 +578,10 @@ try {
     $normIdx = $cbNorm.Items.IndexOf([string]$cfg.norm)
     if ($normIdx -ge 0) { $cbNorm.SelectedIndex = $normIdx }
   }
+  if ($cfg.profile) {
+    $profIdx = $cbPreset.Items.IndexOf([string]$cfg.profile)
+    if ($profIdx -ge 0) { $cbPreset.SelectedIndex = $profIdx }
+  }
 } catch {}
 
 # Save settings
@@ -559,11 +599,13 @@ $btnSave.Add_Click({
     output_dir  = $tbOut.Text
     open_on_finish = $cbOpen.Checked
     save_log    = $cbLog.Checked
+    save_db     = $cbDB.Checked
     plane_index = $tbPlaneIdx.Text
     save_npz_3d = $cbNPZ.Checked
     rtstruct    = $tbStruct.Text
     roi         = $tbRoi.Text
     interp_fraction = [int]$nudInterp.Value
+    profile     = $cbPreset.SelectedItem
   }
   try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Settings saved.','rtgamma','OK','Information') } catch {}
 })
