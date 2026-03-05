@@ -47,8 +47,9 @@
 - 出力: gamma_map、統計（mean/median/max）、GPR（<=1 の割合）。
 
 ## 7. Shift Optimization
-- coarse→fine の二段探索。fine は `±(fine-range-mm)` を `fine-step-mm` で走査。
-- 早期停止: 改善幅 < epsilon が `patience` 回続けば打ち切り。
+- coarse→fine の二段探索。fine は `±(fine-range-mm)` を `fine-step-mm` で走査する標準的2段階探索。
+- 探索順序: 中心（原点、またはベストシフト位置）から外側へ向かうように距離順 (Magnitude) でソートして実行。
+- 早期停止: パス率の改善幅が `epsilon` 未満の状態が `patience` 回続いた場合、無駄な探索を打ち切る (Early stop)。
 - 2D プリスキャン: 中央スライスで XY 範囲を狭めて 3D 探索の初期領域を短縮。
 - PowerShell のコロン混在引数は複合書式 `"x:{0}:{1}:1" -f a,b` を推奨。
 

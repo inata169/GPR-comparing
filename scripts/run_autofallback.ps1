@@ -22,7 +22,7 @@ param(
   [Parameter(Mandatory=$true)][string]$Ref,
   [Parameter(Mandatory=$true)][string]$Eval,
   [double]$Threshold = 85.0,
-  [string]$Range = "x:-150:150:5,y:-50:50:5,z:-50:50:5"
+  [string]$CoarseRange = "x:-150:150:10,y:-30:30:10,z:-30:30:10"
 )
 
 Set-StrictMode -Version Latest
@@ -65,26 +65,47 @@ if ($oriDot -is [double]) { $summary += ("- orientation_min_dot: {0}" -f $oriDot
 if (-not [string]::IsNullOrWhiteSpace($warnings)) { $summary += ("- warnings: {0}" -f $warnings) }
 
 if ($doFallback) {
-  Write-Line "[B] Fallback: best-shift 3D search"
-  $bestBase = Join-Path $testDir "best_3d"
-  python -m rtgamma.main --mode 3d --opt-shift on --shift-range $Range --refine coarse2fine `
-    --norm none --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $bestBase
+  Write-Line "[B] Fallback Stage 1: Coarse 3D search"
+  $coarseBase = Join-Path $testDir "coarse_3d"
+  python -m rtgamma.main --mode 3d --opt-shift on --shift-range $CoarseRange --refine none `
+    --norm none --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $coarseBase
 
-  if (-not (Test-Path ("{0}.json" -f $bestBase))) { throw "Missing JSON: $bestBase.json" }
-  $bestJson = Get-Content -Raw -Path ("{0}.json" -f $bestBase) | ConvertFrom-Json
-  [double]$bestPass = $bestJson.pass_rate_percent
-  $dx = [double]$bestJson.best_shift_mm[0]
-  $dy = [double]$bestJson.best_shift_mm[1]
-  $dz = [double]$bestJson.best_shift_mm[2]
+  if (-not (Test-Path ("{0}.json" -f $coarseBase))) { throw "Missing JSON: $coarseBase.json" }
+  $coarseJson = Get-Content -Raw -Path ("{0}.json" -f $coarseBase) | ConvertFrom-Json
+  [double]$coarsePass = $coarseJson.pass_rate_percent
+  $cx = [double]$coarseJson.best_shift_mm[0]
+  $cy = [double]$coarseJson.best_shift_mm[1]
+  $cz = [double]$coarseJson.best_shift_mm[2]
   $culture = [System.Globalization.CultureInfo]::InvariantCulture
-  $dxS = $dx.ToString("0.###", $culture)
-  $dyS = $dy.ToString("0.###", $culture)
-  $dzS = $dz.ToString("0.###", $culture)
-  $fixSpec = ("x:{0}:{0}:1,y:{1}:{1}:1,z:{2}:{2}:1" -f $dxS, $dyS, $dzS)
+  $c_x0 = ($cx - 10).ToString("0.###", $culture)
+  $c_x1 = ($cx + 10).ToString("0.###", $culture)
+  $c_y0 = ($cy - 10).ToString("0.###", $culture)
+  $c_y1 = ($cy + 10).ToString("0.###", $culture)
+  $c_z0 = ($cz - 10).ToString("0.###", $culture)
+  $c_z1 = ($cz + 10).ToString("0.###", $culture)
 
-  Write-Line ("[B] best_shift=({0},{1},{2}) mm, pass={3:F1}%" -f $dxS,$dyS,$dzS,$bestPass)
+  Write-Line ("[B] coarse best_shift=({0},{1},{2}) mm, pass={3:F1}%" -f $cx,$cy,$cz,$coarsePass)
 
-  Write-Line "[B] 2D axial re-eval with fixed best shift"
+  Write-Line "[C] Fallback Stage 2: Fine 3D search"
+  $fineRange = ("x:{0}:{1}:1,y:{2}:{3}:1,z:{4}:{5}:1" -f $c_x0, $c_x1, $c_y0, $c_y1, $c_z0, $c_z1)
+  $fineBase = Join-Path $testDir "fine_3d"
+  python -m rtgamma.main --mode 3d --opt-shift on --shift-range $fineRange --refine none `
+    --norm none --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $fineBase
+
+  if (-not (Test-Path ("{0}.json" -f $fineBase))) { throw "Missing JSON: $fineBase.json" }
+  $fineJson = Get-Content -Raw -Path ("{0}.json" -f $fineBase) | ConvertFrom-Json
+  [double]$finePass = $fineJson.pass_rate_percent
+  $fx = [double]$fineJson.best_shift_mm[0]
+  $fy = [double]$fineJson.best_shift_mm[1]
+  $fz = [double]$fineJson.best_shift_mm[2]
+  $fxS = $fx.ToString("0.###", $culture)
+  $fyS = $fy.ToString("0.###", $culture)
+  $fzS = $fz.ToString("0.###", $culture)
+  $fixSpec = ("x:{0}:{0}:1,y:{1}:{1}:1,z:{2}:{2}:1" -f $fxS, $fyS, $fzS)
+
+  Write-Line ("[C] fine best_shift=({0},{1},{2}) mm, pass={3:F1}%" -f $fxS,$fyS,$fzS,$finePass)
+
+  Write-Line "[D] 2D axial re-eval with fixed best shift"
   $bestAx = Join-Path $testDir "best_axial"
   python -m rtgamma.main --mode 2d --plane axial --plane-index auto `
     --opt-shift on --shift-range $fixSpec --refine none `
@@ -92,20 +113,33 @@ if ($doFallback) {
     --ref $Ref --eval $Eval --report $bestAx
 
   $summary += ""
-  $summary += "Phase B: Best-shift search"
-  $summary += ("- range: {0}" -f $Range)
-  $summary += ("- best_shift_mm: ({0}, {1}, {2})" -f $dxS,$dyS,$dzS)
-  $summary += ("- 3D pass_rate_percent: {0:F1}%" -f $bestPass)
+  $summary += "Phase B: Coarse-shift search"
+  $summary += ("- range: {0}" -f $CoarseRange)
+  $summary += ("- coarse_shift_mm: ({0}, {1}, {2})" -f $cx,$cy,$cz)
+  $summary += ("- pass_rate_percent: {0:F1}%" -f $coarsePass)
+
+  $summary += ""
+  $summary += "Phase C: Fine-shift search"
+  $summary += ("- range: {0}" -f $fineRange)
+  $summary += ("- best_shift_mm: ({0}, {1}, {2})" -f $fxS,$fyS,$fzS)
+  $summary += ("- pass_rate_percent: {0:F1}%" -f $finePass)
+  
+  $fineWarnings = [string]$fineJson.warnings
+  if (-not [string]::IsNullOrWhiteSpace($fineWarnings)) { $summary += ("- warnings: {0}" -f $fineWarnings) }
+
   if (Test-Path ("{0}.json" -f $bestAx)) {
+    $summary += ""
+    $summary += "Phase D: 2D Axial Fixed-Shift"
     $ax = Get-Content -Raw -Path ("{0}.json" -f $bestAx) | ConvertFrom-Json
-    $summary += ("- 2D axial pass_rate_percent: {0:F1}%" -f [double]$ax.pass_rate_percent)
+    $summary += ("- pass_rate_percent: {0:F1}%" -f [double]$ax.pass_rate_percent)
   }
 } else {
   Write-Line "[B] Fallback skipped: Phase A met threshold and had no warnings"
   $summary += ""
-  $summary += "Phase B: Skipped (threshold met; no warnings)"
+  $summary += "Phase B/C: Skipped (threshold met; no warnings)"
 }
 
 $sumPath = Join-Path $testDir "autofallback_summary.txt"
 $summary | Out-File -FilePath $sumPath -Encoding UTF8 -Force
 Write-Line ("Summary written to: {0}" -f $sumPath)
+

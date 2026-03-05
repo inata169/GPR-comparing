@@ -115,10 +115,14 @@ def grid_search_best_shift(
             for x in xs_coarse:
                 coarse_shifts.append((x, y, z))
 
+    # Sort shifts by magnitude (distance from origin) so we search center-outwards
+    coarse_shifts.sort(key=lambda s: s[0]**2 + s[1]**2 + s[2]**2)
+
     best_pass = -1.0
     best_shift = (0.0, 0.0, 0.0)
     best_n_eval = 0
     ref_n_eval = 0 # Points at (0,0,0)
+    last_significant_pass = -1.0
 
     log: List[Dict] = []
     noimp = 0
@@ -158,12 +162,22 @@ def grid_search_best_shift(
             best_pass = pass_rate
             best_shift = (x, y, z)
             best_n_eval = n_eval
-            noimp = 0
+            
+            if (pass_rate - last_significant_pass) >= early_stop_epsilon:
+                noimp = 0
+                last_significant_pass = pass_rate
+            else:
+                noimp += 1
+
+            if pass_rate >= 100.0:
+                logging.info("100% pass rate achieved, early stop.")
+                break
         else:
             noimp += 1
-            if noimp >= int(early_stop_patience) and not np.allclose([x,y,z], [0,0,0]):
-                logging.info("Early stop: no coarse improvement.")
-                break
+            
+        if noimp >= int(early_stop_patience) and not np.allclose([x,y,z], [0,0,0]):
+            logging.info(f"Early stop: no improvement >= {early_stop_epsilon}% in {early_stop_patience} steps.")
+            break
 
     logging.info(f"Coarse search complete. Best shift: {best_shift} with pass rate {best_pass:.2f}% (eval_points: {best_n_eval})")
 
@@ -174,37 +188,53 @@ def grid_search_best_shift(
         ys_fine = np.arange(best_shift[1] - fine_range_mm, best_shift[1] + fine_range_mm + 1e-6, fine_step_mm)
         zs_fine = np.arange(best_shift[2] - fine_range_mm, best_shift[2] + fine_range_mm + 1e-6, fine_step_mm)
 
-        noimp = 0
+        fine_shifts = []
         for z in zs_fine:
             for y in ys_fine:
                 for x in xs_fine:
                     if np.allclose([x, y, z], best_shift): continue
+                    fine_shifts.append((x, y, z))
+        
+        # Sort by distance to best_shift
+        fine_shifts.sort(key=lambda s: (s[0]-best_shift[0])**2 + (s[1]-best_shift[1])**2 + (s[2]-best_shift[2])**2)
 
-                    shifted_axes_eval = (z_eval + z, y_eval + y, x_eval + x)
-                    _, pass_rate, gstats = compute_gamma(
-                        axes_ref_mm=ref_axes_mm_1d, dose_ref=dose_ref,
-                        axes_eval_mm=shifted_axes_eval, dose_eval=dose_eval,
-                        dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
-                        gamma_type=gamma_type, norm=norm, use_pymedphys=False
-                    )
-                    n_eval = gstats.get('valid_points', 0)
-                    log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine', 'n_eval': n_eval})
+        noimp = 0
+        last_significant_pass = best_pass
+        for x, y, z in fine_shifts:
+            shifted_axes_eval = (z_eval + z, y_eval + y, x_eval + x)
+            _, pass_rate, gstats = compute_gamma(
+                axes_ref_mm=ref_axes_mm_1d, dose_ref=dose_ref,
+                axes_eval_mm=shifted_axes_eval, dose_eval=dose_eval,
+                dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
+                gamma_type=gamma_type, norm=norm, use_pymedphys=False
+            )
+            n_eval = gstats.get('valid_points', 0)
+            log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine', 'n_eval': n_eval})
 
-                    is_better = False
-                    if pass_rate > (best_pass + 1e-5):
-                        is_better = True
-                    elif abs(pass_rate - best_pass) <= 1e-5:
-                        if (x**2 + y**2 + z**2) < (best_shift[0]**2 + best_shift[1]**2 + best_shift[2]**2):
-                            is_better = True
+            is_better = False
+            if pass_rate > (best_pass + 1e-4):
+                is_better = True
+            elif abs(pass_rate - best_pass) <= 1e-4:
+                if (x**2 + y**2 + z**2) < (best_shift[0]**2 + best_shift[1]**2 + best_shift[2]**2):
+                    is_better = True
 
-                    if is_better:
-                        best_pass = pass_rate
-                        best_shift = (x, y, z)
-                        noimp = 0
-                    else:
-                        noimp += 1
-                        if noimp >= int(early_stop_patience): break
-                else: continue
+            if is_better:
+                best_pass = pass_rate
+                best_shift = (x, y, z)
+                if (pass_rate - last_significant_pass) >= early_stop_epsilon:
+                    noimp = 0
+                    last_significant_pass = pass_rate
+                else:
+                    noimp += 1
+                    
+                if pass_rate >= 100.0:
+                    logging.info("100% pass rate achieved in fine search, early stop.")
+                    break
+            else:
+                noimp += 1
+                
+            if noimp >= int(early_stop_patience):
+                logging.info(f"Early stop: fine search no improvement >= {early_stop_epsilon}% in {early_stop_patience} steps.")
                 break
         logging.info(f"Fine search complete. Best shift: {best_shift} with pass rate {best_pass:.2f}%")
 

@@ -15,10 +15,10 @@ High priority
   - [x] Extract: IsocenterPosition, SAD (and SSD estimate if derivable), BeamName if available
   - [x] Report deltas: plan_isocenter_delta_mm, SAD/SSD differences
 
-- [ ] Auto-fallback improvements
-  - [ ] Standardize two-stage search: coarse (e.g., x:-150:150:10,y:-30:30:10,z:-30:30:10, --refine none) → fine (±10 mm, 1 mm)
-  - [ ] Early stop if improvement < epsilon across N steps
-  - [ ] Include warnings/same_for_uid/orientation_min_dot in scripts/run_autofallback.ps1 summary output
+- [x] Auto-fallback improvements
+  - [x] Standardize two-stage search: coarse (e.g., x:-150:150:10,y:-30:30:10,z:-30:30:10, --refine none) → fine (±10 mm, 1 mm)
+  - [x] Early stop if improvement < epsilon across N steps
+  - [x] Include warnings/same_for_uid/orientation_min_dot in scripts/run_autofallback.ps1 summary output
 
 Medium priority
 - [ ] Update command.txt with new presets after enhancements
@@ -78,9 +78,9 @@ Optional / stretch
   - [x] GUI に `Sub-voxel Interp` の数値を指定するオプションを追加し、デフォルトを10へ変更。
 - [x] **Test01〜Test04 のヘッダ情報の比較とサマリ化**
   - [x] `compare_rtdose_headers.py` を用いて、各テストペアの IPP / SSD / SAD / 解像度 / DoseUnit を解析。
-  - [x] 結果を `phits-linac-validation/output/rtgamma/headers_summary.md` に出力し、原因を考察。
-- [ ] **3D ガンマビューアを用いた Test06 解析**
-  - [ ] Dose Ratio 機能などを利用し、MC と CCC 間の空間的な線量差の特徴を特定・記録する。
+## 次のステップ (Next Steps)
+- [ ] **設定プリセット管理 (YAML/JSON)**: `config/presets.yaml` などを読み込み、臨床の基準（TG-218など）での DTA/DD/Cutoff を `--profile TG218_IMRT` のように指定できる機能。
+- [ ] **結果データベース化 (SQLite)**: パス率などの解析結果を毎回 `rtgamma.db` へ追記し、トレンドや過去の比較を検索可能にする履歴機能。
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 
