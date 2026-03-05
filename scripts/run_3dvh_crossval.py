@@ -1,15 +1,17 @@
+import argparse
+import json
 import os
 import sys
-import json
-import logging
-import argparse
+
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Try to import rtgamma or add path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import rtgamma.main as rg_main
+
 
 def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:

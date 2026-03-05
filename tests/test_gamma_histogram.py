@@ -1,7 +1,9 @@
-import numpy as np
 import math
 
+import numpy as np
+
 from rtgamma.gamma import compute_gamma
+
 
 def make_axes(shape, spacing=(1.0, 1.0, 1.0)):
     sz, sy, sx = shape

@@ -1,16 +1,18 @@
+import argparse
+import json
 import os
 import sys
-import json
-import logging
-import argparse
-import pandas as pd
+
 import matplotlib
+import pandas as pd
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Try to import rtgamma or add path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import rtgamma.main as rg_main
+
 
 def load_config(config_path):
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -39,7 +41,7 @@ def run_experiment(case_name, params, interp_fractions, output_base):
             '--cutoff', str(params['cutoff_percent']),
             '--gamma-type', params['gamma_type'],
             '--norm', params['norm'],
-            '--opt-shift', 'off', 
+            '--opt-shift', 'off',
             '--interp-fraction', str(frac),
             # Do not save map, report, or pdf to save time and disk space
             # just get the GPR from the summary
@@ -90,7 +92,7 @@ def run_experiment(case_name, params, interp_fractions, output_base):
     plt.axhline(y=target_gpr, color='red', linestyle='--', label=f'SunNuclear 3DVH Target ({target_gpr}%)')
     
     # Highlight Best
-    plt.scatter(best_row['interp_fraction'], best_row['rtgamma_gpr'], color='darkorange', s=150, zorder=5, 
+    plt.scatter(best_row['interp_fraction'], best_row['rtgamma_gpr'], color='darkorange', s=150, zorder=5,
                 label=f"Best: frac={int(best_row['interp_fraction'])} (Δ={best_row['delta_pp']:+.2f}pp)")
 
     plt.title(f"GPR vs Sub-Voxel Interp Fraction ({params.get('label', case_name)})")
