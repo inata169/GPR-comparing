@@ -101,7 +101,7 @@ function New-Separator($y, $w=720){
 # =============================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'rtgamma  |  Gamma Analysis Tool'
-$form.Size = New-Object System.Drawing.Size(780,950)
+$form.Size = New-Object System.Drawing.Size(780,1010)
 $form.StartPosition = 'CenterScreen'
 $form.Font = $fontMain
 $form.BackColor = $clrBg
@@ -160,6 +160,14 @@ $yf += 20
 $tbOut = New-DarkTextBox 24 $yf 600
 $btnOut = New-DarkButton 'Select' 640 $yf
 $form.Controls.Add($tbOut); $form.Controls.Add($btnOut)
+$yf += 34
+
+# CT Directory (for 3D Viewer)
+$form.Controls.Add((New-DarkLabel 'CT Directory  (for 3D Viewer)' 24 $yf))
+$yf += 20
+$tbCT = New-DarkTextBox 24 $yf 600
+$btnCT = New-DarkButton 'Select' 640 $yf
+$form.Controls.Add($tbCT); $form.Controls.Add($btnCT)
 $yf += 38
 
 $form.Controls.Add((New-Separator ($yf) 720))
@@ -219,7 +227,7 @@ $yf += 28
 
 # Action
 $form.Controls.Add((New-DarkLabel 'Action' 24 $yf))
-$cbAction = New-DarkCombo 130 ($yf - 2) 180 @('Header Compare','3D Gamma','2D Gamma')
+$cbAction = New-DarkCombo 130 ($yf - 2) 180 @('Header Compare','3D Gamma','2D Gamma','3D Viewer')
 $cbAction.SelectedIndex = 1
 $form.Controls.Add($cbAction)
 
@@ -380,6 +388,7 @@ function Browse-Folder([ref]$tb){
 $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
 $btnEval.Add_Click({ Browse-File ([ref]$tbEval) })
 $btnStruct.Add_Click({ Browse-File ([ref]$tbStruct) })
+$btnCT.Add_Click({ Browse-Folder ([ref]$tbCT) })
 $btnOut.Add_Click({ Browse-Folder ([ref]$tbOut) })
 $btnOpen.Add_Click({ if(-not [string]::IsNullOrWhiteSpace($tbOut.Text)) { Start-Process explorer.exe $tbOut.Text } })
 
@@ -445,6 +454,25 @@ function Build-Command(){
         '--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),
         '--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),
         '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg
+    }
+    3 { # 3D Viewer
+      $ct = $tbCT.Text
+      if([string]::IsNullOrWhiteSpace($ct)){
+        [System.Windows.Forms.MessageBox]::Show('Please select CT Directory for the 3D Viewer.','Missing Input','OK','Warning')
+        return $null
+      }
+      $viewerCmd = @('python','-u','scripts/gamma_viewer.py','--ct',$ct,'--ref',$ref,'--eval',$eval,
+        '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
+      if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
+      if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
+        $viewerCmd += @('--roi', $tbRoi.Text.Trim())
+      }
+      # If a pre-computed NPZ exists in output folder, use it
+      $npzPath = Join-Path $out 'gamma3d.npz'
+      if (Test-Path $npzPath) {
+        $viewerCmd += @('--gamma-npz', $npzPath)
+      }
+      return $viewerCmd
     }
   }
 }
@@ -554,6 +582,7 @@ $btnCancel.Add_Click({
 # =============================================
 try {
   if ($cfg.output_dir)  { $tbOut.Text = [string]$cfg.output_dir }
+  if ($cfg.ct_dir)      { $tbCT.Text = [string]$cfg.ct_dir }
   if ($cfg.plane_index) { $tbPlaneIdx.Text = [string]$cfg.plane_index } else { $tbPlaneIdx.Text = 'auto' }
   if ($cfg.save_npz_3d -ne $null)    { $cbNPZ.Checked = [bool]$cfg.save_npz_3d }
   if ($cfg.save_db -ne $null)        { $cbDB.Checked = [bool]$cfg.save_db }
@@ -568,6 +597,7 @@ try {
       'header' { $cbAction.SelectedIndex = 0 }
       '3d'     { $cbAction.SelectedIndex = 1 }
       '2d'     { $cbAction.SelectedIndex = 2 }
+      'viewer' { $cbAction.SelectedIndex = 3 }
     }
   }
   # Load gamma params from config
@@ -586,7 +616,7 @@ try {
 
 # Save settings
 $btnSave.Add_Click({
-  $actionMap = @('header','3d','2d')
+  $actionMap = @('header','3d','2d','viewer')
   $actionKey = $actionMap[[int]$cbAction.SelectedIndex]
   if (-not $actionKey) { $actionKey = '3d' }
   $new = [ordered]@{
@@ -597,6 +627,7 @@ $btnSave.Add_Click({
     action      = $actionKey
     threads     = [int]$nudThreads.Value
     output_dir  = $tbOut.Text
+    ct_dir      = $tbCT.Text
     open_on_finish = $cbOpen.Checked
     save_log    = $cbLog.Checked
     save_db     = $cbDB.Checked

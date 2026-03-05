@@ -101,6 +101,12 @@ class GammaViewer:
         self.nz, self.ny, self.nx = self.ct.shape
         self.slice_idx = self.nz // 2
 
+        # Pixel spacings for correct aspect ratio
+        self._sp_col = float(dose_meta['s_col'])   # mm per column pixel (x)
+        self._sp_row = float(dose_meta['s_row'])   # mm per row pixel (y)
+        z_mm = dose_meta['z_coords_mm']
+        self._sp_slice = abs(float(z_mm[1] - z_mm[0])) if len(z_mm) > 1 else 1.0
+
         self.visible = {'CT': True, 'Structure': True}
         self.roi_visible = {name: True for name in self.roi_names}
 
@@ -299,11 +305,22 @@ class GammaViewer:
     def _draw(self):
         self.ax.clear()
 
+        # Determine origin and physical aspect ratio per plane
+        if self.plane == 'axial':
+            origin = 'upper'   # Medical convention: anterior at top
+            aspect = self._sp_row / self._sp_col
+        elif self.plane == 'sagittal':
+            origin = 'lower'
+            aspect = self._sp_slice / self._sp_row
+        else:  # coronal
+            origin = 'lower'
+            aspect = self._sp_slice / self._sp_col
+
         # -- CT background --
         if self.visible['CT']:
             ct2d = self._get_slice(self.ct)
             self.ax.imshow(ct2d, cmap='gray', vmin=-200, vmax=300,
-                           aspect='auto', origin='lower')
+                           aspect=aspect, origin=origin)
 
         # -- Overlay --
         self._cbar_ax.clear()
@@ -315,7 +332,7 @@ class GammaViewer:
             g2d = self._get_slice(self.gamma)
             gm = np.ma.masked_where(~np.isfinite(g2d) | (g2d == 0), g2d)
             im = self.ax.imshow(gm, cmap='turbo', vmin=0, vmax=2,
-                                alpha=0.5, aspect='auto', origin='lower')
+                                alpha=0.5, aspect=aspect, origin=origin)
             self._cbar_ax.set_visible(True)
             self.fig.colorbar(im, cax=self._cbar_ax)
             self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
@@ -330,7 +347,7 @@ class GammaViewer:
             pf[valid & (g2d > 1.0)] = 1.0   # NG
             pfm = np.ma.masked_where(~valid, pf)
             self.ax.imshow(pfm, cmap=_PASS_FAIL_CMAP, vmin=0, vmax=1,
-                           alpha=0.55, aspect='auto', origin='lower',
+                           alpha=0.55, aspect=aspect, origin=origin,
                            interpolation='nearest')
             # Count pass/fail for this slice
             n_pass = int(np.sum(pf[valid] == 0))
@@ -348,7 +365,7 @@ class GammaViewer:
             cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
             dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
             im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
-                                alpha=0.5, aspect='auto', origin='lower')
+                                alpha=0.5, aspect=aspect, origin=origin)
             self._cbar_ax.set_visible(True)
             self.fig.colorbar(im, cax=self._cbar_ax)
             self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
@@ -359,7 +376,7 @@ class GammaViewer:
             cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
             dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
             im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
-                                alpha=0.5, aspect='auto', origin='lower')
+                                alpha=0.5, aspect=aspect, origin=origin)
             self._cbar_ax.set_visible(True)
             self.fig.colorbar(im, cax=self._cbar_ax)
             self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
@@ -372,7 +389,7 @@ class GammaViewer:
             ref2d = self._get_slice(self.ref_dose)
             rm = np.ma.masked_where(~np.isfinite(r2d) | (ref2d < cutoff_abs), r2d)
             im = self.ax.imshow(rm, cmap='bwr', vmin=0.8, vmax=1.2,
-                                alpha=0.55, aspect='auto', origin='lower')
+                                alpha=0.55, aspect=aspect, origin=origin)
             self._cbar_ax.set_visible(True)
             self.fig.colorbar(im, cax=self._cbar_ax)
             self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
