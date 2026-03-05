@@ -2,8 +2,8 @@
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア（CT/Dose/Gamma/Pass-Fail/Dose-Ratioオーバーレイ、5モード切替）。
-- Future: GPU/CuPy 実装、Nelder–Mead 等のローカル探索。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成。
+- Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、マルチプレーン描画。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
@@ -24,8 +24,10 @@
 - Outputs
   - 2D: gamma 画像（PNG/TIFF）、dose diff 画像（%）。
   - 3D: gamma（NPZ）、dose_diff_pct（NPZ）。
-  - レポート: CSV/JSON/MD（スキーマ叩き台は docs/openspec/report.schema.json）。
+  - レポート: CSV/JSON/MD/PDF（スキーマ叩き台は `docs/openspec/report.schema.json`）。
     - JSONとMDには `per_structure` が含まれ、指定ROI単位での voxel_count, evaluated_count, pass_rate, mean, median, max が出力される。
+    - PDFには再現性確保のため実行時パッケージバージョンとコマンド引数が印字される。
+  - バッチサマリ: CSV（`batch_summary.csv` 等）、JSON、MD形式での全体集計レポート。
   - GUI: 実行ログ run_log_*.txt、サマリ自動オープン（run3d.md / <plane>.md / header_compare.md）。
 
 ## 4. Geometry & Coordinates
@@ -131,7 +133,7 @@
 
 ## 14. Commercial Roadmap (商用化ロードマップ)
 「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
-- **Tier 1: コア品質と信頼性**: バッチ処理一括化、PDF帳票自動生成、CIテストカバレッジ強化
+- **Tier 1: コア品質と信頼性 (Completed)**: バッチ処理一括化（`batch.py`）、PDFQA帳票自動生成（`pdf_report.py`）、RTPLANヘッダ統合、CIテストカバレッジ強化（E2E JSONSchema検証・合成データ回帰テスト）
 - **Tier 2: ユーザー体験の飛躍**: Web GUI設計、マルチプレーン/DVH 表示、SQLトレンド保存・プリセット管理
 - **Tier 3: 高度解析機能**: 多基準（3%/2mm等）並行計算、ヒストグラム化、不確かさ推論
 - **Tier 4: 運用エコシステム**: `.exe`/`pip` による配布パッケージ化、多言語（i18n）対応、監査・コンプライアンス準拠
