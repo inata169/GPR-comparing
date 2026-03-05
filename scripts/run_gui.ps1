@@ -101,13 +101,18 @@ function New-Separator($y, $w=720){
 # =============================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'rtgamma  |  Gamma Analysis Tool'
-$form.Size = New-Object System.Drawing.Size(780,1010)
+# Adapt height to screen: use 90% of screen height if screen is small
+$screenH = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Height
+$formH = [Math]::Min(1010, [int]($screenH * 0.92))
+$form.Size = New-Object System.Drawing.Size(780, $formH)
 $form.StartPosition = 'CenterScreen'
 $form.Font = $fontMain
 $form.BackColor = $clrBg
 $form.ForeColor = $clrText
-$form.FormBorderStyle = 'FixedSingle'
-$form.MaximizeBox = $false
+$form.FormBorderStyle = 'Sizable'
+$form.MaximizeBox = $true
+$form.AutoScroll = $true
+$form.MinimumSize = New-Object System.Drawing.Size(600, 400)
 
 # Title banner
 $lblTitle = New-DarkLabel 'rtgamma  -  DICOM RTDOSE Gamma Analysis' 24 14 $fontTitle $clrAccent
@@ -286,18 +291,18 @@ $cbDB     = New-DarkCheck 'Save to DB' 420 $yf $true
 $cbLog    = New-DarkCheck 'Save Log' 540 $yf $true
 $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbDB); $form.Controls.Add($cbLog)
 
-$form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 620 ($yf - 28)))
+$yf += 28
+$cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
+$form.Controls.Add($cbOpen)
+
+$form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 290 $yf))
 $nudInterp = New-Object System.Windows.Forms.NumericUpDown
-$nudInterp.Location = New-Object System.Drawing.Point(620, ($yf - 8))
+$nudInterp.Location = New-Object System.Drawing.Point(420, ($yf - 2))
 $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
 $nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 10
 $nudInterp.BorderStyle = 'FixedSingle'
 $form.Controls.Add($nudInterp)
-
-$yf += 28
-$cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
-$form.Controls.Add($cbOpen)
 $yf += 34
 
 $form.Controls.Add((New-Separator ($yf) 720))
@@ -513,6 +518,7 @@ function Run-Cmd([string[]]$cmd){
   $psi.CreateNoWindow = $true
   $psi.WorkingDirectory = $ROOT
   $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
+  $psi.EnvironmentVariables['PYTHONUTF8'] = '1'
   $p = New-Object System.Diagnostics.Process
   $p.StartInfo = $psi
   $p.EnableRaisingEvents = $true
@@ -561,6 +567,43 @@ function Run-Cmd([string[]]$cmd){
   [void]$p.Start()
   $p.BeginOutputReadLine()
   $p.BeginErrorReadLine()
+}
+
+# =============================================
+#  Run process for Viewer (needs visible window for matplotlib)
+# =============================================
+function Run-Viewer([string[]]$cmd){
+  Append-Log ("> " + ($cmd -join ' '))
+  $lblStatus.Text = 'Status: Launching Viewer...'; $lblStatus.ForeColor = $clrYellow
+
+  $pyCmd = $cmd[0]
+  if ($pyCmd -eq 'python') {
+    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $py) {
+      $py = (Get-Command py -ErrorAction SilentlyContinue).Source
+      if ($py) { $pyCmd = $py; $cmd = @($pyCmd,'-3') + $cmd[1..($cmd.Length-1)] }
+    } else { $pyCmd = $py }
+  }
+
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $pyCmd
+  $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $false
+  $psi.RedirectStandardOutput = $false
+  $psi.RedirectStandardError = $false
+  $psi.WorkingDirectory = $ROOT
+  $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
+  $psi.EnvironmentVariables['PYTHONUTF8'] = '1'
+
+  try {
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $lblStatus.Text = 'Status: Viewer launched'; $lblStatus.ForeColor = $clrGreen
+    Append-Log('Viewer process started (PID=' + $p.Id + '). Window should appear shortly.')
+  } catch {
+    $lblStatus.Text = 'Status: Error launching viewer'; $lblStatus.ForeColor = $clrRed
+    Append-Log('ERROR: ' + $_.Exception.Message)
+  }
 }
 
 # Cancel
@@ -643,7 +686,13 @@ $btnSave.Add_Click({
 
 $btnRun.Add_Click({
   $cmd = Build-Command
-  if($null -ne $cmd){ Run-Cmd $cmd }
+  if($null -ne $cmd){
+    if ($cbAction.SelectedIndex -eq 3) {
+      Run-Viewer $cmd
+    } else {
+      Run-Cmd $cmd
+    }
+  }
 })
 
 [void]$form.ShowDialog()

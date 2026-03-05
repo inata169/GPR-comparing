@@ -2,7 +2,7 @@
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、マルチプレーン描画。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
@@ -111,6 +111,14 @@
   - 方針: 2D fast path の Global/MaxRef 正規化は全体の最大値を使用（3D と揃える）
   - 補助スクリプト: `scripts/compare_slice_gpr.py`（3D NPZ の特定スライスと 2D レポートの GPR を比較）
 
+## 9.3 外部商用機システム (SunNuclear 3DVH) との相互検証成果
+- **Case: BreastBolus (MC vs CCC)**
+  - 設定: 3.0% / 2.0 mm / 10% Cutoff / Global Max Norm
+  - `rtgamma` Result: **99.59 %** (Sub-voxel fraction = 10)
+  - SunNuclear 3DVH Result: **97.6 %** (Matching Rate)
+  - **考察**: 約 2.0pp の乖離を確認。`rtgamma` はサブボクセル内挿によって極めて密な探索を行うため、商用機よりも幾分楽観的（高いパス率）に出る傾向がある。しかし 2% 以内の差は臨床的なクロスバリデーションとして許容範囲内と判断。
+
+
 ## 10. Security & Privacy
 - PHI を含む DICOM はリポジトリへコミット禁止。匿名化サンプルのみ使用。
 - 大容量バイナリ・生成物はコミットせず、出力フォルダに保存。
@@ -130,7 +138,8 @@
 - レポート出力: rtgamma/report.py
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
-- 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示)
+- 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, **物理アスペクト比対応**, **Axial医療慣習表示**)
+- 設定・DB: config/presets.json, rtgamma.db (SQLite)
 
 ## 14. Commercial Roadmap (商用化ロードマップ)
 「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：

@@ -59,6 +59,15 @@
       - `optimize.py` にて、粗い探索 (Coarse) と細かい探索 (Fine) のループを、中心からの距離順 (Magnitude) にソートして実行するよう改修しました。
       - パス率の改善幅が `epsilon` (デフォルト 0.05%) 未満の状態が `patience` (デフォルト 100) 回続いた場合に、直ちに探索を打ち切る Early Stop 機能を実装。
       - このアルゴリズムを利用し、`scripts/run_autofallback.ps1` を単一の最適化から「絶対評価 → 粗い探索 → 細かい探索 → 固定シフトでの2D再評価」という本格的な段階的パイプラインスクリプトへアップグレードしました。
+  21. **設定プリセット管理とSQLite DBの実装 (2026-03-05)**:
+      - `config/presets.json` による臨床設定のテンプレート化と、GUI上での連動・自動補完を実装。
+      - `rtgamma/db.py` により、解析結果を SQLite データベースへ追記保存する機能を構築。
+  22. **GUI への 3D ビューアの完全統合と医療用表示準拠 (2026-03-05)**:
+      - 3D Viewer を GUI の Action から直接起動可能に。matplotlib ウィンドウ表示のため、専用の non-redirected 起動プロセスを実装。
+      - `gamma_viewer.py` において物理アスペクト比(1:1)を強制し、Axial 表示を前方上が医療慣習の `origin='upper'` に修正しました。
+  23. **SunNuclear 3DVH とのクロスバリデーション (2026-03-05)**:
+      - BreastBolus ケースにて、`rtgamma` (99.59%) と 3DVH (97.6%) の比較を実施。商用機と ≲2.0pp という許容範囲内の整合性を確認しました。
+
 
 ## 2. 実装上の留意事項 (Implementation Notes)
 - **座標系**: `io_dicom.py` のメタデータ名を `v_col`, `v_row`, `v_slice`, `s_col`, `s_row` に変更し、DICOM規格（PixelSpacing[0]=垂直/row, [1]=水平/col）と配列インデックス `(j, i)` の対応を厳密に定義しました。
@@ -72,16 +81,18 @@
 - (オプション) ROI に特化したシフト最適化（ROI 内のガンマパス率を最大にする専用の最適化探索）。
 
 ## 4. 直近で実行すべきコマンド (Next Commands)
-次回の作業では、商用品質に向けた **Tier 2 (ユーザー体験の向上)** の実装に着手します。
-具体的には以下のいずれかを実施予定です（ユーザーと合意の上で進行）。
-- **A. 設定プリセット管理 (YAML/JSON)**: `config/presets.yaml` などを読み込み、臨床の基準（TG-218など）での DTA/DD/Cutoff を `--profile TG218_IMRT` のように指定できる機能。
-- **B. 結果データベース化 (SQLite)**: パス率などの解析結果を毎回 `rtgamma.db` へ追記し、トレンドや過去の比較を検索可能にする履歴機能。
+- **A. 設定プリセット管理 (YAML/JSON)**: 実装完了 (`config/presets.json`)。
+- **B. 結果データベース化 (SQLite)**: 実装完了 (`rtgamma/db.py`)。
+- **C. 3DVH 相互検証**: BreastBolus等での差異要因（約 2% の差）の詳細分析。
 
 ## 5. 商用品質に向けたロードマップ進捗 (全19項目)
-これまでの開発経緯を踏まえた商用レベル機能ロードマップを `docs/feature_roadmap.md` に保存し、Tier 1 の実装を完了しました。
+これまでの開発経緯を踏まえた商用レベル機能ロードマップを `docs/feature_roadmap.md` に保存しています。
 1. **バッチ処理** (実装完了: `batch.py`, CSV一括実行と結果集約)
 2. **PDFレポート自動生成** (実装完了: `pdf_report.py`, `reportlab` を使ったQA承認用の帳票生成と再現性・コマンド情報の出力)
 3. **RTPLANヘッダ統合** (実装完了)
 4. **テスト・CI強化** (実装完了: RuffによるLint、`pytest-cov`、JSONSchemaによるE2E検証、合成データでの回帰テスト追加)
+5. **JSON設定プリセット管理** (実装完了: `config/presets.json`, CLI `--profile`, GUI連動)
+6. **SQLite 結果データベース** (実装完了: `rtgamma/db.py`, GUI「Save to DB」チェックボックス)
+7. **3D ビューア GUI 統合** (実装完了: `run_gui.ps1` Action「3D Viewer」、物理アスペクト比対応、Axial医療慣習表示)
 
-次回の優先課題は **Tier 2 (ユーザー体験の向上: Web GUIへの完全移行、マルチプレーン同時表示、DB保存など)** の実装準備です。
+**Tier 1 (コア品質)** および **Tier 2 (ユーザー体験)** の主要項目が完了。次回は **Tier 3 (高度解析: 3DVH相互検証深掘り、ヒストグラム、多基準並行計算)** に着手予定です。
