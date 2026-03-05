@@ -247,9 +247,9 @@ def save_summary_pdf(path: str, summary: dict):
 
     # Environment & Reproducibility
     Story.append(Paragraph("Reproducibility Information", bold_style))
-    import sys
-    import platform
     import importlib.metadata
+    import platform
+    import sys
     
     env_info = [["Python", sys.version.split()[0], "Platform", platform.platform()]]
     pkgs = ["pydicom", "numpy", "scipy", "numba", "matplotlib", "reportlab"]

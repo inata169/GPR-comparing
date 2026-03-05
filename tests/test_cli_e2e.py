@@ -1,9 +1,9 @@
 """End-to-end tests for rtgamma CLI and report generation."""
 
-import os
 import json
-import csv
+import os
 import subprocess
+
 import pytest
 from jsonschema import validate
 

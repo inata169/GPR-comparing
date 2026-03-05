@@ -4,12 +4,13 @@ Ensures that known distributions produce the exact same Gamma Pass Rates
 to prevent unintended mathematical changes or off-by-one errors during refactor.
 """
 
+
 import numpy as np
-import os
+import pydicom
 import pytest
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.uid import ExplicitVRLittleEndian
-import pydicom
+
 from rtgamma.main import main
 
 

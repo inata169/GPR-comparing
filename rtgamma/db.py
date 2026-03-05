@@ -1,9 +1,8 @@
-import sqlite3
 import json
 import logging
-import os
-from datetime import datetime
-from typing import Dict, Any
+import sqlite3
+from typing import Any, Dict
+
 
 def init_db(db_path: str):
     """Initialize the SQLite database schema if it doesn't exist."""
