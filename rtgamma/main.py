@@ -577,9 +577,12 @@ def main(argv=None):
         'same_for_uid': bool(same_for),
         'orientation_min_dot': orientation_min_dot,
         'warnings': "; ".join(warnings_list) if warnings_list else "",
-        'gamma_mean': gstats['gamma_mean'],
-        'gamma_median': gstats['gamma_median'],
-        'gamma_max': gstats['gamma_max'],
+        'gamma_mean': gstats.get('gamma_mean', float('nan')),
+        'gamma_median': gstats.get('gamma_median', float('nan')),
+        'gamma_max': gstats.get('gamma_max', float('nan')),
+        'gamma_p95': gstats.get('gamma_p95', float('nan')),
+        'gamma_p99': gstats.get('gamma_p99', float('nan')),
+        'histogram': gstats.get('histogram', None),
         'save_gamma_map_path': args.save_gamma_map,
     }
     if per_structure:

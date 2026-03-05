@@ -72,8 +72,9 @@ def test_regression_synthetic_gpr(tmp_path):
         "--eval", eval_path,
         "--opt-shift", "off",
         "--mode", "3d",
-        "--dta", "2.0",
-        "--dd", "3.0"
+        "--dta", "1.5",
+        "--dd", "3.0",
+        "--interp-fraction", "1"
     ]
     
     summary = main(argv)

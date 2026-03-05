@@ -348,10 +348,46 @@ def compute_gamma(
     else:
         pass_rate = 0.0
 
+    has_finite = np.isfinite(g).any()
     stats = {
-        'gamma_mean': float(np.nanmean(g)) if np.isfinite(g).any() else float('nan'),
-        'gamma_median': float(np.nanmedian(g)) if np.isfinite(g).any() else float('nan'),
-        'gamma_max': float(np.nanmax(g)) if np.isfinite(g).any() else float('nan'),
+        'gamma_mean': float(np.nanmean(g)) if has_finite else float('nan'),
+        'gamma_median': float(np.nanmedian(g)) if has_finite else float('nan'),
+        'gamma_max': float(np.nanmax(g)) if has_finite else float('nan'),
         'valid_points': int(np.sum(valid)),
     }
+
+    # ---- Histogram statistics ----
+    bin_edges = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
+    if valid.any():
+        g_valid = g[valid]
+        n_valid = len(g_valid)
+        counts = []
+        cumulative_pass = []
+        for i in range(len(bin_edges) - 1):
+            lo, hi = bin_edges[i], bin_edges[i + 1]
+            if i == len(bin_edges) - 2:  # last bin includes upper edge
+                c = int(np.sum((g_valid >= lo) & (g_valid <= hi)))
+            else:
+                c = int(np.sum((g_valid >= lo) & (g_valid < hi)))
+            counts.append(c)
+        # Voxels with gamma > last bin edge
+        counts.append(int(np.sum(g_valid > bin_edges[-1])))
+        for edge in bin_edges:
+            cumulative_pass.append(float(np.sum(g_valid <= edge) / n_valid * 100.0))
+        stats['histogram'] = {
+            'bin_edges': bin_edges,
+            'counts': counts,
+            'cumulative_pass': cumulative_pass,
+        }
+        stats['gamma_p95'] = float(np.percentile(g_valid, 95))
+        stats['gamma_p99'] = float(np.percentile(g_valid, 99))
+    else:
+        stats['histogram'] = {
+            'bin_edges': bin_edges,
+            'counts': [0] * (len(bin_edges)),
+            'cumulative_pass': [0.0] * len(bin_edges),
+        }
+        stats['gamma_p95'] = float('nan')
+        stats['gamma_p99'] = float('nan')
+
     return g, pass_rate, stats

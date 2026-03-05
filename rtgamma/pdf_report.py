@@ -159,6 +159,68 @@ def save_summary_pdf(path: str, summary: dict):
     Story.append(Paragraph(f"STATUS: {status} (GPR = {gpr_str})", status_style))
     Story.append(Spacer(1, 0.4*inch))
 
+    # Gamma Histogram
+    hist = summary.get('histogram', None)
+    if hist:
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            hist_path = path.replace('.pdf', '_autohist.png')
+            edges = hist['bin_edges']
+            counts = hist['counts']
+            c_pass = hist['cumulative_pass']
+
+            fig, ax1 = plt.subplots(figsize=(6, 3))
+
+            # Prepare bar data
+            x_pos = []
+            labels = []
+            for i in range(len(edges) - 1):
+                x_pos.append(i)
+                labels.append(f"{edges[i]:.2f}-{edges[i+1]:.2f}")
+            x_pos.append(len(edges) - 1)
+            labels.append(f">{edges[-1]:.2f}")
+
+            ax1.bar(x_pos, counts, color='steelblue', edgecolor='black', zorder=3)
+            ax1.set_xticks(x_pos)
+            ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
+            ax1.set_xlabel('Gamma Value', fontsize=9)
+            ax1.set_ylabel('Voxel Count', fontsize=9, color='steelblue')
+            ax1.tick_params(axis='y', labelcolor='steelblue', labelsize=8)
+            ax1.grid(True, linestyle='--', alpha=0.5, axis='y', zorder=0)
+
+            # Cumulative pass rate line
+            if len(c_pass) == len(counts):
+                ax2 = ax1.twinx()
+                ax2.plot(x_pos, c_pass, color='darkorange', marker='o', markersize=4, zorder=4)
+                ax2.set_ylabel('Cumulative Pass (%)', fontsize=9, color='darkorange')
+                ax2.tick_params(axis='y', labelcolor='darkorange', labelsize=8)
+                ax2.set_ylim([0, 105])
+
+            # Draw gamma=1.0 line
+            try:
+                idx_1 = edges.index(1.0)
+                ax1.axvline(x=idx_1 - 0.5, color='red', linestyle='--', linewidth=1.5, zorder=5, label='Pass/Fail (g=1.0)')
+                ax1.legend(loc='upper left', fontsize=8)
+            except ValueError:
+                pass
+
+            plt.title('Gamma Histogram', fontsize=10)
+            plt.tight_layout()
+            plt.savefig(hist_path, dpi=150)
+            plt.close(fig)
+
+            Story.append(Paragraph("Gamma Histogram", bold_style))
+            Story.append(Spacer(1, 0.1*inch))
+            img_hist = Image(hist_path, width=5.5*inch, height=2.75*inch, kind='proportional')
+            img_hist.hAlign = 'CENTER'
+            Story.append(img_hist)
+            Story.append(Spacer(1, 0.3*inch))
+        except Exception as e:
+            pass
+
     # Per structure sub-table
     per_struct = summary.get('per_structure', [])
     if per_struct:

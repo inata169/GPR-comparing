@@ -1,0 +1,28 @@
+{
+    "Prostate": {
+        "ref": "dicom/PROSTATE",
+        "eval": "dicom/PROSTATE_MC",
+        "dta_mm": 2.0,
+        "dd_percent": 3.0,
+        "cutoff_percent": 10.0,
+        "gamma_type": "global",
+        "norm": "global_max",
+        "interp_fraction": 10,
+        "rtstruct": "dicom/PROSTATE",
+        "3dvh_gpr": 84.7,
+        "label": "Prostate CCC vs MC"
+    },
+    "BreastBolus": {
+        "ref": "dicom/BreastBolus_CCC",
+        "eval": "dicom/BreastBolus_MC",
+        "dta_mm": 2.0,
+        "dd_percent": 3.0,
+        "cutoff_percent": 10.0,
+        "gamma_type": "global",
+        "norm": "global_max",
+        "interp_fraction": 10,
+        "rtstruct": "dicom/BreastBolus_CCC",
+        "3dvh_gpr": 97.6,
+        "label": "BreastBolus CCC vs MC"
+    }
+}

@@ -19,9 +19,30 @@ def _dircos_to_matrix(iop: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarr
 
 
 def load_rtdose(path: str) -> Dict:
+    import os
     if pydicom is None:
         raise RuntimeError("pydicom is required to read RTDOSE DICOM. Install pydicom.")
-    ds = pydicom.dcmread(path, force=True)
+
+    target_path = path
+    if os.path.isdir(path):
+        found = None
+        for root, _, files in os.walk(path):
+            for f in files:
+                fpath = os.path.join(root, f)
+                try:
+                    ds_test = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
+                    if getattr(ds_test, 'Modality', None) == 'RTDOSE':
+                        found = fpath
+                        break
+                except Exception:
+                    continue
+            if found: break
+        if found:
+            target_path = found
+        else:
+            raise FileNotFoundError(f"No RTDOSE found in directory: {path}")
+
+    ds = pydicom.dcmread(target_path, force=True)
 
     # Workaround for files with missing TransferSyntaxUID
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
