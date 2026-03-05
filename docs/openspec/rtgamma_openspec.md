@@ -148,6 +148,7 @@
 - DICOM I/O・幾何: rtgamma/io_dicom.py
 - レポート出力: rtgamma/report.py
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
+  - **[制約・改善予定]** GUI から PDF を出力するためのボタン（チェックボックス）は未実装。現状は CLI で `--pdf <パス>` を指定する必要がある。将来的に `run_gui.ps1` の `Build-Command` 関数に `--pdf` フラグを組み込み、GUI 1 クリックで PDF レポートを生成できるように改修予定（TODO.md Tier 2 に登録済み）。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, **物理アスペクト比対応**, **Axial医療慣習表示**)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)

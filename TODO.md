@@ -39,7 +39,7 @@ Optional / stretch
 ## 商用化レベル機能ロードマップ (全19項目)
 「研究スクリプト」から「商用レベル品質」への引き上げのため、以下の実装が中・長期の優先課題となります。（詳細は `docs/feature_roadmap.md` を参照）
 - **Tier 1 (コア品質)**: **[x] バッチ処理一括実行**, **[x] PDF レポート自動生成**, [x] RTPLAN ヘッダ統合, **[x] テスト カバレッジ & CI 強化**
-- **Tier 2 (ユーザー体験)**: [ ] Web GUI化 (クロスプラットフォーム), [ ] マルチプレーン/DVH 同時表示, [x] トレンド解析DB保存, [x] JSON設定プリセット管理
+- **Tier 2 (ユーザー体験)**: [ ] Web GUI化 (クロスプラットフォーム), [ ] マルチプレーン/DVH 同時表示, [x] トレンド解析DB保存, [x] JSON設定プリセット管理, [ ] **GUI に PDF 出力ボタンを追加** (`run_gui.ps1` に `--pdf` オプションとチェックボックスを追加し、ワンクリックで PDF レポートを生成できるようにする)
 - **Tier 3 (高度解析)**: [x] ガンマヒストグラム・空間分析, [ ] 多基準同時評価並行実行, [x] サードパーティ(3DVH)との相互検証分析, [ ] 不確かさのブートストラップ推定, [ ] MHD/NRRD対応
 - **Tier 4 (運用・配布)**: [ ] `pip` / `.exe` パッケージ・インストーラ配布, [ ] 完全日英多言語化 (i18n), [ ] プラグイン機構, [ ] 監査・コンプライアンス対応
 
@@ -88,6 +88,7 @@ Optional / stretch
 - [x] **SunNuclear 3DVH との相互比較分析**: BreastBolus/Prostate の 3DVH出力と `rtgamma` を比較。どちらも PASS (≤2.0pp)を達成。詳細は `output/3dvh_crossval/crossval_summary.md` 参照。
 - [x] **`interp_fraction` 感度実験 (Prostate 完了)**: `scripts/run_interp_experiment.py` で Prostate を検証。最適値は **`interp_fraction = 3`** (GPR=85.26%, Δ=+0.56pp が 3DVH target 84.7% に最近接)。`config/3dvh_reference.json` に反映済み。
 - [x] **`interp_fraction` 感度実験 (BreastBolus 完了)**: `scripts/run_interp_experiment.py` で BreastBolus を検証。最適値は **`interp_fraction = 2`** (GPR=97.73%, Δ=+0.13pp が 3DVH target 97.6% に最近接)。`config/3dvh_reference.json` に反映済み。
+- [ ] **GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`): 現状 PDF は CLI (`--pdf <パス>`) でのみ生成可能。GUI に「Output PDF」チェックボックスを追加し、チェック時に `--pdf <output_dir>/report.pdf` を `Build-Command` に付与することで、ワンクリックで PDF レポートを生成できるようにする。
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 

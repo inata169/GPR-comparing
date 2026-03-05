@@ -27,6 +27,7 @@
 ## 次のステップ (Next Steps)
 - **Tier 2 以降**の未実施機能（Web GUI化、マルチプレーン/DVH 同時表示、不確かさのブートストラップ推定など）への着手。
 - openspec・ロードマップの `interp_fraction` 感度実験セクションを「完了」として更新。
+- **GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`): 現状 PDF は CLI のみ対応。GUI に「Output PDF」チェックボックスを追加し、ワンクリックで PDF レポートを生成できるようにする。詳細は TODO.md Tier 2 を参照。
 
 ---
 

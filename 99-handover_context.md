@@ -22,6 +22,10 @@
 次のセッションからは **Tier 2/3 未実装機能** に着手可能。
 
 候補:
+- **[最優先] GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`):
+  - 現状: PDF は CLI (`--pdf <パス>`) でのみ生成可能。
+  - 実装方針: `Build-Command` 関数に `if ($cbPDF.Checked) { $baseCmd += @('--pdf', (Join-Path $out 'report.pdf')) }` を追加し、「Output PDF」チェックボックスをフォームに配置する。
+  - 参照: TODO.md Tier 2 / openspec Section 13
 - **Web GUI 化** (クロスプラットフォーム対応)
 - **マルチプレーン/DVH 同時表示**
 - **不確かさのブートストラップ推定**
