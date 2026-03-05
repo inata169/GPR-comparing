@@ -7,7 +7,9 @@
         "cutoff_percent": 10.0,
         "gamma_type": "global",
         "norm": "global_max",
-        "interp_fraction": 10,
+        "interp_fraction": 3,
+        "optimal_interp_fraction": 3,
+        "optimal_interp_note": "interp=3 gives GPR=85.26% (delta=+0.56pp from 3DVH 84.7%). Validated by run_interp_experiment.py 2026-03-05",
         "rtstruct": "dicom/PROSTATE",
         "3dvh_gpr": 84.7,
         "label": "Prostate CCC vs MC"
