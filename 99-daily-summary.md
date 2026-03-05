@@ -20,9 +20,11 @@
    - `TODO.md`: BreastBolus interp_fraction タスクを `[ ]` → `[x]` に更新。
    - `99-handover_context.md`: BreastBolus 実験を「未実施」→「完了」に更新し、保留タスクリストを整理。
 
-3. **全テスト確認・コミット・プッシュ**
-   - `pytest tests/ -v` で **27 passed** を確認（0 failed）。
-   - `git commit` + `git push` → コミット `651eceb` が `main` へ push 完了。
+3. **全テスト確認・CI対応・v0.5.0 正式リリース**
+   - `pytest tests/ -v` で **27 passed** を確認。
+   - GitHub Actions CI における `ruff check` エラー（import順序、未使用import等）を `ruff check --fix` で一括修正。
+   - GitHub 上で Draft 状態だった **v0.5.0** を正式に公開（Publish）し、**Latest release** に設定。
+   - コミット `127c9c6` にて CI をパスすることを確認済み。
 
 ## 次のステップ (Next Steps)
 - **Tier 2 以降**の未実施機能（Web GUI化、マルチプレーン/DVH 同時表示、不確かさのブートストラップ推定など）への着手。

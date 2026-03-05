@@ -16,9 +16,13 @@
 - `config/3dvh_reference.json` の BreastBolus エントリの `interp_fraction` を `2` に更新済み。
 - 結果 CSV: `output/interp_experiment/BreastBolus/interp_experiment_results.csv`
 
-## 2. 保留中のタスク (Pending Tasks)
+### リポジトリ状態 (Repository Status)
+- すべての interp_fraction 実験は両ケース完了。
+- `ruff` による Lint エラーも修正済みで、GitHub Actions (CI) は **Success (Green)** の状態。
+- **v0.5.0** が正式に最新リリースとして公開済み。
+- ドキュメント・設定・テストもすべて最新化して push 済み。
 
-すべての interp_fraction 実験は両ケース完了。ドキュメント・設定・テストも更新済み。
+## 2. 保留中のタスク (Pending Tasks)
 次のセッションからは **Tier 2/3 未実装機能** に着手可能。
 
 候補:
