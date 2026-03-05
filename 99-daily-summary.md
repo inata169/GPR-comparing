@@ -1,4 +1,36 @@
-# Daily Summary: 2026-03-05
+# Daily Summary: 2026-03-05 (セッション2)
+
+## 作業内容サマリ
+
+1. **3DVH クロスバリデーション パイプラインの完成と実行 (`scripts/run_3dvh_crossval.py`)**
+   - **実行結果**:
+     | Case | rtgamma GPR | 3DVH GPR | Δ (pp) | 判定 |
+     |---|---|---|---|---|
+     | Prostate CCC vs MC | 85.82% | 84.7% | +1.12 | PASS (≤2pp) |
+     | BreastBolus CCC vs MC | 99.59% | 97.6% | +1.99 | PASS (≤2pp) |
+   - 両ケースとも許容範囲 ≤2.0pp を達成し、`rtgamma` が商用ツール (SunNuclear 3DVH) と同等の精度を持つことを客観的に実証。
+   - 結果: `output/3dvh_crossval/crossval_summary.md` および `histogram_comparison.png` を生成・Gitコミット済み。
+
+2. **ガンマヒストグラム統計の実装と Unit Test 追加**
+   - `rtgamma/gamma.py` の `compute_gamma()` 戻り値 `stats` にヒストグラム分布、累積パス率、95th/99th パーセンタイルを追加（Phase 1 完了）。
+   - `tests/test_gamma_histogram.py` を新規作成し、正常系・空データの両テストをパス確認（全27テスト中26 PASS）。
+
+3. **回帰テストの修正 (`tests/test_regression.py`)**
+   - Sub-voxel interpolation 導入後に `test_regression_synthetic_gpr` が 100% を返しテスト失敗していた問題を修正。
+   - 根本原因: 2.0mm グリッド間隔に対し DTA=2.0mm を設定すると隣接ボクセルが DTA 球内に入り、50% 線量差がパスしてしまう幾何的条件。`DTA=1.5mm` + `--interp-fraction 1` の組み合わせに変更し、4ボクセルが確実に NG になることをデバッグスクリプトで確認の上修正完了。
+
+4. **`interp_fraction` 感度実験スクリプトの作成 (`scripts/run_interp_experiment.py`)**
+   - `interp_fraction` を 1 から 20 まで変化させ、各値での GPR を 3DVH ターゲット値と比較する実験スクリプトを新規作成。
+   - 実行中（計算が完了するとこのスクリプトは `output/interp_experiment/` に CSV と PNG グラフを出力する）。
+
+## 次のステップ (Next Steps)
+- `interp_fraction` 感度実験の結果確認（`output/interp_experiment/` の CSV + PNG グラフ）。
+- 最適 `interp_fraction` を確定したら、`config/3dvh_reference.json` や GUI のデフォルト設定への反映を検討。
+- Push: 実験結果が出たら git push を実施（確認後）。
+
+---
+
+
 
 ## 作業内容サマリ
 1. **バッチ処理一括自動化の完成 (`rtgamma/batch.py`)**

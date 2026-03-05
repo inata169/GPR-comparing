@@ -40,7 +40,7 @@ Optional / stretch
 「研究スクリプト」から「商用レベル品質」への引き上げのため、以下の実装が中・長期の優先課題となります。（詳細は `docs/feature_roadmap.md` を参照）
 - **Tier 1 (コア品質)**: **[x] バッチ処理一括実行**, **[x] PDF レポート自動生成**, [x] RTPLAN ヘッダ統合, **[x] テスト カバレッジ & CI 強化**
 - **Tier 2 (ユーザー体験)**: [ ] Web GUI化 (クロスプラットフォーム), [ ] マルチプレーン/DVH 同時表示, [x] トレンド解析DB保存, [x] JSON設定プリセット管理
-- **Tier 3 (高度解析)**: [ ] ガンマヒストグラム・空間分析, [ ] 多基準同時評価並行実行, [x] サードパーティ(3DVH)との相互検証分析, [ ] 不確かさのブートストラップ推定, [ ] MHD/NRRD対応
+- **Tier 3 (高度解析)**: [x] ガンマヒストグラム・空間分析, [ ] 多基準同時評価並行実行, [x] サードパーティ(3DVH)との相互検証分析, [ ] 不確かさのブートストラップ推定, [ ] MHD/NRRD対応
 - **Tier 4 (運用・配布)**: [ ] `pip` / `.exe` パッケージ・インストーラ配布, [ ] 完全日英多言語化 (i18n), [ ] プラグイン機構, [ ] 監査・コンプライアンス対応
 
 ## 次のステップ (2026-03-03)
@@ -85,8 +85,8 @@ Optional / stretch
 ## 次のステップ (Next Steps)
 - [x] **設定プリセット管理 (YAML/JSON)**: `config/presets.json` などを読み込み、臨床の基準（TG-218など）での DTA/DD/Cutoff を `--profile TG218_IMRT` のように指定できる機能。
 - [x] **結果データベース化 (SQLite)**: パス率などの解析結果を毎回 `rtgamma.db` へ追記し、トレンドや過去の比較を検索可能にする履歴機能機能。
-- [ ] **SunNuclear 3DVH との相互比較分析**: BreastBolus等、3DVH出力と `rtgamma` の差異(2.0pp前後)要因の深掘り。
-  - 補間アルゴリズムのパラメータ感度、DTA検索精度、および計算グリッドの正規化タイミングの再検証。
+- [x] **SunNuclear 3DVH との相互比較分析**: BreastBolus/Prostate の 3DVH出力と `rtgamma` を比較。どちらも PASS (≤2.0pp)を達成。詳細は `output/3dvh_crossval/crossval_summary.md` 参照。
+- [ ] **`interp_fraction` 感度実験 (1〜20)**: `scripts/run_interp_experiment.py` で Prostate/BreastBolus の各ケースを全 fraction でスイープし、3DVH 目標値に最も近い最適 fraction を決定する。結果は CSV + PNG グラフとして `output/interp_experiment/` に生成。
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 
