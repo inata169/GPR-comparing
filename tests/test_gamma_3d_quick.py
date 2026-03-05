@@ -1,5 +1,6 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 import pytest
 
 from rtgamma.io_dicom import load_rtdose

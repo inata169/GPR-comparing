@@ -44,9 +44,9 @@ def build_summary(case: str, out_dir: Path):
     # Simple PDF with matplotlib
     import matplotlib
     matplotlib.use('Agg')
+    import matplotlib.image as mpimg
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    import matplotlib.image as mpimg
 
     pdf_path = out_dir / f"{case}_summary.pdf"
     with PdfPages(pdf_path) as pdf:

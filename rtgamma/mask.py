@@ -1,11 +1,10 @@
 """ROI mask generation from RTSTRUCT contours onto RTDOSE grid."""
 
 import logging
-import numpy as np
 from typing import Dict, List, Optional
 
+import numpy as np
 from matplotlib.path import Path as MplPath
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,7 @@ def contour_to_mask_3d(contours: List[Dict], meta_dose: Dict) -> np.ndarray:
     # Process each contour
     for contour in contours:
         z_world = contour['z']
-            
+
         z_world = contour['z']
         # Find matching dose slice index
         diffs = np.abs(slice_world_z - z_world)

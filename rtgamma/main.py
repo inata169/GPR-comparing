@@ -1,17 +1,19 @@
+import argparse
+import json
+import logging
 import os
 import sys
-import json
-import argparse
-import numpy as np
-import logging
 
+import numpy as np
+
+from .gamma import compute_gamma
 from .io_dicom import load_rtdose, load_rtstruct, world_to_index
 from .mask import build_roi_masks
-from .resample import resample_eval_onto_ref
-from .gamma import compute_gamma
 from .optimize import grid_search_best_shift
+from .pdf_report import save_summary_pdf
 from .report import save_summary_csv, save_summary_json, save_summary_markdown
-from .viz import save_gamma_map_2d, save_dose_diff_2d
+from .resample import resample_eval_onto_ref
+from .viz import save_dose_diff_2d, save_gamma_map_2d
 
 
 def build_ref_world_coords(meta_ref):
@@ -19,21 +21,21 @@ def build_ref_world_coords(meta_ref):
     i_mm = meta_ref['x_coords_mm'] # i-axis values (columns)
     j_mm = meta_ref['y_coords_mm'] # j-axis values (rows)
     k_mm = meta_ref['z_coords_mm'] # k-axis values (slices)
-    
+
     ipp = meta_ref['ipp']
     v_col = meta_ref['v_col']
     v_row = meta_ref['v_row']
     v_slice = meta_ref['v_slice']
-    
+
     # Meshgrid with indexing='ij' -> shapes (nj, ni, nk)
     J, I, K = np.meshgrid(j_mm, i_mm, k_mm, indexing='ij')
-    
+
     # Pw(j,i,k) = IPP + j*v_row + i*v_col + k*v_slice
     Pw = (ipp[None, None, None, :]
           + J[..., None] * v_row[None, None, None, :]
           + I[..., None] * v_col[None, None, None, :]
           + K[..., None] * v_slice[None, None, None, :])
-    
+
     # Reorder to (k,j,i) to match dose array shape
     Pw = np.moveaxis(Pw, 2, 0)  # (k,j,i,3)
     Xw = Pw[..., 0]
@@ -133,6 +135,7 @@ def main(argv=None):
     parser.add_argument('--save-gamma-map')
     parser.add_argument('--save-dose-diff')
     parser.add_argument('--report')
+    parser.add_argument('--pdf', action='store_true', help='Generate PDF report along with standard reports')
     parser.add_argument('--log-level', choices=['INFO', 'DEBUG'], default='INFO')
     parser.add_argument('--warn-large-shift-mm', type=float, default=20.0,
                         help='Warn if |best_shift| exceeds this magnitude (mm)')
@@ -255,7 +258,7 @@ def main(argv=None):
     best_shift = (0.0, 0.0, 0.0)
     di_axis = dj_axis = dk_axis = 0.0
     search_log = None
-    
+
     # Bypass optimization if Ref and Eval are the same file
     if os.path.exists(args.ref) and os.path.exists(args.eval):
         if os.path.abspath(args.ref) == os.path.abspath(args.eval):
@@ -286,7 +289,7 @@ def main(argv=None):
         )
         search_log = extras['search_log']
         logging.info(f"Shift optimization complete. Best shift: {best_shift}, Pass rate: {best_pass}")
-        
+
         # Convert best shift from ref axis components (dx along col_dir,
         # dy along row_dir, dz along slice_dir) into LPS vector components.
         if isinstance(best_shift, tuple) and len(best_shift) == 3:
@@ -350,7 +353,7 @@ def main(argv=None):
     else:
         logging.info("Starting final gamma calculation.")
         axes_ref_mm = (meta_ref['z_coords_mm'], meta_ref['y_coords_mm'], meta_ref['x_coords_mm'])
-        
+
         # We use the un-resampled original eval dose and its correctly shifted axes.
         # This prevents interpolation blur and preserves sub-voxel gamma resolution!
         axes_eval_mm_final = (
@@ -358,7 +361,7 @@ def main(argv=None):
             eval_axes_mm_1d_preshifted[1] + dj_axis,
             eval_axes_mm_1d_preshifted[2] + di_axis
         )
-        
+
         gamma_map, pass_rate, gstats = compute_gamma(
             axes_ref_mm=axes_ref_mm,
             dose_ref=dose_ref,
@@ -495,64 +498,74 @@ def main(argv=None):
             eor = get_eval_on_ref(_eval_on_ref_shift[0])
             np.savez_compressed(args.save_dose_diff, dose_diff_pct=(eor - dose_ref) / nf * 100.0)
 
+    # Build warnings and flags (always, for return value)
+    warnings_list = []
+    same_for = (ref_for_uid != '' and eval_for_uid != '' and ref_for_uid == eval_for_uid)
+    if (ref_for_uid and eval_for_uid) and (ref_for_uid != eval_for_uid):
+        msg = f"FrameOfReferenceUID differs (ref={ref_for_uid}, eval={eval_for_uid})"
+        warnings_list.append(msg)
+        logging.warning(msg)
+    # Large shift warning (applies when optimization was enabled)
+    try:
+        dx_, dy_, dz_ = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
+        shift_mag = float(np.sqrt(dx_**2 + dy_**2 + dz_**2))
+    except Exception:
+        shift_mag = float(0.0)
+    large_shift_threshold = float(getattr(args, 'warn_large_shift_mm', 20.0))
+    if args.opt_shift == 'on' and shift_mag > large_shift_threshold:
+        msg = f"Large best shift magnitude {shift_mag:.3f} mm (> {large_shift_threshold} mm)"
+        warnings_list.append(msg)
+        logging.warning(msg)
+
+    absolute_geometry_only = (args.opt_shift == 'off' and args.norm == 'none')
+
+    summary = {
+        'ref': os.path.basename(args.ref),
+        'eval': os.path.basename(args.eval),
+        'mode': args.mode,
+        'plane': getattr(args, 'plane', None),
+        'plane_index': int(sl) if args.mode == '2d' else None,
+        'dd_percent': args.dd,
+        'dta_mm': args.dta,
+        'cutoff_percent': args.cutoff,
+        'gamma_type': args.gamma_type,
+        'norm': args.norm,
+        'pass_rate_percent': pass_rate_out if args.mode == '2d' else pass_rate,
+        'best_shift_mm': best_shift,
+        'best_shift_mag_mm': shift_mag,
+        'absolute_geometry_only': absolute_geometry_only,
+        'ref_for_uid': ref_for_uid or None,
+        'eval_for_uid': eval_for_uid or None,
+        'same_for_uid': bool(same_for),
+        'orientation_min_dot': orientation_min_dot,
+        'warnings': "; ".join(warnings_list) if warnings_list else "",
+        'gamma_mean': gstats['gamma_mean'],
+        'gamma_median': gstats['gamma_median'],
+        'gamma_max': gstats['gamma_max'],
+        'save_gamma_map_path': args.save_gamma_map,
+    }
+    if per_structure:
+        summary['per_structure'] = per_structure
+
     if args.report:
         logging.info(f"Saving report to {args.report}")
         base = os.path.splitext(args.report)[0]
-        # Build warnings and flags
-        warnings_list = []
-        same_for = (ref_for_uid != '' and eval_for_uid != '' and ref_for_uid == eval_for_uid)
-        if (ref_for_uid and eval_for_uid) and (ref_for_uid != eval_for_uid):
-            msg = f"FrameOfReferenceUID differs (ref={ref_for_uid}, eval={eval_for_uid})"
-            warnings_list.append(msg)
-            logging.warning(msg)
-        # Large shift warning (applies when optimization was enabled)
-        try:
-            dx_, dy_, dz_ = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
-            shift_mag = float(np.sqrt(dx_**2 + dy_**2 + dz_**2))
-        except Exception:
-            shift_mag = float(0.0)
-        large_shift_threshold = float(getattr(args, 'warn_large_shift_mm', 20.0))
-        if args.opt_shift == 'on' and shift_mag > large_shift_threshold:
-            msg = f"Large best shift magnitude {shift_mag:.3f} mm (> {large_shift_threshold} mm)"
-            warnings_list.append(msg)
-            logging.warning(msg)
-
-        absolute_geometry_only = (args.opt_shift == 'off' and args.norm == 'none')
-
-        summary = {
-            'ref': os.path.basename(args.ref),
-            'eval': os.path.basename(args.eval),
-            'mode': args.mode,
-            'plane': getattr(args, 'plane', None),
-            'plane_index': int(sl) if args.mode == '2d' else None,
-            'dd_percent': args.dd,
-            'dta_mm': args.dta,
-            'cutoff_percent': args.cutoff,
-            'gamma_type': args.gamma_type,
-            'norm': args.norm,
-            'pass_rate_percent': pass_rate_out if args.mode == '2d' else pass_rate,
-            'best_shift_mm': best_shift,
-            'best_shift_mag_mm': shift_mag,
-            'absolute_geometry_only': absolute_geometry_only,
-            'ref_for_uid': ref_for_uid or None,
-            'eval_for_uid': eval_for_uid or None,
-            'same_for_uid': bool(same_for),
-            'orientation_min_dot': orientation_min_dot,
-            'warnings': "; ".join(warnings_list) if warnings_list else "",
-            'gamma_mean': gstats['gamma_mean'],
-            'gamma_median': gstats['gamma_median'],
-            'gamma_max': gstats['gamma_max'],
-        }
-        if per_structure:
-            summary['per_structure'] = per_structure
         save_summary_csv(base + '.csv', summary)
         save_summary_json(base + '.json', summary)
         save_summary_markdown(base + '.md', summary)
+        if args.pdf:
+            try:
+                save_summary_pdf(base + '.pdf', summary)
+                logging.info(f"Saved PDF report to {base}.pdf")
+            except Exception as e:
+                logging.error(f"Failed to save PDF report: {e}")
+
         if search_log is not None:
             with open(base + '_search_log.json', 'w', encoding='utf-8') as f:
                 json.dump(search_log, f, ensure_ascii=False, indent=2)
-    
+
     logging.info("Gamma analysis finished.")
+    return summary
 
 if __name__ == '__main__':
     main()

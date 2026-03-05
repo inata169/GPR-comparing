@@ -17,27 +17,28 @@ Usage:
         --gamma-npz output/gamma3d.npz \
         --rtstruct dicom/PROSTATE/RTSTRUCT_*.dcm
 """
-import os
-import sys
 import argparse
 import logging
-import numpy as np
+import os
+import sys
+
 import matplotlib
+import numpy as np
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, RadioButtons, CheckButtons
-from matplotlib.patches import Polygon
 from matplotlib.colors import ListedColormap
-from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon
+from matplotlib.widgets import CheckButtons, RadioButtons, Slider
 
 # Ensure repo root is on path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from rtgamma.io_dicom import load_rtdose, load_ct, load_rtstruct
-from rtgamma.resample import resample_ct_onto_dose
-from rtgamma.mask import build_roi_masks
 from rtgamma.gamma import compute_gamma
+from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct
+from rtgamma.mask import build_roi_masks
+from rtgamma.resample import resample_ct_onto_dose
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')

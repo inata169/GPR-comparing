@@ -43,7 +43,13 @@ jobs:
           if [ -f REQUIREMENTS.txt ]; then pip install -r REQUIREMENTS.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; else pip install pytest; fi
 
-      - name: Run tests
+      - name: Run Ruff
         shell: bash
         run: |
-          pytest -q
+          ruff check rtgamma/ tests/ scripts/
+          
+      - name: Run tests with coverage
+        shell: bash
+        run: |
+          pytest --cov=rtgamma --cov-report=xml
+          

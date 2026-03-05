@@ -1,7 +1,7 @@
 import argparse
 import json
+
 import numpy as np
-from pathlib import Path
 
 
 def compute_pass_rate(g2d: np.ndarray) -> float:

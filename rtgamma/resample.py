@@ -1,7 +1,7 @@
-import numpy as np
-from scipy import ndimage
 from typing import Literal, Tuple
 
+import numpy as np
+from scipy import ndimage
 
 InterpMode = Literal['linear', 'bspline', 'nearest']
 

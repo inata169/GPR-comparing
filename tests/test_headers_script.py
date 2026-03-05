@@ -1,9 +1,9 @@
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
-import pytest
 
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 

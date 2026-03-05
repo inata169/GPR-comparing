@@ -3,7 +3,7 @@ import os
 from typing import List, Tuple
 
 from rtgamma.io_dicom import load_rtdose
-from scripts.compare_rtdose_headers import summarize, project_origin_delta, orientation_similarity  # reuse helpers
+from scripts.compare_rtdose_headers import orientation_similarity, project_origin_delta, summarize  # reuse helpers
 
 
 def summarize_pair(a_path: str, b_path: str):

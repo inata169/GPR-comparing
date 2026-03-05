@@ -3,6 +3,7 @@ numpy~=1.26
 scipy~=1.13
 numba~=0.59
 matplotlib~=3.9
+reportlab~=4.2
 
 # Optional (disabled by default in code)
 # pymedphys~=0.40

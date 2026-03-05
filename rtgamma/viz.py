@@ -1,6 +1,6 @@
-import numpy as np
+
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional
+import numpy as np
 
 
 def save_gamma_map_2d(path: str, gamma2d: np.ndarray, title: str = "") -> None:

@@ -4,11 +4,12 @@ Ensures that converting grid indices → world LPS → grid indices returns the
 original indices to numerical precision, for both canonical and oblique
 orientations as well as real DICOM data.
 """
-import numpy as np
-import pytest
 from pathlib import Path
 
-from rtgamma.io_dicom import voxel_to_world, world_to_index, load_rtdose, load_rtstruct
+import numpy as np
+import pytest
+
+from rtgamma.io_dicom import load_rtdose, load_rtstruct, voxel_to_world, world_to_index
 from rtgamma.mask import build_roi_masks
 
 ROOT = Path(__file__).resolve().parents[1]

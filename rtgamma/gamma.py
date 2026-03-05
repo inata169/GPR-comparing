@@ -1,7 +1,7 @@
-﻿import numpy as np
-from typing import Tuple, Literal, Optional
-import numba
+﻿from typing import Literal, Optional, Tuple
 
+import numba
+import numpy as np
 
 GammaType = Literal['global', 'local']
 NormType = Literal['global_max', 'max_ref', 'none']
@@ -79,13 +79,13 @@ def _numba_gamma_3d(
         for j_ref in range(shape_ref[1]):
             for i_ref in range(shape_ref[2]):
                 dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
-                
+
                 # Cutoff check is applied relative to global reference norm_factor
                 if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
                     continue
 
                 min_gamma_sq = np.inf
-                
+
                 z_ref = z_ref_ax[k_ref]
                 y_ref = y_ref_ax[j_ref]
                 x_ref = x_ref_ax[i_ref]
@@ -109,7 +109,7 @@ def _numba_gamma_3d(
                         for i_eval in range(x_min_idx, x_max_idx):
                             dist_x_sq = (x_eval_ax[i_eval] - x_ref) ** 2
                             dist_sq = dist_zy_sq + dist_x_sq
-                            
+
                             if dist_sq <= dta_mm_sq:
                                 dose_eval_val = dose_eval[k_eval, j_eval, i_eval]
                                 # Global vs Local dose difference normalisation
@@ -121,11 +121,11 @@ def _numba_gamma_3d(
                                     dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
                                 else:
                                     dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
-                                
+
                                 gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
                                 if gamma_sq < min_gamma_sq:
                                     min_gamma_sq = gamma_sq
-                
+
                 if np.isfinite(min_gamma_sq):
                     gamma[k_ref, j_ref, i_ref] = np.sqrt(min_gamma_sq)
 
@@ -297,7 +297,7 @@ def compute_gamma(
     norm_factor_override: Optional[float] = None,
     interp_fraction: int = 1,
 ) -> Tuple[np.ndarray, float, dict]:
-    
+
     nf = float(norm_factor_override) if (norm_factor_override is not None) else _norm_factor(dose_ref, dose_eval, norm)
 
     if use_pymedphys:
@@ -311,7 +311,7 @@ def compute_gamma(
     else:
         if dose_ref.ndim != 3:
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
-        
+
         local_mode = 1 if gamma_type == 'local' else 0
 
         if interp_fraction > 1:

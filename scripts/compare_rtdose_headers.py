@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import os
+
 import numpy as np
 
 from rtgamma.io_dicom import load_rtdose, load_rtplan

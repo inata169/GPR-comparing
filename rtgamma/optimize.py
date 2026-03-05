@@ -1,8 +1,9 @@
-import numpy as np
-from typing import Tuple, List, Dict
 import logging
+from typing import Dict, List, Tuple
+
+import numpy as np
+
 from .gamma import compute_gamma
-from .resample import resample_eval_onto_ref
 
 
 def parse_shift_range(spec: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -40,7 +41,7 @@ def grid_search_best_shift(
     early_stop_patience: int = 100,
     prescan_2d: bool = True,
 ) -> Tuple[Tuple[float, float, float], float, Dict]:
-    
+
     z_eval, y_eval, x_eval = eval_axes_mm_1d
 
     def _evaluate_shift(dx, dy, dz):
@@ -118,10 +119,10 @@ def grid_search_best_shift(
     best_shift = (0.0, 0.0, 0.0)
     best_n_eval = 0
     ref_n_eval = 0 # Points at (0,0,0)
-    
+
     log: List[Dict] = []
     noimp = 0
-    
+
     for x, y, z in coarse_shifts:
         # We need gstats to check valid_points
         shifted_axes_eval = (z_eval + z, y_eval + y, x_eval + x)
@@ -136,9 +137,9 @@ def grid_search_best_shift(
         n_eval = gstats.get('valid_points', 0)
         if x == 0 and y == 0 and z == 0:
             ref_n_eval = n_eval
-            
+
         log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'coarse', 'n_eval': n_eval})
-        
+
         # Improvement condition:
         # 1. Higher pass rate (by more than a tiny margin)
         # 2. Or similar pass rate but smaller shift magnitude
@@ -152,7 +153,7 @@ def grid_search_best_shift(
             best_mag_sq = best_shift[0]**2 + best_shift[1]**2 + best_shift[2]**2
             if mag_sq < best_mag_sq:
                 is_better = True
-        
+
         if is_better:
             best_pass = pass_rate
             best_shift = (x, y, z)
@@ -163,7 +164,7 @@ def grid_search_best_shift(
             if noimp >= int(early_stop_patience) and not np.allclose([x,y,z], [0,0,0]):
                 logging.info("Early stop: no coarse improvement.")
                 break
-    
+
     logging.info(f"Coarse search complete. Best shift: {best_shift} with pass rate {best_pass:.2f}% (eval_points: {best_n_eval})")
 
     # Fine search
@@ -178,7 +179,7 @@ def grid_search_best_shift(
             for y in ys_fine:
                 for x in xs_fine:
                     if np.allclose([x, y, z], best_shift): continue
-                    
+
                     shifted_axes_eval = (z_eval + z, y_eval + y, x_eval + x)
                     _, pass_rate, gstats = compute_gamma(
                         axes_ref_mm=ref_axes_mm_1d, dose_ref=dose_ref,
@@ -188,14 +189,14 @@ def grid_search_best_shift(
                     )
                     n_eval = gstats.get('valid_points', 0)
                     log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine', 'n_eval': n_eval})
-                    
+
                     is_better = False
                     if pass_rate > (best_pass + 1e-5):
                         is_better = True
                     elif abs(pass_rate - best_pass) <= 1e-5:
                         if (x**2 + y**2 + z**2) < (best_shift[0]**2 + best_shift[1]**2 + best_shift[2]**2):
                             is_better = True
-                    
+
                     if is_better:
                         best_pass = pass_rate
                         best_shift = (x, y, z)
