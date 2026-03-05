@@ -293,7 +293,8 @@ $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cb
 
 $yf += 28
 $cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
-$form.Controls.Add($cbOpen)
+$cbPDF    = New-DarkCheck 'Output PDF' 190 $yf $false
+$form.Controls.Add($cbOpen); $form.Controls.Add($cbPDF)
 
 $form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 290 $yf))
 $nudInterp = New-Object System.Windows.Forms.NumericUpDown
@@ -432,6 +433,7 @@ function Build-Command(){
   if ($cbPreset.SelectedItem -ne 'Custom') { $gammaArgs += @('--profile', $cbPreset.SelectedItem) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
+  if ($cbPDF.Checked) { $gammaArgs += @('--pdf', (Join-Path $out 'report.pdf')) }
   if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
   if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
     foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArgs += @('--roi', $r.Trim()) } }
@@ -633,6 +635,7 @@ try {
   if ($cfg.roi -ne $null)            { $tbRoi.Text = [string]$cfg.roi }
   if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
   if ($cfg.save_log -ne $null)       { $cbLog.Checked = [bool]$cfg.save_log }
+  if ($cfg.save_pdf -ne $null)       { $cbPDF.Checked = [bool]$cfg.save_pdf }
   if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
   if ($cfg.interp_fraction -ge 1) { $val = [int]$cfg.interp_fraction; if ($val -ge 1 -and $val -le 20) { $nudInterp.Value = [decimal]$val } }
   if ($cfg.action) {
@@ -674,6 +677,7 @@ $btnSave.Add_Click({
     open_on_finish = $cbOpen.Checked
     save_log    = $cbLog.Checked
     save_db     = $cbDB.Checked
+    save_pdf    = $cbPDF.Checked
     plane_index = $tbPlaneIdx.Text
     save_npz_3d = $cbNPZ.Checked
     rtstruct    = $tbStruct.Text

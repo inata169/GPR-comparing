@@ -1,0 +1,16 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\謾ｾ蟆・ｲｻ逋ら皮ｩｶ逕ｨPC\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Repositories\GPR-comparing
+plugins: anyio-4.11.0, cov-5.0.0
+collecting ... collected 27 items
+
+tests/test_batch.py::TestBatchBuildArgv::test_minimal_row PASSED         [  3%]
+tests/test_batch.py::TestBatchBuildArgv::test_custom_params PASSED       [  7%]
+tests/test_batch.py::TestBatchBuildArgv::test_roi_semicolon_split PASSED [ 11%]
+tests/test_batch.py::TestBatchSummaryWriters::test_write_summary_csv PASSED [ 14%]
+tests/test_batch.py::TestBatchSummaryWriters::test_write_summary_md PASSED [ 18%]
+tests/test_batch.py::TestBatchSummaryWriters::test_write_summary_json PASSED [ 22%]
+tests/test_batch.py::TestBatchIntegration::test_self_compare_batch PASSED [ 25%]
+tests/test_batch.py::TestBatchIntegration::test_error_resilience PASSED  [ 29%]
+tests/test_cli_2d_axial.py::test_cli_2d_axial_central PASSED             [ 33%]
