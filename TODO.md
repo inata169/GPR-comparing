@@ -87,7 +87,7 @@ Optional / stretch
 - [x] **結果データベース化 (SQLite)**: パス率などの解析結果を毎回 `rtgamma.db` へ追記し、トレンドや過去の比較を検索可能にする履歴機能機能。
 - [x] **SunNuclear 3DVH との相互比較分析**: BreastBolus/Prostate の 3DVH出力と `rtgamma` を比較。どちらも PASS (≤2.0pp)を達成。詳細は `output/3dvh_crossval/crossval_summary.md` 参照。
 - [x] **`interp_fraction` 感度実験 (Prostate 完了)**: `scripts/run_interp_experiment.py` で Prostate を検証。最適値は **`interp_fraction = 3`** (GPR=85.26%, Δ=+0.56pp が 3DVH target 84.7% に最近接)。`config/3dvh_reference.json` に反映済み。
-- [ ] **`interp_fraction` 感度実験 (BreastBolus 未完了)**: BreastBolus の実験を同スクリプトで別途実施し、最適値を決定する。
+- [x] **`interp_fraction` 感度実験 (BreastBolus 完了)**: `scripts/run_interp_experiment.py` で BreastBolus を検証。最適値は **`interp_fraction = 2`** (GPR=97.73%, Δ=+0.13pp が 3DVH target 97.6% に最近接)。`config/3dvh_reference.json` に反映済み。
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 
