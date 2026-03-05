@@ -121,8 +121,13 @@
 | BreastBolus CCC vs MC | 99.59% | 97.6% | +1.99 | PASS (≤2pp) |
 
 - 詳細レポート: `output/3dvh_crossval/crossval_summary.md`
-- **考察**: `rtgamma` はサブボクセル内挿 (interp_fraction=10) により高精度な探索を実施し、SunNuclear 3DVH との差が ≤2.0pp に収束。臨床的なクロスバリデーションとして許容範囲内の一致を確認した。
-- **追加検証計画**: `scripts/run_interp_experiment.py` により interp_fraction 1〜20 の感度実験を実施中（結果は `output/interp_experiment/` に生成）。
+- **考察**: `rtgamma` はサブボクセル内挿により高精度な探索を実施し、SunNuclear 3DVH との差が ≤2.0pp に収束。臨床的なクロスバリデーションとして許容範囲内の一致を確認した。
+- **interp_fraction 感度実験 (完了)**: `scripts/run_interp_experiment.py` により interp_fraction 1〜20 の感度実験を両ケースで実施済み。結果は `output/interp_experiment/` に CSV/PNG として保存。最適値は以下の通り確定し、`config/3dvh_reference.json` に反映済み。
+
+  | Case | 最適 interp_fraction | rtgamma GPR | 3DVH GPR | Δ (pp) |
+  |---|---|---|---|---|
+  | Prostate | **3** | 85.26% | 84.7% | +0.56 |
+  | BreastBolus | **2** | 97.73% | 97.6% | +0.13 |
 
 
 ## 10. Security & Privacy
@@ -151,5 +156,5 @@
 「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
 - **Tier 1: コア品質と信頼性 (Completed)**: バッチ処理一括化（`batch.py`）、PDFQA帳票自動生成（`pdf_report.py`）、RTPLANヘッダ統合、CIテストカバレッジ強化（E2E JSONSchema検証・合成データ回帰テスト）
 - **Tier 2: ユーザー体験の飛躍**: Web GUI設計、マルチプレーン/DVH 表示、SQLトレンド保存・プリセット管理
-- **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験スクリプト（実施中）、不確かさ推論（未着手）
+- **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験（**完了**: Prostate=3, BreastBolus=2 に決定・反映済み）、不確かさ推論（未着手）
 - **Tier 4: 運用エコシステム**: `.exe`/`pip` による配布パッケージ化、多言語（i18n）対応、監査・コンプライアンス準拠

@@ -1,4 +1,4 @@
-# interp_fraction 最適化: Handover Context
+# interp_fraction 最適化: Handover Context (2026-03-05 セッション3 完了)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
@@ -6,8 +6,6 @@
 - `scripts/run_interp_experiment.py --max-frac 20` にて Prostate の GPR を fraction 1〜20 で計測。
 - **結論**: `interp_fraction = 3` が 3DVH ターゲット (84.7%) に最も近い。
   - fraction=3 → GPR=**85.26%** (Δ=+0.56pp) ← 最小 Δ
-  - fraction=2 → GPR=82.89% (Δ=-1.81pp)
-  - fraction=10 → GPR=85.82% (Δ=+1.12pp)
 - `config/3dvh_reference.json` の Prostate エントリの `interp_fraction` を `3` に更新済み。
 - 結果 CSV: `output/interp_experiment/Prostate/interp_experiment_results.csv`
 
@@ -20,16 +18,23 @@
 
 ## 2. 保留中のタスク (Pending Tasks)
 
-- **Git Push**: 実験結果と設定変更をリモートへ push する。
+すべての interp_fraction 実験は両ケース完了。ドキュメント・設定・テストも更新済み。
+次のセッションからは **Tier 2/3 未実装機能** に着手可能。
+
+候補:
+- **Web GUI 化** (クロスプラットフォーム対応)
+- **マルチプレーン/DVH 同時表示**
+- **不確かさのブートストラップ推定**
+- **MHD/NRRD フォーマット対応**
+- **多基準同時評価の並行実行**
 
 ## 3. 直近で実行すべきコマンド (Commands to Run Next)
 
 ```powershell
+# 全テスト確認 (念のため)
+$env:PYTHONUTF8=1; pytest tests/ -v > _pytest_log.txt 2>&1
 
-# 全テスト確認
-$env:PYTHONUTF8=1; pytest tests/ -v
-
-# まとめてコミット + プッシュ
+# コミット + プッシュ (ドキュメント更新分)
 $env:LC_ALL='C'; git add -A
 $env:LC_ALL='C'; git commit -F _msg.txt
 $env:LC_ALL='C'; git push

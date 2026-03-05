@@ -1,3 +1,35 @@
+# Daily Summary: 2026-03-05 (セッション3)
+
+## 作業内容サマリ
+
+1. **BreastBolus `interp_fraction` 感度実験の完了と最適値の決定**
+   - `scripts/run_interp_experiment.py --case BreastBolus --max-frac 20` にて fraction 1〜20 の全範囲で GPR を計測（既存の実験結果 CSV を参照）。
+   - **結果**:
+
+     | interp_fraction | rtgamma GPR | 3DVH GPR | Δ (pp) |
+     |---|---|---|---|
+     | 1 | 89.71% | 97.6% | -7.89 |
+     | **2** | **97.73%** | 97.6% | **+0.13 ← 最小Δ** |
+     | 3 | 99.05% | 97.6% | +1.45 |
+     | 5〜20 | ~99.53% | 97.6% | ~+1.93 |
+
+   - **結論**: `interp_fraction = 2` が SunNuclear 3DVH ターゲット (97.6%) に最も近く、最適値として確定。
+   - `config/3dvh_reference.json` の BreastBolus エントリの `interp_fraction` を `10 → 2` へ更新し、備考・検証日も追記済み。
+
+2. **ドキュメント・タスク管理の更新**
+   - `TODO.md`: BreastBolus interp_fraction タスクを `[ ]` → `[x]` に更新。
+   - `99-handover_context.md`: BreastBolus 実験を「未実施」→「完了」に更新し、保留タスクリストを整理。
+
+3. **全テスト確認・コミット・プッシュ**
+   - `pytest tests/ -v` で **27 passed** を確認（0 failed）。
+   - `git commit` + `git push` → コミット `651eceb` が `main` へ push 完了。
+
+## 次のステップ (Next Steps)
+- **Tier 2 以降**の未実施機能（Web GUI化、マルチプレーン/DVH 同時表示、不確かさのブートストラップ推定など）への着手。
+- openspec・ロードマップの `interp_fraction` 感度実験セクションを「完了」として更新。
+
+---
+
 # Daily Summary: 2026-03-05 (セッション2)
 
 ## 作業内容サマリ
