@@ -496,7 +496,7 @@ function Build-Command(){
   if ($cbPreset.SelectedItem -ne 'Custom') { $gammaArgs += @('--profile', $cbPreset.SelectedItem) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
-  if ($cbPDF.Checked) { $gammaArgs += @('--pdf', (Join-Path $out 'report.pdf')) }
+  if ($cbPDF.Checked) { $gammaArgs += @('--pdf') }
   if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
   if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
     foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArgs += @('--roi', $r.Trim()) } }
