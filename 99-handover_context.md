@@ -1,4 +1,4 @@
-# interp_fraction 最適化: Handover Context (2026-03-05 セッション3 完了)
+# GUI改修・バグ修正・ドキュメント拡充: Handover Context (2026-03-06 セッション4 完了)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
@@ -21,6 +21,14 @@
 - `ruff` による Lint エラーも修正済みで、GitHub Actions (CI) は **Success (Green)** の状態。
 - **v0.5.0** が正式に最新リリースとして公開済み。
 - ドキュメント・設定・テストもすべて最新化して push 済み。
+### GUI改修およびバグ修正 (完了)
+- `config/gui_config.ini` を導入し、設定保存機能をモダン化（JSONからINIへ）。
+- フォルダ/ファイル選択ダイアログを `OpenFileDialog` ベースに変更し、パスの直接入力・コピペに対応。
+- パスの入力値チェック機能を導入し、空白や無効なパスで実行した際に安全に警告ダイアログを出すよう強化。
+- 3D Viewer の起動エラー（環境変数例外やパス解決 `.Source` 空問題）を修正。
+- PDF レポート機能における `report_template.json` 自動生成の実装と、`.gitignore` への追加。
+- PDF 上の文字かぶり（長いパス名）解消と、`interp_fraction` 値の出力漏れ修正。
+
 ### ドキュメント拡充 (Documentation)
 - `docs/openspec/rtgamma_openspec.md` にて、Gamma Type (`global`/`local`) および Normalization (`global_max`/`max_ref`/`none`) の正確な定義と用途の違いを追記。
 - ユーザーに `none` を使用した場合の極端な厳しさ（絶対基準でのノイズ評価化）と、放射線治療QAにおける適正な `global_max` の運用を明文化しました。
