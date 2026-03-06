@@ -11,9 +11,14 @@
 - レポート: CSV / JSON / MD、オプションで 3D NPZ 出力
 - OpenSpec ドキュメントと検証スクリプト
 
-## インストール
+## インストールと実行
+### 方法 A: 実行ファイル (Windows EXE)
+Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X.X.zip` をダウンロード・展開し、同梱の `run_gui.bat` または `scripts/run_gui.ps1` を実行してください。（内部的に `.exe` ファイルが自動的に呼び出されます。）
+
+### 方法 B: Python ソースからの実行
 - Python 3.9+
 - 依存関係: `pip install pydicom numpy scipy matplotlib numba`
+- パッケージ化（開発者向け）: `scripts/build_exe.ps1` を実行することで PyInstaller による `.exe` 生成が可能です。
 
 ## クイックスタート（CLI）
 - 3D 解析（レポートのみ）
@@ -66,11 +71,11 @@
 - PHI を含む DICOM はコミット禁止（匿名化サンプルのみ）
 - 出力は `phits-linac-validation/output/rtgamma/` 配下へ
 
-## 最近の更新（2025-10-23）
-- Local gamma 対応（`--gamma-type local`）と GUI トグルを追加
-- OpenSpec 初期化、レポートスキーマと検証スクリプトを同梱
-- スライス整合のヘルパを追加
-- 2D/3D の再現コマンドと検証手順をドキュメント化
+## 最近の更新（2026-03-06: v0.6.0）
+- PyInstaller によるスタンドアロン EXE パッケージの自動ビルド機能と GUI 統合を追加
+- GUI のパラメータ設定項目に詳細な解説ツールチップを実装
+- GUI からのワンクリック PDF 定型帳票生成に対応
+- サブボクセル内挿（Sub-voxel Interpolation）の実装により、実測線量データとのガンマ一致率を 3DVH 並みに向上
 
 ## 参照資料
 - docs/openspec/Global_Local_Illustrated_JA.md

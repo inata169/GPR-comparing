@@ -1,4 +1,4 @@
-Param()
+﻿Param()
 
 $ErrorActionPreference = 'Stop'
 
@@ -163,6 +163,15 @@ $form.MaximizeBox = $true
 $form.AutoScroll = $true
 $form.MinimumSize = New-Object System.Drawing.Size(600, 400)
 
+# Tooltips
+$tooltip = New-Object System.Windows.Forms.ToolTip
+$tooltip.AutoPopDelay = 10000
+$tooltip.InitialDelay = 500
+$tooltip.ReshowDelay = 500
+$tooltip.ShowAlways = $true
+$tooltip.BackColor = [System.Drawing.Color]::FromArgb(40, 42, 60)
+$tooltip.ForeColor = [System.Drawing.Color]::FromArgb(220, 225, 240)
+
 # Title banner
 $lblTitle = New-DarkLabel 'rtgamma  -  DICOM RTDOSE Gamma Analysis' 24 14 $fontTitle $clrAccent
 $form.Controls.Add($lblTitle)
@@ -255,18 +264,21 @@ $yf += 36
 $form.Controls.Add((New-DarkLabel 'DTA  [mm]' 24 $yf))
 $tbDTA = New-DarkTextBox 130 ($yf - 2) 80 $false
 $tbDTA.Text = '2.0'; $tbDTA.TextAlign = 'Center'
+$tooltip.SetToolTip($tbDTA, "Distance-to-Agreement (DTA): 空間的な許容誤差（mm）。")
 $form.Controls.Add($tbDTA)
 
 # DD
 $form.Controls.Add((New-DarkLabel 'DD  [%]' 250 $yf))
 $tbDD = New-DarkTextBox 340 ($yf - 2) 80 $false
 $tbDD.Text = '3.0'; $tbDD.TextAlign = 'Center'
+$tooltip.SetToolTip($tbDD, "Dose Difference (DD): 線量の許容誤差（%）。")
 $form.Controls.Add($tbDD)
 
 # Cutoff
 $form.Controls.Add((New-DarkLabel 'Cutoff  [%]' 460 $yf))
 $tbCutoff = New-DarkTextBox 570 ($yf - 2) 80 $false
 $tbCutoff.Text = '10.0'; $tbCutoff.TextAlign = 'Center'
+$tooltip.SetToolTip($tbCutoff, "Low Dose Cutoff: この閾値（%）以下の低線量領域を評価から除外します。")
 $form.Controls.Add($tbCutoff)
 
 $yf += 36
@@ -289,6 +301,7 @@ $form.Controls.Add($cbAction)
 $form.Controls.Add((New-DarkLabel 'Norm' 340 $yf))
 $cbNorm = New-DarkCombo 410 ($yf - 2) 180 @('global_max','max_ref','none')
 $cbNorm.SelectedIndex = 0
+$tooltip.SetToolTip($cbNorm, "DD[%]やCutoff[%]の100%の基準を定義します。`r`n・global_max: 全体の最大線量を100%とする（標準のQA運用）。`r`n・none: 正規化せず絶対線量(Gy)を直接%として扱う（特殊用途。GPRが大幅に低下します）。")
 $form.Controls.Add($cbNorm)
 
 # Event to populate parameters when preset changes (requires cbNorm to be initialized)
@@ -334,7 +347,9 @@ $yf += 38
 
 # Checkboxes row
 $cbOpt    = New-DarkCheck 'Optimize Shift' 24 $yf $false
+$tooltip.SetToolTip($cbOpt, "シフト最適化: 最もパス率が高くなるよう空間的なズレ（シフト）を自動探索して補正します。")
 $cbLocal  = New-DarkCheck 'Local Gamma' 160 $yf $false
+$tooltip.SetToolTip($cbLocal, "Local Gamma: 各ボクセルの「その場所の線量」を100%基準とします。`r`n低線量域で基準が極端に厳しくなるため、Globalに比べてパス率(GPR)が大きく低下するのが正常な仕様です。")
 $cbNPZ    = New-DarkCheck 'Save 3D NPZ' 290 $yf $false
 $cbDB     = New-DarkCheck 'Save to DB' 420 $yf $true
 $cbLog    = New-DarkCheck 'Save Log' 540 $yf $true
@@ -352,6 +367,7 @@ $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
 $nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 3
 $nudInterp.BorderStyle = 'FixedSingle'
+$tooltip.SetToolTip($nudInterp, "Sub-voxel Interp: 空間探索時にボクセルをN等分して精度を高めます。`r`n値が大きいほど高精度ですが計算時間が増加します（推奨: 3〜10）。")
 $form.Controls.Add($nudInterp)
 $yf += 34
 
@@ -545,10 +561,18 @@ function Build-Command(){
 
   switch ($cbAction.SelectedIndex){
     0 { # Header compare
+      # Note: Header compare is an auxiliary script, theoretically we could pack it, but currently assuming python exists or we package it too.
+      # For now, we will leave it as python scripts/compare_rtdose_headers.py since it's a minor feature.
       return @('python','-u','scripts/compare_rtdose_headers.py','--a',$ref,'--b',$eval,'--out',(Join-Path $out 'header_compare.md'))
     }
     1 { # 3D
-      $baseCmd = @('python','-u','-m','rtgamma.main','--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
+      $baseCmdName = 'python'
+      $baseArgs = @('-u', '-m', 'rtgamma.main')
+      if (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe") {
+        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
+        $baseArgs = @()
+      }
+      $baseCmd = @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
       if ($cbNPZ.Checked) {
         $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
       }
@@ -558,14 +582,26 @@ function Build-Command(){
       $plane = $cbPlane.SelectedItem
       $pindex = 'auto'
       if (-not [string]::IsNullOrWhiteSpace($tbPlaneIdx.Text)) { $pindex = $tbPlaneIdx.Text.Trim() }
-      return @('python','-u','-m','rtgamma.main','--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
+      $baseCmdName = 'python'
+      $baseArgs = @('-u', '-m', 'rtgamma.main')
+      if (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe") {
+        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
+        $baseArgs = @()
+      }
+      return @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
         '--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),
         '--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),
         '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg
     }
     3 { # 3D Viewer
       $ct = $tbCT.Text
-      $viewerCmd = @('python','-u','scripts/gamma_viewer.py','--ct',$ct,'--ref',$ref,'--eval',$eval,
+      $baseCmdName = 'python'
+      $baseArgs = @('-u', 'scripts/gamma_viewer.py')
+      if (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe") {
+        $baseCmdName = "$ROOT\dist\gamma_viewer\gamma_viewer.exe"
+        $baseArgs = @()
+      }
+      $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {

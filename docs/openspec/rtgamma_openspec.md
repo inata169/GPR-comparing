@@ -1,8 +1,8 @@
-# rtgamma OpenSpec (v0.1)
+# rtgamma OpenSpec (v0.6)
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、マルチプレーン描画。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
@@ -162,9 +162,9 @@
 ## 13. References (Code/Docs)
 - CLI/入出力・実行: rtgamma/main.py
 - DICOM I/O・幾何: rtgamma/io_dicom.py
-- レポート出力: rtgamma/report.py
-- GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px)
-  - **[制約・改善予定]** GUI から PDF を出力するためのボタン（チェックボックス）は未実装。現状は CLI で `--pdf <パス>` を指定する必要がある。将来的に `run_gui.ps1` の `Build-Command` 関数に `--pdf` フラグを組み込み、GUI 1 クリックで PDF レポートを生成できるように改修予定（TODO.md Tier 2 に登録済み）。
+- レポート出力: rtgamma/report.py, scripts/pdf_report.py
+- GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px、PDF出力設定、マウスオーバーツールチップ)
+  - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と、実行可能な `dist/rtgamma_cli.exe` への透過的自動切り替え（Python 環境非依存）に対応。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, **物理アスペクト比対応**, **Axial医療慣習表示**)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
@@ -172,6 +172,6 @@
 ## 14. Commercial Roadmap (商用化ロードマップ)
 「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
 - **Tier 1: コア品質と信頼性 (Completed)**: バッチ処理一括化（`batch.py`）、PDFQA帳票自動生成（`pdf_report.py`）、RTPLANヘッダ統合、CIテストカバレッジ強化（E2E JSONSchema検証・合成データ回帰テスト）
-- **Tier 2: ユーザー体験の飛躍**: Web GUI設計、マルチプレーン/DVH 表示、SQLトレンド保存・プリセット管理
+- **Tier 2: ユーザー体験の飛躍**: Web GUI設計、マルチプレーン/DVH 表示、SQLトレンド保存・プリセット管理、GUI ワンクリックPDF対応（完了）、GUI設定解説ツールチップ実装（完了）
 - **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験（**完了**: Prostate=3, BreastBolus=2 に決定・反映済み）、不確かさ推論（未着手）
-- **Tier 4: 運用エコシステム**: `.exe`/`pip` による配布パッケージ化、多言語（i18n）対応、監査・コンプライアンス準拠
+- **Tier 4: 運用エコシステム**: `.exe` バイナリビルド同梱と GUI 統合連携（完了）、完全日英多言語対応、コンプライアンス準拠
