@@ -103,9 +103,14 @@ def save_summary_pdf(path: str, summary: dict):
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     # Extract data from summary
-    ref_name = summary.get('ref', '')
-    eval_name = summary.get('eval', '')
-    patient_id = summary.get('patient_id', os.path.splitext(ref_name)[0])
+    ref_base = os.path.basename(summary.get('ref', ''))
+    eval_base = os.path.basename(summary.get('eval', ''))
+    patient_id_str = str(summary.get('patient_id', os.path.splitext(ref_base)[0]))
+
+    # Wrap inside Paragraphs to enable word-wrapping and prevent horizontal overlap
+    ref_para = Paragraph(ref_base, text_style)
+    eval_para = Paragraph(eval_base, text_style)
+    patient_para = Paragraph(patient_id_str, text_style)
 
     gpr = summary.get('pass_rate_percent', 'N/A')
     if isinstance(gpr, float):
@@ -116,12 +121,13 @@ def save_summary_pdf(path: str, summary: dict):
     dta = summary.get('dta_mm', 'N/A')
     dd = summary.get('dd_percent', 'N/A')
     cutoff = summary.get('cutoff_percent', 'N/A')
-    criteria_str = f"{dd}%, {dta}mm, TH: {cutoff}%"
+    interp = summary.get('interp_fraction', 1)
+    criteria_str = f"{dd}%, {dta}mm, TH: {cutoff}%, Interp: {interp}"
 
     info_data = [
-        ["Patient ID:", patient_id, "Date:", date_str],
-        ["Reference:", ref_name, "Machine:", config.get('machine_name', '')],
-        ["Evaluation:", eval_name, "Physicist:", config.get('physicist_name', '')],
+        ["Patient ID:", patient_para, "Date:", date_str],
+        ["Reference:", ref_para, "Machine:", config.get('machine_name', '')],
+        ["Evaluation:", eval_para, "Physicist:", config.get('physicist_name', '')],
         ["Criteria:", criteria_str, "Overall GPR:", gpr_str],
     ]
 
@@ -131,7 +137,7 @@ def save_summary_pdf(path: str, summary: dict):
         ('FONT', (0,0), (0,-1), bold_font, 10),
         ('FONT', (2,0), (2,-1), bold_font, 10),
         ('TEXTCOLOR', (0,0), (-1,-1), colors.black),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
     ]))
     Story.append(info_table)
