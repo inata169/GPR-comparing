@@ -1,3 +1,22 @@
+# Daily Summary: 2026-03-06 (セッション5)
+
+## 作業内容サマリ
+
+1. **v0.6.0 リリースと EXEパッケージ化対応 (Tier 4 完了)**
+   - **PyInstaller ビルド構築**: `scripts/build_exe.ps1` を作成し、複雑な依存関係を持つ Python バックエンド (`rtgamma_cli` と `gamma_viewer`) を単一フォルダ構成のスタンドアロン `.exe` として出力できるよう構築しました。
+   - **依存関係の解決**: `scipy` や `rtgamma` モジュールの相対インポートエラー解消のため、専用のエントリポイント `scripts/run_cli.py` を追加し、`--collect-submodules scipy` オプションを付与してビルドエラーを解決。ゼロエラーで動作するバイナリを生成しました。
+   - **GUI (`run_gui.ps1`) の自己適応型切り替え**: `dist` フォルダ内にビルド済みの `.exe` が存在する場合、自動的に Pythonコマンド から EXEの呼び出しへ切り替わる透過的なロードバランシングを実装しました。これにより、Python 非依存でのシステム配布が可能になりました。
+
+2. **GUI ユーザーインターフェース強化 (ツールチップ実装)**
+   - **マウスホバーによる解説**: GUI 上の専門的で難解なパラメータ (`Local Gamma`, `Normalization (Norm)`, `Optimize Shift`, `Sub-voxel Interp` など) に対し、ホバー時に浮かび上がる詳細な解説ツールチップ (ToolTip) を一斉追加しました。
+   - **エンコーディング対応**: UTF-8 BOM の PowerShell 実行ポリシー制限や文字化けに対処し、日本語が正しくツールチップに表示されるようファイルエンコーディングを整理しました。
+
+3. **ドキュメント類のリリース更新**
+   - `CHANGELOG.md`, `README.md`, `TODO.md`, `docs/openspec/rtgamma_openspec.md` を一斉に更新し、v0.6.0 での「EXE化への対応」「GUIツールチップ追加」「GUIのワンクリックPDF生成」の最新仕様を反映しました。
+   - GitHub 上に `v0.6.0` の Git Tag および Release ページを作成しました。
+
+---
+
 # Daily Summary: 2026-03-06 (セッション4)
 
 ## 作業内容サマリ

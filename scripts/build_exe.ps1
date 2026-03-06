@@ -22,14 +22,16 @@ python -m PyInstaller --name rtgamma_cli --onedir --noconsole `
     --hidden-import rtgamma.optimize `
     --hidden-import rtgamma.report `
     --hidden-import rtgamma.resample `
+    --collect-submodules scipy `
     --clean `
-    rtgamma/main.py
+    scripts/run_cli.py
 
 Write-Host "Building gamma_viewer..." -ForegroundColor Cyan
 python -m PyInstaller --name gamma_viewer --onedir --noconsole `
     --hidden-import matplotlib `
     --hidden-import numba `
     --hidden-import pydicom `
+    --collect-submodules scipy `
     --clean `
     scripts/gamma_viewer.py
 

@@ -1,4 +1,4 @@
-# GUI改修・バグ修正・ドキュメント拡充: Handover Context (2026-03-06 セッション4 完了)
+# GUI改修・EXE化対応・ドキュメント拡充: Handover Context (2026-03-06 v0.6.0 リリース完了)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
@@ -19,44 +19,30 @@
 ### リポジトリ状態 (Repository Status)
 - すべての interp_fraction 実験は両ケース完了。
 - `ruff` による Lint エラーも修正済みで、GitHub Actions (CI) は **Success (Green)** の状態。
-- **v0.5.0** が正式に最新リリースとして公開済み。
+- **v0.6.0** を正式に最新リリースとして公開済み（GUI PDF対応、ツールチップ拡充、PyInstaller対応）。
 - ドキュメント・設定・テストもすべて最新化して push 済み。
-### GUI改修およびバグ修正 (完了)
+
+### GUI改修、 EXE化、バグ修正 (完了)
 - `config/gui_config.ini` を導入し、設定保存機能をモダン化（JSONからINIへ）。
 - フォルダ/ファイル選択ダイアログを `OpenFileDialog` ベースに変更し、パスの直接入力・コピペに対応。
-- パスの入力値チェック機能を導入し、空白や無効なパスで実行した際に安全に警告ダイアログを出すよう強化。
-- 3D Viewer の起動エラー（環境変数例外やパス解決 `.Source` 空問題）を修正。
-- PDF レポート機能における `report_template.json` 自動生成の実装と、`.gitignore` への追加。
-- PDF 上の文字かぶり（長いパス名）解消と、`interp_fraction` 値の出力漏れ修正。
+- **PyInstaller 対応 (`scripts/build_exe.ps1`)**: `rtgamma_cli.exe` と `gamma_viewer.exe` をスタンドアロンビルドできるように対応 (Tier 4タスク消化)。 相対パス・依存パッケージ(`scipy`)の問題などを専用エントリポイント化で解決済。
+- **GUI の自動 EXE 切り替えロジック**: `run_gui.ps1` は `dist/` ディレクトリが存在する場合、Python ではなく自動的にビルドされた EXE を使って起動するように改修。Python 無しの環境での運用パスを確立。
+- GUIの各種難解パラメータ (`Local/Global` `Normalization` `Sub-voxel Interp` 等) に詳細な ToolTip を追加し、ユーザビリティを向上。
 
 ### ドキュメント拡充 (Documentation)
-- `docs/openspec/rtgamma_openspec.md` にて、Gamma Type (`global`/`local`) および Normalization (`global_max`/`max_ref`/`none`) の正確な定義と用途の違いを追記。
-- ユーザーに `none` を使用した場合の極端な厳しさ（絶対基準でのノイズ評価化）と、放射線治療QAにおける適正な `global_max` の運用を明文化しました。
+- `docs/openspec/rtgamma_openspec.md` および `TODO.md` にて、EXE化に関する仕様追加と、商用化ロードマップの進捗（Tier 4の一部達成）を更新。
+- Gamma Type や Normalization (`none`) の極端な厳しさ（絶対基準でのノイズ評価化）に関する定義を明文化。
 
 ## 2. 保留中のタスク (Pending Tasks)
 次のセッションからは **Tier 2/3 未実装機能** に着手可能。
 
-候補:
-- **[x] [最優先] GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`):
-  - 現状: PDF は CLI (`--pdf <パス>`) でのみ生成可能。
-  - 実装方針: `Build-Command` 関数に `if ($cbPDF.Checked) { $baseCmd += @('--pdf', (Join-Path $out 'report.pdf')) }` を追加し、「Output PDF」チェックボックスをフォームに配置する。
-  - 参照: TODO.md Tier 2 / openspec Section 13
+候補 (Tier 2/3):
 - **Web GUI 化** (クロスプラットフォーム対応)
 - **マルチプレーン/DVH 同時表示**
 - **不確かさのブートストラップ推定**
 - **MHD/NRRD フォーマット対応**
 - **多基準同時評価の並行実行**
 
-## 3. 直近で実行すべきコマンド (Commands to Run Next)
-
-```powershell
-# 全テスト確認 (念のため)
-$env:PYTHONUTF8=1; pytest tests/ -v > _pytest_log.txt 2>&1
-
-# コミット + プッシュ (ドキュメント更新分)
-$env:LC_ALL='C'; git add -A
-$env:LC_ALL='C'; git commit -F _msg.txt
-$env:LC_ALL='C'; git push
-```
-
-以上です。次のチャットでこのファイル (`99-handover_context.md`) を読み込ませて開始してください。
+## 3. 次のステップでの確認事項 (Next Steps)
+- 次回セッション開始時に、今回の「EXE 切り替え統合」がユーザのPC実環境下で問題なく通るかを（実際にGUI画面からボタンを押して）テストして頂くことをお勧めします。
+- `dist` ディレクトリ内の `.exe` ビルドはコミット対象外 (`.gitignore`) のため、別PCへの持ち出しテストを行う場合は `dist` フォルダと `run_gui.bat` 類を含むZIPを手動で作成し検証してください。
