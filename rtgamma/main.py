@@ -568,6 +568,7 @@ def main(argv=None):
         'cutoff_percent': args.cutoff,
         'gamma_type': args.gamma_type,
         'norm': args.norm,
+        'interp_fraction': args.interp_fraction,
         'pass_rate_percent': pass_rate_out if args.mode == '2d' else pass_rate,
         'best_shift_mm': best_shift,
         'best_shift_mag_mm': shift_mag,
