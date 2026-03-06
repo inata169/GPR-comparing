@@ -601,11 +601,16 @@ function Run-Cmd([string[]]$cmd){
 
   $pyCmd = $cmd[0]
   if ($pyCmd -eq 'python') {
-    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
-    if (-not $py) {
-      $py = (Get-Command py -ErrorAction SilentlyContinue).Source
-      if ($py) { $pyCmd = $py; $cmd = @($pyCmd,'-3') + $cmd[1..($cmd.Length-1)] }
-    } else { $pyCmd = $py }
+    $pyApp = Get-Command python -CommandType Application -ErrorAction SilentlyContinue
+    if ($pyApp) {
+      $pyCmd = $pyApp.Definition
+    } else {
+      $pyApp = Get-Command py -CommandType Application -ErrorAction SilentlyContinue
+      if ($pyApp) {
+        $pyCmd = $pyApp.Definition
+        $cmd = @($pyCmd, '-3') + $cmd[1..($cmd.Length-1)]
+      }
+    }
   }
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -684,20 +689,23 @@ function Run-Viewer([string[]]$cmd){
 
   $pyCmd = $cmd[0]
   if ($pyCmd -eq 'python') {
-    $py = (Get-Command python -ErrorAction SilentlyContinue).Source
-    if (-not $py) {
-      $py = (Get-Command py -ErrorAction SilentlyContinue).Source
-      if ($py) { $pyCmd = $py; $cmd = @($pyCmd,'-3') + $cmd[1..($cmd.Length-1)] }
-    } else { $pyCmd = $py }
+    $pyApp = Get-Command python -CommandType Application -ErrorAction SilentlyContinue
+    if ($pyApp) {
+      $pyCmd = $pyApp.Definition
+    } else {
+      $pyApp = Get-Command py -CommandType Application -ErrorAction SilentlyContinue
+      if ($pyApp) {
+        $pyCmd = $pyApp.Definition
+        $cmd = @($pyCmd, '-3') + $cmd[1..($cmd.Length-1)]
+      }
+    }
   }
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
-  $psi.UseShellExecute = $false
+  $psi.UseShellExecute = $true
   $psi.CreateNoWindow = $false
-  $psi.RedirectStandardOutput = $false
-  $psi.RedirectStandardError = $false
   $psi.WorkingDirectory = $ROOT
   $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
   $psi.EnvironmentVariables['PYTHONUTF8'] = '1'
