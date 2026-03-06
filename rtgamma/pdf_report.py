@@ -31,7 +31,9 @@ def _get_config():
     }
     # try to find config/report_template.json
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    cfg_path = os.path.join(base_dir, 'config', 'report_template.json')
+    cfg_dir = os.path.join(base_dir, 'config')
+    cfg_path = os.path.join(cfg_dir, 'report_template.json')
+    
     if os.path.exists(cfg_path):
         try:
             with open(cfg_path, 'r', encoding='utf-8') as f:
@@ -39,6 +41,17 @@ def _get_config():
                 def_conf.update(user_conf)
         except Exception:
             pass
+    else:
+        # Create default config file if it does not exist
+        try:
+            os.makedirs(cfg_dir, exist_ok=True)
+            with open(cfg_path, 'w', encoding='utf-8') as f:
+                json.dump(def_conf, f, indent=4, ensure_ascii=False)
+            import logging
+            logging.info(f"Created default PDF report template at {cfg_path}. You can edit this file to customize your facility details.")
+        except Exception:
+            pass
+            
     return def_conf
 
 

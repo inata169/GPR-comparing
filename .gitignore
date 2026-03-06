@@ -21,3 +21,6 @@ commit_docs_message.txt
 codex_inet_gitpy_v4.ps1
 debug_dicom_info*.py
 create_graph.py
+
+# User Config
+config/report_template.json
