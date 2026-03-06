@@ -1,4 +1,4 @@
-# GUI改修・EXE化対応・ドキュメント拡充: Handover Context (2026-03-06 v0.6.0 リリース完了)
+# GUI改修・EXE化対応・ドキュメント拡充: Handover Context (2026-03-06 v0.7.0 リリース完了)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
@@ -20,12 +20,14 @@
 - すべての interp_fraction 実験は両ケース完了。
 - `ruff` による Lint エラーも修正済みで、GitHub Actions (CI) は **Success (Green)** の状態。
 - **v0.6.0** を正式に最新リリースとして公開済み（GUI PDF対応、ツールチップ拡充、PyInstaller対応）。
+- **v0.7.0** 最小構成配布パッケージ対応 (`scripts/package_release.ps1` による ZIP フルパッケージ作成機能を追加)。
 - ドキュメント・設定・テストもすべて最新化して push 済み。
 
 ### GUI改修、 EXE化、バグ修正 (完了)
 - `config/gui_config.ini` を導入し、設定保存機能をモダン化（JSONからINIへ）。
 - フォルダ/ファイル選択ダイアログを `OpenFileDialog` ベースに変更し、パスの直接入力・コピペに対応。
 - **PyInstaller 対応 (`scripts/build_exe.ps1`)**: `rtgamma_cli.exe` と `gamma_viewer.exe` をスタンドアロンビルドできるように対応 (Tier 4タスク消化)。 相対パス・依存パッケージ(`scipy`)の問題などを専用エントリポイント化で解決済。
+- **最小構成パッケージ配布スクリプト (`scripts/package_release.ps1`)**: EXE と設定・実行スクリプト・ドキュメントを一括包含したZIPを構築し、Python無し環境での実行フロー確立。
 - **GUI の自動 EXE 切り替えロジック**: `run_gui.ps1` は `dist/` ディレクトリが存在する場合、Python ではなく自動的にビルドされた EXE を使って起動するように改修。Python 無しの環境での運用パスを確立。
 - GUIの各種難解パラメータ (`Local/Global` `Normalization` `Sub-voxel Interp` 等) に詳細な ToolTip を追加し、ユーザビリティを向上。
 
