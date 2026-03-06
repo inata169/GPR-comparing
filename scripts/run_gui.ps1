@@ -465,7 +465,7 @@ $btnOpen.Add_Click({ if(-not [string]::IsNullOrWhiteSpace($tbOut.Text)) { Start-
 #  Build Command
 # =============================================
 function Build-Command(){
-  $ref = $tbRef.Text; $eval = $tbEval.Text; $out = $tbOut.Text
+  $ref = $tbRef.Text; $eval = $tbEval.Text; $out = $tbOut.Text; $ct = $tbCT.Text
   
   # 1. Action-specific folder/file checks
   if ($cbAction.SelectedIndex -eq 3) {
@@ -704,7 +704,7 @@ function Run-Viewer([string[]]$cmd){
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
-  $psi.UseShellExecute = $true
+  $psi.UseShellExecute = $false
   $psi.CreateNoWindow = $false
   $psi.WorkingDirectory = $ROOT
   $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
