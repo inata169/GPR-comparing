@@ -10,11 +10,60 @@ $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 Set-Location $ROOT
 $env:PYTHONPATH = $ROOT
 
-# Load config (JSON)
-$cfgPath = Join-Path $ROOT 'config/gui_defaults.json'
+# =============================================
+#  INI Config Parser
+# =============================================
+$iniPath = Join-Path $ROOT 'config/gui_config.ini'
+
+function Read-Ini([string]$path) {
+  $result = [ordered]@{}
+  $section = '_root'
+  if (-not (Test-Path $path)) { return $result }
+  foreach ($line in (Get-Content -Path $path -Encoding UTF8)) {
+    $l = $line.Trim()
+    if ($l -eq '' -or $l.StartsWith('#') -or $l.StartsWith(';')) { continue }
+    if ($l -match '^\[(.+)\]$') {
+      $section = $Matches[1].Trim()
+      if (-not $result.Contains($section)) { $result[$section] = [ordered]@{} }
+    } elseif ($l -match '^([^=]+)=(.*)$') {
+      $key = $Matches[1].Trim()
+      $val = $Matches[2].Trim()
+      if (-not $result.Contains($section)) { $result[$section] = [ordered]@{} }
+      $result[$section][$key] = $val
+    }
+  }
+  return $result
+}
+
+function Write-Ini([string]$path, [System.Collections.Specialized.OrderedDictionary]$data) {
+  $lines = @()
+  foreach ($sec in $data.Keys) {
+    $lines += "[$sec]"
+    foreach ($k in $data[$sec].Keys) {
+      $lines += "$k = $($data[$sec][$k])"
+    }
+    $lines += ''
+  }
+  $lines | Out-File -FilePath $path -Encoding utf8
+}
+
+# Load INI config (fall back to JSON for backward compat)
+$ini = Read-Ini $iniPath
 $cfg = @{}
-if (Test-Path $cfgPath) {
-  try { $cfg = Get-Content -Raw -Path $cfgPath | ConvertFrom-Json } catch { $cfg = @{} }
+if ($ini.Count -gt 0) {
+  # Flatten INI sections into a single hashtable for easy access
+  foreach ($sec in $ini.Keys) {
+    foreach ($k in $ini[$sec].Keys) { $cfg[$k] = $ini[$sec][$k] }
+  }
+} else {
+  # Fallback: try old JSON
+  $jsonPath = Join-Path $ROOT 'config/gui_defaults.json'
+  if (Test-Path $jsonPath) {
+    try {
+      $jsonObj = Get-Content -Raw -Path $jsonPath | ConvertFrom-Json
+      foreach ($p in $jsonObj.PSObject.Properties) { $cfg[$p.Name] = $p.Value }
+    } catch {}
+  }
 }
 
 # =============================================
@@ -131,7 +180,7 @@ $yf += 24
 # Ref
 $form.Controls.Add((New-DarkLabel 'Reference RTDOSE' 24 $yf))
 $yf += 20
-$tbRef = New-DarkTextBox 24 $yf 600
+$tbRef = New-DarkTextBox 24 $yf 600 $false
 $btnRef = New-DarkButton 'Browse' 640 $yf
 $form.Controls.Add($tbRef); $form.Controls.Add($btnRef)
 $yf += 34
@@ -139,7 +188,7 @@ $yf += 34
 # Eval
 $form.Controls.Add((New-DarkLabel 'Evaluation RTDOSE' 24 $yf))
 $yf += 20
-$tbEval = New-DarkTextBox 24 $yf 600
+$tbEval = New-DarkTextBox 24 $yf 600 $false
 $btnEval = New-DarkButton 'Browse' 640 $yf
 $form.Controls.Add($tbEval); $form.Controls.Add($btnEval)
 $yf += 34
@@ -147,7 +196,7 @@ $yf += 34
 # RTSTRUCT
 $form.Controls.Add((New-DarkLabel 'RTSTRUCT  (optional)' 24 $yf))
 $yf += 20
-$tbStruct = New-DarkTextBox 24 $yf 600
+$tbStruct = New-DarkTextBox 24 $yf 600 $false
 $btnStruct = New-DarkButton 'Browse' 640 $yf
 $form.Controls.Add($tbStruct); $form.Controls.Add($btnStruct)
 $yf += 34
@@ -162,7 +211,7 @@ $yf += 34
 # Output
 $form.Controls.Add((New-DarkLabel 'Output Folder' 24 $yf))
 $yf += 20
-$tbOut = New-DarkTextBox 24 $yf 600
+$tbOut = New-DarkTextBox 24 $yf 600 $false
 $btnOut = New-DarkButton 'Select' 640 $yf
 $form.Controls.Add($tbOut); $form.Controls.Add($btnOut)
 $yf += 34
@@ -170,7 +219,7 @@ $yf += 34
 # CT Directory (for 3D Viewer)
 $form.Controls.Add((New-DarkLabel 'CT Directory  (for 3D Viewer)' 24 $yf))
 $yf += 20
-$tbCT = New-DarkTextBox 24 $yf 600
+$tbCT = New-DarkTextBox 24 $yf 600 $false
 $btnCT = New-DarkButton 'Select' 640 $yf
 $form.Controls.Add($tbCT); $form.Controls.Add($btnCT)
 $yf += 38
@@ -301,7 +350,7 @@ $nudInterp = New-Object System.Windows.Forms.NumericUpDown
 $nudInterp.Location = New-Object System.Drawing.Point(420, ($yf - 2))
 $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
-$nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 10
+$nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 3
 $nudInterp.BorderStyle = 'FixedSingle'
 $form.Controls.Add($nudInterp)
 $yf += 34
@@ -384,11 +433,25 @@ function Append-Log($text){ $tbLog.AppendText("$text`r`n") }
 function Browse-File([ref]$tb){
   $dlg = New-Object System.Windows.Forms.OpenFileDialog
   $dlg.Filter = 'DICOM (*.dcm)|*.dcm|All files (*.*)|*.*'
+  if(-not [string]::IsNullOrWhiteSpace($tb.Value.Text)){
+    $dir = [System.IO.Path]::GetDirectoryName($tb.Value.Text)
+    if($dir -and (Test-Path $dir)){ $dlg.InitialDirectory = $dir }
+  }
   if($dlg.ShowDialog() -eq 'OK'){ $tb.Value.Text = $dlg.FileName }
 }
 function Browse-Folder([ref]$tb){
-  $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-  if($dlg.ShowDialog() -eq 'OK'){ $tb.Value.Text = $dlg.SelectedPath }
+  # Vista-style folder picker: uses OpenFileDialog hack for modern UI with path bar
+  $dlg = New-Object System.Windows.Forms.OpenFileDialog
+  $dlg.ValidateNames = $false
+  $dlg.CheckFileExists = $false
+  $dlg.CheckPathExists = $true
+  $dlg.FileName = [char]0x200B  # zero-width space as dummy filename
+  if(-not [string]::IsNullOrWhiteSpace($tb.Value.Text) -and (Test-Path $tb.Value.Text)){
+    $dlg.InitialDirectory = $tb.Value.Text
+  }
+  if($dlg.ShowDialog() -eq 'OK'){
+    $tb.Value.Text = [System.IO.Path]::GetDirectoryName($dlg.FileName)
+  }
 }
 
 $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
@@ -625,67 +688,97 @@ $btnCancel.Add_Click({
 # =============================================
 #  Apply saved config defaults
 # =============================================
+function Parse-Bool([string]$v) {
+  if ($v -eq '' -or $v -eq $null) { return $false }
+  return ($v -eq 'true' -or $v -eq 'True' -or $v -eq '1' -or $v -eq 'yes')
+}
 try {
-  if ($cfg.output_dir)  { $tbOut.Text = [string]$cfg.output_dir }
-  if ($cfg.ct_dir)      { $tbCT.Text = [string]$cfg.ct_dir }
-  if ($cfg.plane_index) { $tbPlaneIdx.Text = [string]$cfg.plane_index } else { $tbPlaneIdx.Text = 'auto' }
-  if ($cfg.save_npz_3d -ne $null)    { $cbNPZ.Checked = [bool]$cfg.save_npz_3d }
-  if ($cfg.save_db -ne $null)        { $cbDB.Checked = [bool]$cfg.save_db }
-  if ($cfg.rtstruct -ne $null)       { $tbStruct.Text = [string]$cfg.rtstruct }
-  if ($cfg.roi -ne $null)            { $tbRoi.Text = [string]$cfg.roi }
-  if ($cfg.open_on_finish -ne $null) { $cbOpen.Checked = [bool]$cfg.open_on_finish }
-  if ($cfg.save_log -ne $null)       { $cbLog.Checked = [bool]$cfg.save_log }
-  if ($cfg.save_pdf -ne $null)       { $cbPDF.Checked = [bool]$cfg.save_pdf }
-  if ($cfg.threads -ge 0) { $val = [int]$cfg.threads; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
-  if ($cfg.interp_fraction -ge 1) { $val = [int]$cfg.interp_fraction; if ($val -ge 1 -and $val -le 20) { $nudInterp.Value = [decimal]$val } }
-  if ($cfg.action) {
-    switch ([string]$cfg.action) {
+  if ($cfg['ref_dose'])    { $tbRef.Text = [string]$cfg['ref_dose'] }
+  if ($cfg['eval_dose'])   { $tbEval.Text = [string]$cfg['eval_dose'] }
+  if ($cfg['output_dir'])  { $tbOut.Text = [string]$cfg['output_dir'] }
+  if ($cfg['ct_dir'])      { $tbCT.Text = [string]$cfg['ct_dir'] }
+  if ($cfg['plane_index']) { $tbPlaneIdx.Text = [string]$cfg['plane_index'] } else { $tbPlaneIdx.Text = 'auto' }
+  if ($cfg['rtstruct'])    { $tbStruct.Text = [string]$cfg['rtstruct'] }
+  if ($cfg['roi'])         { $tbRoi.Text = [string]$cfg['roi'] }
+  if ($cfg.ContainsKey('save_npz_3d'))    { $cbNPZ.Checked = Parse-Bool $cfg['save_npz_3d'] }
+  if ($cfg.ContainsKey('save_db'))        { $cbDB.Checked = Parse-Bool $cfg['save_db'] }
+  if ($cfg.ContainsKey('open_on_finish')) { $cbOpen.Checked = Parse-Bool $cfg['open_on_finish'] }
+  if ($cfg.ContainsKey('save_log'))       { $cbLog.Checked = Parse-Bool $cfg['save_log'] }
+  if ($cfg.ContainsKey('save_pdf'))       { $cbPDF.Checked = Parse-Bool $cfg['save_pdf'] }
+  if ($cfg.ContainsKey('optimize_shift')) { $cbOpt.Checked = Parse-Bool $cfg['optimize_shift'] }
+  if ($cfg.ContainsKey('local_gamma'))    { $cbLocal.Checked = Parse-Bool $cfg['local_gamma'] }
+  if ($cfg['threads']) { $val = [int]$cfg['threads']; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
+  if ($cfg['interp_fraction']) { $val = [int]$cfg['interp_fraction']; if ($val -ge 1 -and $val -le 20) { $nudInterp.Value = [decimal]$val } }
+  if ($cfg['action']) {
+    switch ([string]$cfg['action']) {
       'header' { $cbAction.SelectedIndex = 0 }
       '3d'     { $cbAction.SelectedIndex = 1 }
       '2d'     { $cbAction.SelectedIndex = 2 }
       'viewer' { $cbAction.SelectedIndex = 3 }
     }
   }
-  # Load gamma params from config
-  if ($cfg.dd)     { $tbDD.Text     = [string]$cfg.dd }
-  if ($cfg.dta)    { $tbDTA.Text    = [string]$cfg.dta }
-  if ($cfg.cutoff) { $tbCutoff.Text = [string]$cfg.cutoff }
-  if ($cfg.norm)   {
-    $normIdx = $cbNorm.Items.IndexOf([string]$cfg.norm)
+  if ($cfg['plane']) {
+    $plIdx = $cbPlane.Items.IndexOf([string]$cfg['plane'])
+    if ($plIdx -ge 0) { $cbPlane.SelectedIndex = $plIdx }
+  }
+  if ($cfg['dd'])     { $tbDD.Text     = [string]$cfg['dd'] }
+  if ($cfg['dta'])    { $tbDTA.Text    = [string]$cfg['dta'] }
+  if ($cfg['cutoff']) { $tbCutoff.Text = [string]$cfg['cutoff'] }
+  if ($cfg['norm'])   {
+    $normIdx = $cbNorm.Items.IndexOf([string]$cfg['norm'])
     if ($normIdx -ge 0) { $cbNorm.SelectedIndex = $normIdx }
   }
-  if ($cfg.profile) {
-    $profIdx = $cbPreset.Items.IndexOf([string]$cfg.profile)
+  if ($cfg['preset']) {
+    $profIdx = $cbPreset.Items.IndexOf([string]$cfg['preset'])
     if ($profIdx -ge 0) { $cbPreset.SelectedIndex = $profIdx }
   }
 } catch {}
 
-# Save settings
+# Save settings to INI
 $btnSave.Add_Click({
   $actionMap = @('header','3d','2d','viewer')
   $actionKey = $actionMap[[int]$cbAction.SelectedIndex]
   if (-not $actionKey) { $actionKey = '3d' }
-  $new = [ordered]@{
-    dd          = $tbDD.Text
-    dta         = $tbDTA.Text
-    cutoff      = $tbCutoff.Text
-    norm        = $cbNorm.SelectedItem
-    action      = $actionKey
-    threads     = [int]$nudThreads.Value
-    output_dir  = $tbOut.Text
-    ct_dir      = $tbCT.Text
-    open_on_finish = $cbOpen.Checked
-    save_log    = $cbLog.Checked
-    save_db     = $cbDB.Checked
-    save_pdf    = $cbPDF.Checked
-    plane_index = $tbPlaneIdx.Text
-    save_npz_3d = $cbNPZ.Checked
-    rtstruct    = $tbStruct.Text
-    roi         = $tbRoi.Text
-    interp_fraction = [int]$nudInterp.Value
-    profile     = $cbPreset.SelectedItem
+  $planeVal = $cbPlane.SelectedItem
+  if (-not $planeVal) { $planeVal = 'axial' }
+  $presetVal = $cbPreset.SelectedItem
+  if (-not $presetVal) { $presetVal = 'Custom' }
+  $normVal = $cbNorm.SelectedItem
+  if (-not $normVal) { $normVal = 'global_max' }
+  $data = [ordered]@{
+    'Paths' = [ordered]@{
+      ref_dose   = $tbRef.Text
+      eval_dose  = $tbEval.Text
+      rtstruct   = $tbStruct.Text
+      roi        = $tbRoi.Text
+      output_dir = $tbOut.Text
+      ct_dir     = $tbCT.Text
+    }
+    'Gamma' = [ordered]@{
+      dta              = $tbDTA.Text
+      dd               = $tbDD.Text
+      cutoff           = $tbCutoff.Text
+      norm             = $normVal
+      interp_fraction  = [string][int]$nudInterp.Value
+      preset           = $presetVal
+    }
+    'Analysis' = [ordered]@{
+      action           = $actionKey
+      plane            = $planeVal
+      plane_index      = $tbPlaneIdx.Text
+      threads          = [string][int]$nudThreads.Value
+      optimize_shift   = $cbOpt.Checked.ToString().ToLower()
+      local_gamma      = $cbLocal.Checked.ToString().ToLower()
+    }
+    'Output' = [ordered]@{
+      save_npz_3d      = $cbNPZ.Checked.ToString().ToLower()
+      save_db          = $cbDB.Checked.ToString().ToLower()
+      save_log         = $cbLog.Checked.ToString().ToLower()
+      save_pdf         = $cbPDF.Checked.ToString().ToLower()
+      open_on_finish   = $cbOpen.Checked.ToString().ToLower()
+    }
   }
-  try { ($new | ConvertTo-Json -Depth 3) | Out-File -FilePath $cfgPath -Encoding utf8; [System.Windows.Forms.MessageBox]::Show('Settings saved.','rtgamma','OK','Information') } catch {}
+  try { Write-Ini $iniPath $data; [System.Windows.Forms.MessageBox]::Show('Settings saved to gui_config.ini','rtgamma','OK','Information') } catch {}
 })
 
 $btnRun.Add_Click({
