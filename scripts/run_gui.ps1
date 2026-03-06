@@ -466,11 +466,49 @@ $btnOpen.Add_Click({ if(-not [string]::IsNullOrWhiteSpace($tbOut.Text)) { Start-
 # =============================================
 function Build-Command(){
   $ref = $tbRef.Text; $eval = $tbEval.Text; $out = $tbOut.Text
-  if([string]::IsNullOrWhiteSpace($ref) -or [string]::IsNullOrWhiteSpace($eval) -or [string]::IsNullOrWhiteSpace($out)){
-    [System.Windows.Forms.MessageBox]::Show('Please select Ref / Eval / Output folder.','Missing Input','OK','Warning')
+  
+  # 1. Action-specific folder/file checks
+  if ($cbAction.SelectedIndex -eq 3) {
+    if([string]::IsNullOrWhiteSpace($ct) -or -not (Test-Path $ct -PathType Container)){
+      [System.Windows.Forms.MessageBox]::Show('Valid CT Directory is required for the 3D Viewer.','Invalid Input','OK','Warning')
+      return $null
+    }
+  } else {
+    if([string]::IsNullOrWhiteSpace($out)){
+      [System.Windows.Forms.MessageBox]::Show('Please select Output folder.','Missing Input','OK','Warning')
+      return $null
+    }
+  }
+
+  # 2. Ref and Eval existence check
+  if([string]::IsNullOrWhiteSpace($ref) -or -not (Test-Path $ref -PathType Leaf)){
+    [System.Windows.Forms.MessageBox]::Show('Reference RTDOSE file path is invalid or missing.','Invalid Input','OK','Warning')
     return $null
   }
-  New-Item -ItemType Directory -Force -Path $out | Out-Null
+  if([string]::IsNullOrWhiteSpace($eval) -or -not (Test-Path $eval -PathType Leaf)){
+    [System.Windows.Forms.MessageBox]::Show('Evaluation RTDOSE file path is invalid or missing.','Invalid Input','OK','Warning')
+    return $null
+  }
+
+  # 3. Optional RTSTRUCT existence check
+  if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) {
+    if (-not (Test-Path $tbStruct.Text -PathType Leaf)) {
+      [System.Windows.Forms.MessageBox]::Show('RTSTRUCT file path is invalid or missing. Leave blank if not used.','Invalid Input','OK','Warning')
+      return $null
+    }
+  }
+
+  # 4. Output folder creation
+  if ($cbAction.SelectedIndex -ne 3 -and -not [string]::IsNullOrWhiteSpace($out)) {
+    try {
+      if (-not (Test-Path $out)) {
+        New-Item -ItemType Directory -Force -Path $out -ErrorAction Stop | Out-Null
+      }
+    } catch {
+      [System.Windows.Forms.MessageBox]::Show("Output folder path is invalid or cannot be created.","Invalid Input","OK","Warning")
+      return $null
+    }
+  }
 
   # Validate numeric inputs
   $dd = 0.0; $dta = 0.0; $cutoff = 0.0
@@ -527,10 +565,6 @@ function Build-Command(){
     }
     3 { # 3D Viewer
       $ct = $tbCT.Text
-      if([string]::IsNullOrWhiteSpace($ct)){
-        [System.Windows.Forms.MessageBox]::Show('Please select CT Directory for the 3D Viewer.','Missing Input','OK','Warning')
-        return $null
-      }
       $viewerCmd = @('python','-u','scripts/gamma_viewer.py','--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
@@ -629,9 +663,16 @@ function Run-Cmd([string[]]$cmd){
       }
     })
 
-  [void]$p.Start()
-  $p.BeginOutputReadLine()
-  $p.BeginErrorReadLine()
+  try {
+    [void]$p.Start()
+    $p.BeginOutputReadLine()
+    $p.BeginErrorReadLine()
+  } catch {
+    $lblStatus.Text = 'Status: Process Launch Failed'; $lblStatus.ForeColor = $clrRed
+    Append-Log("CRITICAL ERROR launching process: " + $_.Exception.Message)
+    $btnRun.Enabled = $true; $btnRun.Text = '>> Run'; $btnCancel.Enabled = $false
+    $pb.Visible = $false; $timer.Stop()
+  }
 }
 
 # =============================================
@@ -667,7 +708,7 @@ function Run-Viewer([string[]]$cmd){
     Append-Log('Viewer process started (PID=' + $p.Id + '). Window should appear shortly.')
   } catch {
     $lblStatus.Text = 'Status: Error launching viewer'; $lblStatus.ForeColor = $clrRed
-    Append-Log('ERROR: ' + $_.Exception.Message)
+    Append-Log('CRITICAL ERROR launching viewer: ' + $_.Exception.Message)
   }
 }
 
