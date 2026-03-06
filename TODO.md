@@ -89,6 +89,8 @@ Optional / stretch
 - [x] **`interp_fraction` 感度実験 (Prostate 完了)**: `scripts/run_interp_experiment.py` で Prostate を検証。最適値は **`interp_fraction = 3`** (GPR=85.26%, Δ=+0.56pp が 3DVH target 84.7% に最近接)。`config/3dvh_reference.json` に反映済み。
 - [x] **`interp_fraction` 感度実験 (BreastBolus 完了)**: `scripts/run_interp_experiment.py` で BreastBolus を検証。最適値は **`interp_fraction = 2`** (GPR=97.73%, Δ=+0.13pp が 3DVH target 97.6% に最近接)。`config/3dvh_reference.json` に反映済み。
 - [x] **GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`): 現状 PDF は CLI (`--pdf <パス>`) でのみ生成可能。GUI に「Output PDF」チェックボックスを追加し、チェック時に `--pdf <output_dir>/report.pdf` を `Build-Command` に付与することで、ワンクリックで PDF レポートを生成できるようにする。
+- [x] **GPR Gamma Type と Normalization の概念解説追記**: `global_max` / `max_ref` / `none` および `global` / `local` の正確な挙動と違いを `docs/openspec/rtgamma_openspec.md` およびドキュメント群へ追記し、QA運用の標準基準を明確化。
+
 
 ## 未解決・今後の課題 (2026-03-03 追加)
 - [x] **シフト探索と最終計算の不整合調査**: 

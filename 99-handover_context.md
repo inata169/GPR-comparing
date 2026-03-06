@@ -21,6 +21,9 @@
 - `ruff` による Lint エラーも修正済みで、GitHub Actions (CI) は **Success (Green)** の状態。
 - **v0.5.0** が正式に最新リリースとして公開済み。
 - ドキュメント・設定・テストもすべて最新化して push 済み。
+### ドキュメント拡充 (Documentation)
+- `docs/openspec/rtgamma_openspec.md` にて、Gamma Type (`global`/`local`) および Normalization (`global_max`/`max_ref`/`none`) の正確な定義と用途の違いを追記。
+- ユーザーに `none` を使用した場合の極端な厳しさ（絶対基準でのノイズ評価化）と、放射線治療QAにおける適正な `global_max` の運用を明文化しました。
 
 ## 2. 保留中のタスク (Pending Tasks)
 次のセッションからは **Tier 2/3 未実装機能** に着手可能。
