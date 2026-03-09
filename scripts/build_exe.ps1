@@ -1,39 +1,28 @@
 ﻿# scripts/build_exe.ps1
-# Build standalone executables for rtgamma
+# Build standalone executables for rtgamma (LIGHTWEIGHT VERSION)
+# This uses optimized .spec files to reduce size (MKL/unused modules excluded)
 
 $ErrorActionPreference = 'Stop'
 
 $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 Set-Location $ROOT
 
-Write-Host "Installing PyInstaller..." -ForegroundColor Cyan
-python -m pip install pyinstaller
+# Update pip and pyinstaller just in case
+Write-Host "Checking for PyInstaller..." -ForegroundColor Cyan
+python -m pip install -U pyinstaller
 
-Write-Host "Building rtgamma.main..." -ForegroundColor Cyan
-# rtgamma.main relies on config/presets.json and config/3dvh_reference.json
-# We add the config directory to the build
-python -m PyInstaller --name rtgamma_cli --onedir --noconsole `
-    --add-data "config;config" `
-    --hidden-import numba `
-    --hidden-import pydicom `
-    --hidden-import rtgamma.gamma `
-    --hidden-import rtgamma.io_dicom `
-    --hidden-import rtgamma.mask `
-    --hidden-import rtgamma.optimize `
-    --hidden-import rtgamma.report `
-    --hidden-import rtgamma.resample `
-    --collect-submodules scipy `
-    --clean `
-    scripts/run_cli.py
+Write-Host "Building rtgamma_cli from optimized .spec..." -ForegroundColor Cyan
+python -m PyInstaller --clean --noconfirm rtgamma_cli.spec
 
-Write-Host "Building gamma_viewer..." -ForegroundColor Cyan
-python -m PyInstaller --name gamma_viewer --onedir --noconsole `
-    --hidden-import matplotlib `
-    --hidden-import numba `
-    --hidden-import pydicom `
-    --collect-submodules scipy `
-    --clean `
-    scripts/gamma_viewer.py
+Write-Host "Building gamma_viewer from optimized .spec..." -ForegroundColor Cyan
+python -m PyInstaller --clean --noconfirm gamma_viewer.spec
 
-Write-Host "Build complete! Check the 'dist' folder." -ForegroundColor Green
-Write-Host "Note: run_gui.ps1 will automatically use these executables if present in the dist folder." -ForegroundColor Yellow
+Write-Host "`nBuild complete! Check the 'dist' folder." -ForegroundColor Green
+Write-Host "Note: Verification of size reduction in progress..." -ForegroundColor Yellow
+
+# Measure sizes
+$cli_size = (Get-ChildItem -Recurse -Path "dist/rtgamma_cli" | Measure-Object -Property Length -Sum).Sum / 1MB
+$viewer_size = (Get-ChildItem -Recurse -Path "dist/gamma_viewer" | Measure-Object -Property Length -Sum).Sum / 1MB
+
+Write-Host "Dist size (rtgamma_cli):   $([math]::Round($cli_size, 1)) MB" -ForegroundColor Cyan
+Write-Host "Dist size (gamma_viewer): $([math]::Round($viewer_size, 1)) MB" -ForegroundColor Cyan

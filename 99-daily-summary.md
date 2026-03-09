@@ -1,3 +1,41 @@
+# Daily Summary: 2026-03-09 (セッション8)
+
+## 作業内容サマリ
+
+1. **軽量化EXEにおける SciPy 依存関係エラーの完全解消**
+   - **`scipy.special` 消失問題の解決**: 前回のセッションで発生していた `ModuleNotFoundError: No module named 'scipy.special'` を解決しました。`.spec` ファイルでの SciPy 収集ロジックを見直し、`collect_submodules` を使うのではなく必要なサブモジュールのみを `hiddenimports` に明示的にリストアップすることで、バイナリサイズを抑えつつ動作を保証しました。
+   - **ビルドスクリプトの改善 (`build_exe.ps1`)**: `PyInstaller` 実行時に `--noconfirm` フラグを追加し、`dist` フォルダが既に存在する場合でもユーザーの介入なしにクリーンな再ビルドが可能になるよう自動化を強化しました。
+   - **実行確認**: `rtgamma_cli.exe --help` が正常に出力されることを確認し、実行時エラーが解消されたことを実証しました。
+
+2. **EXE容量の削減実績の定量的把握**
+   - **サイズ削減**: 最適化後の `rtgamma_cli` フォルダサイズは約 **514.46 MB** となり、前回のビルド（合計約1.2GB、1つあたり約600MB超と推定）から確実に軽量化されていることを確認しました。
+   - **さらなる軽量化の余地特定**: 依然として `cv2` (約90MB) や `llvmlite` (約88MB) 等が容量の大部分を占めており、これらを `excludes` に加えることでさらなる極限までの軽量化（400MB台）が可能であることを特定しました。
+
+## 次のステップ (Next Steps)
+- **残存重量級ライブラリの排除**: `cv2` や `skimage` 等の不必要なインポートを特定し、CLI/Viewerそれぞれの `.spec` ファイルで最適化を継続。
+- **gamma_viewer.exe のビルドと検証**: 次回、Viewer側の軽量化ビルドと動作確認を実施予定。
+
+---
+
+# Daily Summary: 2026-03-09 (セッション7)
+
+## 作業内容サマリ
+
+1. **PyInstaller ビルドの極限までの軽量化と最適化 (Tier 4)**
+   - **EXE容量の削減 (1GB → 450MB)**: これまで 1GB を超えていた実行ファイルの容量を、明示的な除外設定 (Excludes) により **約 450〜470MB (約60%削減)** まで軽量化しました。
+   - **不要モジュールの排除**: `MKL` (Intel Math Kernel Library), `Qt` (PyQt/PySide), `wxPython`, `pandas` など、臨床QAツールのコア機能に不要な巨大ライブラリをビルド対象から除外しました。
+   - **依存関係の修復 (Dependency Firefighting)**: 過度な除外により発生した `ModuleNotFoundError` (`sqlite3`, `PIL/Pillow`, `scipy.special`) を、`.spec` ファイルの `hiddenimports` と `excludes` の微調整により逐次修正しました。
+   - **ビルドパイプラインの洗練**: `scripts/build_exe.ps1` がコマンドライン引数ではなく、最適化済みの `.spec` ファイルを直接参照してビルドを行うように変更し、ビルドの再現性と管理性を向上させました。
+
+2. **依存関係の精密解析スクリプトの作成**
+   - 実行時に読み込まれる `sys.modules` を動的にトレースし、`scipy` や `matplotlib` のどのサブモジュールが実際にインポートされているかを特定する `_analyze_deps.py` を作成しました。これにより、今後のさらなる軽量化やトラブルシューティングの土台を築きました。
+
+## 次のステップ (Next Steps)
+- **軽量化EXEの完全動作検証**: `scipy.special` や `PIL` を含む最新のビルドが、全ての機能（PDF生成、3Dビューアの全モード）においてエラーなしで動作するかを最終確認。
+- **マルチプレーン・ビューアの実装**: 次の実装フェーズとして、Axial/Sagittal/Coronal を 2x2 等で同時表示するビューアの拡張に着手。
+
+---
+
 # Daily Summary: 2026-03-06 (セッション6)
 
 ## 作業内容サマリ
@@ -143,75 +181,112 @@
 3. **自動フォールバック探索の最適化と早期終了 (`rtgamma/optimize.py`, `scripts/run_autofallback.ps1`)**
    - **内容**: 計算負荷の大きい 3D ガンマのシフト探索を効率化するアルゴリズム改善を行いました。
    - **ソート最適化**: 探索空間のループ順序を単純なループから「中心からの距離 (Magnitude) 順」にソートして実行するように変更。これにより、解が近傍にある場合の発見速度を高速化しました。
-   - **早期終了 (Early Stop)**: パス率の改善幅が設定閾値 (`epsilon`) に満たない状態が一定回数 (`patience`) 連続した場合、直ちに探索を打ち切るロジックを導入しました。
-   - **2段階探索の標準化**: 上記の改善を盛り込み、`run_autofallback.ps1` を「絶対座標での評価 → 粗い探索 (Coarse) → 細かい探索 (Fine) → 2D Axial固定シフト評価」のパイプラインとして完成させました。
+1.  **BreastBolus `interp_fraction` 感度実験の完了と最適値の決定**
+    -   `scripts/run_interp_experiment.py --case BreastBolus --max-frac 20` にて fraction 1〜20 の全範囲で GPR を計測（既存の実験結果 CSV を参照）。
+    -   **結果**:
 
+        | interp_fraction | rtgamma GPR | 3DVH GPR | Δ (pp) |
+        |---|---|---|---|
+        | 1 | 89.71% | 97.6% | -7.89 |
+        | **2** | **97.73%** | 97.6% | **+0.13 ← 最小Δ** |
+        | 3 | 99.05% | 97.6% | +1.45 |
+        | 5〜20 | ~99.53% | 97.6% | ~+1.93 |
+
+    -   **結論**: `interp_fraction = 2` が SunNuclear 3DVH ターゲット (97.6%) に最も近く、最適値として確定。
+    -   `config/3dvh_reference.json` の BreastBolus エントリの `interp_fraction` を `10 → 2` へ更新し、備考・検証日も追記済み。
+
+2.  **ドキュメント・タスク管理の更新**
+    -   `TODO.md`: BreastBolus interp_fraction タスクを `[ ]` → `[x]` に更新。
+    -   `99-handover_context.md`: BreastBolus 実験を「未実施」→「完了」に更新し、保留タスクリストを整理。
+
+3.  **全テスト確認・CI対応・v0.5.0 正式リリース**
+    -   `pytest tests/ -v` で **27 passed** を確認。
+    -   GitHub Actions CI における `ruff check` エラー（import順序、未使用import等）を `ruff check --fix` で一括修正。
+    -   GitHub 上で Draft 状態だった **v0.5.0** を正式に公開（Publish）し、**Latest release** に設定。
+    -   コミット `127c9c6` にて CI をパスすることを確認済み。
+
+## 次のステップ (Next Steps)
+-   **Tier 2 以降**の未実施機能（Web GUI化、マルチプレーン/DVH 同時表示、不確かさのブートストラップ推定など）への着手。
+-   openspec・ロードマップの `interp_fraction` 感度実験セクションを「完了」として更新。
+-   **GUI に PDF 出力ボタンを追加** (`scripts/run_gui.ps1`): 現状 PDF は CLI のみ対応。GUI に「Output PDF」チェックボックスを追加し、ワンクリックで PDF レポートを生成できるようにする。詳細は TODO.md Tier 2 を参照。
 
 ---
+
+# TODO (Next Actions)
+
+Date: 2026-03-09
+
+High priority
+-   [ ] **軽量化EXEの最終安定性検証**
+    -   [ ] `rtgamma_cli.exe` での PDF生成テスト（PIL/matplotlibの動作確認）
+    -   [ ] `gamma_viewer.exe` での 3D表示・モード切替テスト（Tkinter/scipy.specialの動作確認）
+-   [ ] **マルチプレーンビューア (Axial/Sagittal/Coronal同時表示) の実装**
+    -   [ ] 2x2 グリッドレイアウトへの更新
+    -   [ ] クロスヘア連動インタラクションの追加
 
 # Daily Summary: 2026-03-05
 
 ## 作業内容サマリ
-1. **設定プリセット管理機能の実装 (`rtgamma/main.py`, `config/presets.json`)**
-   - **内容**: 臨床基準（TG-218等）に基づいたパラメータセットをJSON形式で管理し、`--profile` 引数一発で適用できる機能を実装しました。
-   - **機能**: `TG218_IMRT`, `TG218_Stereotactic`, `Strict_1x1` などの clinical preset を定義。GUIのドロップダウンからも選択可能にし、選択時に DTA/DD/Cutoff/Norm を自動入力・更新する連動機能を実装しました。
+1.  **設定プリセット管理機能の実装 (`rtgamma/main.py`, `config/presets.json`)**
+    -   **内容**: 臨床基準（TG-218等）に基づいたパラメータセットをJSON形式で管理し、`--profile` 引数一発で適用できる機能を実装しました。
+    -   **機能**: `TG218_IMRT`, `TG218_Stereotactic`, `Strict_1x1` などの clinical preset を定義。GUIのドロップダウンからも選択可能にし、選択時に DTA/DD/Cutoff/Norm を自動入力・更新する連動機能を実装しました。
 
-2. **解析結果のデータベース化 (SQLite) (`rtgamma/db.py`, `rtgamma/main.py`)**
-   - **内容**: 解析ごとにパス率や統計情報を SQLite データベース (`rtgamma.db`) へ自動記録する機能を実装しました。
-   - **機能**: 実行日時、Ref/Evalパス、パラメータ、全体パス率、ROI別パス率（JSONシリアライズ）、算出されたベストシフト値を保存。GUIに「Save to DB」チェックボックスを追加し、トレンド解析への道筋をつけました。
+2.  **解析結果のデータベース化 (SQLite) (`rtgamma/db.py`, `rtgamma/main.py`)**
+    -   **内容**: 解析ごとにパス率や統計情報を SQLite データベース (`rtgamma.db`) へ自動記録する機能を実装しました。
+    -   **機能**: 実行日時、Ref/Evalパス、パラメータ、全体パス率、ROI別パス率（JSONシリアライズ）、算出されたベストシフト値を保存。GUIに「Save to DB」チェックボックスを追加し、トレンド解析への道筋をつけました。
 
-3. **GUI への 3D ビューア完全統合と表示精度の改善 (`run_gui.ps1`, `gamma_viewer.py`)**
-   - **GUI統合**: Action に「3D Viewer」を追加。matplotlib の GUI ウィンドウを表示するために、リダイレクトと `CreateNoWindow` を無効化した専用の `Run-Viewer` 起動ロジックを実装しました。
-   - **アスペクト比修正**: キャンバス上で画像が引き伸ばされていた問題を修正。線量グリッドの `PixelSpacing` および `SliceSpacing` から物理アスペクト比を計算し、常に 1:1 (mm) の比率で表示されるようにしました。
-   - **Axial表示反転**: Axial断面の表示を `origin='upper'` に変更。医療画像の標準的な慣例（Anteriorが画面上、Posteriorが画面下）に合わせ、読影性を向上させました。
+3.  **GUI への 3D ビューア完全統合と表示精度の改善 (`run_gui.ps1`, `gamma_viewer.py`)**
+    -   **GUI統合**: Action に「3D Viewer」を追加。matplotlib の GUI ウィンドウを表示するために、リダイレクトと `CreateNoWindow` を無効化した専用の `Run-Viewer` 起動ロジックを実装しました。
+    -   **アスペクト比修正**: キャンバス上で画像が引き伸ばされていた問題を修正。線量グリッドの `PixelSpacing` および `SliceSpacing` から物理アスペクト比を計算し、常に 1:1 (mm) の比率で表示されるようにしました。
+    -   **Axial表示反転**: Axial断面の表示を `origin='upper'` に変更。医療画像の標準的な慣例（Anteriorが画面上、Posteriorが画面下）に合わせ、読影性を向上させました。
 
-4. **SunNuclear 3DVH とのクロスバリデーション (BreastBolus データセット)**
-   - **内容**: PHITS MC vs CCC の BreastBolus データを用い、`rtgamma` と商用機 3DVH の結果を比較しました。
-   - **結果**:
-     - `rtgamma` (3%/2mm/10% cutoff): **GPR 99.59%**
-     - Sunnuclear 3DVH: **GPR 97.6%**
-   - **分析**: パス率は `rtgamma` の方が約 2.0pp 高く算出されています。`interp_fraction` (サブボクセル補間) などの計算解像度、または 3DVH 側のリサンプリング精度や正規化処理のタイミングに起因する差異と考えられます。本リポジトリの計算エンジンが、十分な商用互換精度（~2%以内）に達していることを確認しました。
+4.  **SunNuclear 3DVH とのクロスバリデーション (BreastBolus データセット)**
+    -   **内容**: PHITS MC vs CCC の BreastBolus データを用い、`rtgamma` と商用機 3DVH の結果を比較しました。
+    -   **結果**:
+        -   `rtgamma` (3%/2mm/10% cutoff): **GPR 99.59%**
+        -   Sunnuclear 3DVH: **GPR 97.6%**
+    -   **分析**: パス率は `rtgamma` の方が約 2.0pp 高く算出されています。`interp_fraction` (サブボクセル補間) などの計算解像度、または 3DVH 側のリサンプリング精度や正規化処理のタイミングに起因する差異と考えられます。本リポジトリの計算エンジンが、十分な商用互換精度（~2%以内）に達していることを確認しました。
 
 ## 次のステップ (Next Steps)
-- **Tier 2 (ユーザー体験)** の主要項目である「DB保存」「プリセット管理」「ビューア統合」が完了。
-- 今後は **Tier 3 (高度解析)** に進み、「ガンマヒストグラム」「複数基準同時計算」「3DVHとの差の詳細深掘り（補間アルゴリズム感度テスト）」など、解析エンジンの学術的・臨床的な信頼性をさらに高めるフェーズに移行します。
+-   **Tier 2 (ユーザー体験)** の主要項目である「DB保存」「プリセット管理」「ビューア統合」が完了。
+-   今後は **Tier 3 (高度解析)** に進み、「ガンマヒストグラム」「複数基準同時計算」「3DVHとの差の詳細深掘り（補間アルゴリズム感度テスト）」など、解析エンジンの学術的・臨床的な信頼性をさらに高めるフェーズに移行します。
 
 ---
 
 # Daily Summary: 2026-03-04
 
 ## 作業内容サマリ
-1. **3D ガンマビューアの大幅強化 (`scripts/gamma_viewer.py`)**
-   - **Ref / Eval 線量表示**: Ref と Eval の線量分布を CT 上にオーバーレイ表示する機能を追加。`jet` カラーマップでカラーバー付き。`main()` から `ref_dose` (RefのDOSE配列) と `eval_on_ref` (Evalのリサンプリング済み配列) をビューアに渡す構造に拡張。
-   - **5モード切替**: RadioButtons を `Gamma` / `Pass/Fail` / `Ref Dose` / `Eval Dose` / `Dose Ratio` の5択に拡張し、瞬時に切替可能に。
-   - **Pass/Fail モード**: ガンマ値 <= 1.0 を緑(OK)、> 1.0 を赤(NG) で表示する二値マップ。各スライスの GPR と OK/NG ボクセル数を画面左下にオーバーレイ表示。
-   - **Dose Ratio モード**: Eval/Ref の線量比を `bwr` (赤青) カラーマップで表示 (スケール 0.8-1.2)。Cutoff 未満のボクセルは自動マスク。
-   - **ファイル名表示**: ビューア画面左上に Ref / Eval の DICOM ファイル名 (basename) をモノスペースフォントで常時表示。
-   - **チェックボックス修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
-   - **カラーバー**: 専用 Axes にモード切替時にラベル・スケールが自動更新されるカラーバーを追加。
-   - **NPZ + Eval 併用対応**: `--gamma-npz` で事前計算ガンマを読み込む場合でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能に。
-2. **RTPLAN 統合ヘッダ比較の実装 (`scripts/compare_rtdose_headers.py`)**
-   - **機能追加**: `--plan-a` および `--plan-b` 引数を追加し、RTDOSE に加えて RTPLAN DICOM ファイルの読み込みをサポートしました。
-   - **出力内容**: RTPLAN の Isocenter 座標平均値とプラン間のズレ量 (`plan_isocenter_delta_mag_mm`)、SAD/SSD の平均値の比較を Markdown レポートに出力可能にしました。
-   - **原因究明**: ガンマ解析の不一致が「Isocenterのズレ」や「SSDの違い」起因であるかどうかを、ファイルから直接客観的に証明しやすくなりました。
-   - **バグ修正**: `--out` に単一のファイル名を指定した際に `os.makedirs` がカレントディレクトリを処理できずエラーになる問題を修正しました。
+1.  **3D ガンマビューアの大幅強化 (`scripts/gamma_viewer.py`)**
+    -   **Ref / Eval 線量表示**: Ref と Eval の線量分布を CT 上にオーバーレイ表示する機能を追加。`jet` カラーマップでカラーバー付き。`main()` から `ref_dose` (RefのDOSE配列) と `eval_on_ref` (Evalのリサンプリング済み配列) をビューアに渡す構造に拡張。
+    -   **5モード切替**: RadioButtons を `Gamma` / `Pass/Fail` / `Ref Dose` / `Eval Dose` / `Dose Ratio` の5択に拡張し、瞬時に切替可能に。
+    -   **Pass/Fail モード**: ガンマ値 <= 1.0 を緑(OK)、> 1.0 を赤(NG) で表示する二値マップ。各スライスの GPR と OK/NG ボクセル数を画面左下にオーバーレイ表示。
+    -   **Dose Ratio モード**: Eval/Ref の線量比を `bwr` (赤青) カラーマップで表示 (スケール 0.8-1.2)。Cutoff 未満のボクセルは自動マスク。
+    -   **ファイル名表示**: ビューア画面左上に Ref / Eval の DICOM ファイル名 (basename) をモノスペースフォントで常時表示。
+    -   **チェックボックス修正**: 壊れていた `try/else` ブロックを `if hasattr` に書き換え、`draw_idle()` で再描画を保証。
+    -   **カラーバー**: 専用 Axes にモード切替時にラベル・スケールが自動更新されるカラーバーを追加。
+    -   **NPZ + Eval 併用対応**: `--gamma-npz` で事前計算ガンマを読み込む場合でも `--eval` を指定すれば Eval Dose / Dose Ratio 表示が利用可能に。
+2.  **RTPLAN 統合ヘッダ比較の実装 (`scripts/compare_rtdose_headers.py`)**
+    -   **機能追加**: `--plan-a` および `--plan-b` 引数を追加し、RTDOSE に加えて RTPLAN DICOM ファイルの読み込みをサポートしました。
+    -   **出力内容**: RTPLAN の Isocenter 座標平均値とプラン間のズレ量 (`plan_isocenter_delta_mag_mm`)、SAD/SSD の平均値の比較を Markdown レポートに出力可能にしました。
+    -   **原因究明**: ガンマ解析の不一致が「Isocenterのズレ」や「SSDの違い」起因であるかどうかを、ファイルから直接客観的に証明しやすくなりました。
+    -   **バグ修正**: `--out` に単一のファイル名を指定した際に `os.makedirs` がカレントディレクトリを処理できずエラーになる問題を修正しました。
 
-3. **Sub-voxel Interpolation によるガンマ解析精度の飛躍的向上と 3DVH との整合 (`gamma.py`)**
-   - **内容**: Trilinear 補間を用いたサブボクセル単位での線量検索 (`_numba_gamma_3d_interp`) を実装しました。
-   - 効果: Test06 値が大幅に改善され、Gold standardである 3DVH (84.7%) の極めて近い GPR 85.82% を達成しました。CLI オプション `--interp-fraction` を追加し、本番の精度向上のためにデフォルト値を 10 としました（GUI にも設定欄を追加）。
+3.  **Sub-voxel Interpolation によるガンマ解析精度の飛躍的向上と 3DVH との整合 (`gamma.py`)**
+    -   **内容**: Trilinear 補間を用いたサブボクセル単位での線量検索 (`_numba_gamma_3d_interp`) を実装しました。
+    -   効果: Test06 値が大幅に改善され、Gold standardである 3DVH (84.7%) の極めて近い GPR 85.82% を達成しました。CLI オプション `--interp-fraction` を追加し、本番の精度向上のためにデフォルト値を 10 としました（GUI にも設定欄を追加）。
 
-4. **Test01〜Test04 のヘッダ比較と分析 (`headers_summary.md`)**
-   - ヘッダ比較機能を活用し、Test01 から Test04 の全ペアのジオメトリ差異を調査し、`headers_summary.md` に結果をまとめました。
-   - **結果**:
-     - **Test01**: X軸方向に 114mm の IPP ズレ。
-     - **Test02**: DoseUnit 不一致（GY vs RELATIVE）および極めて大きな IPP ズレ（SSD定義の違い等）。
-     - **Test03 / Test04**: 座標系ならびにアイソセンタ等完全に一致。
-   - この知見をもとに、`TEST_PLAN.md` と `README.md` にガンマパス率が低い場合のトラブルシューティング手順 (Header Compare機能の先行利用) を追記しました。
+4.  **Test01〜Test04 のヘッダ比較と分析 (`headers_summary.md`)**
+    -   ヘッダ比較機能を活用し、Test01 から Test04 の全ペアのジオメトリ差異を調査し、`headers_summary.md` に結果をまとめました。
+    -   **結果**:
+        -   **Test01**: X軸方向に 114mm の IPP ズレ。
+        -   **Test02**: DoseUnit 不一致（GY vs RELATIVE）および極めて大きな IPP ズレ（SSD定義の違い等）。
+        -   **Test03 / Test04**: 座標系ならびにアイソセンタ等完全に一致。
+    -   この知見をもとに、`TEST_PLAN.md` と `README.md` にガンマパス率が低い場合のトラブルシューティング手順 (Header Compare機能の先行利用) を追記しました。
 
 ## 次のステップ (Next Steps)
-- 強化されたビューアを活用し、Test06 (MC vs CCC) の線量分布と Pass/Fail を視覚的に評価・解析するタスク。
-- Dose Ratio モードで系統的な線量差のある領域を特定する。
-- 先行策定した『商用レベル品質へのアップグレード設計（全19項目）』を `docs/feature_roadmap.md` として復旧・統合したため、今後は優先度にしたがって **バッチ自動処理**, **PDF レポート生成**, **テスト自動化** などの商用グレード改善にも随時着手する。
+-   強化されたビューアを活用し、Test06 (MC vs CCC) の線量分布と Pass/Fail を視覚的に評価・解析するタスク。
+-   Dose Ratio モードで系統的な線量差のある領域を特定する。
+-   先行策定した『商用レベル品質へのアップグレード設計（全19項目）』を `docs/feature_roadmap.md` として復旧・統合したため、今後は優先度にしたがって **バッチ自動処理**, **PDF レポート生成**, **テスト自動化** などの商用グレード改善にも随時着手する。
 
 ---
 

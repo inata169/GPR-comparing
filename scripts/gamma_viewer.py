@@ -21,6 +21,8 @@ import argparse
 import logging
 import os
 import sys
+import scipy.special
+import PIL.Image
 
 import matplotlib
 import numpy as np

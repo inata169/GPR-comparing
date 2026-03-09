@@ -1,4 +1,4 @@
-# rtgamma OpenSpec (v0.6)
+# rtgamma OpenSpec (v0.7.1 開発中)
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
@@ -164,7 +164,7 @@
 - DICOM I/O・幾何: rtgamma/io_dicom.py
 - レポート出力: rtgamma/report.py, scripts/pdf_report.py
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px、PDF出力設定、マウスオーバーツールチップ)
-  - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と、実行可能な `dist/rtgamma_cli.exe` への透過的自動切り替え（Python 環境非依存）に対応。
+  - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と、最適化済み `.spec` ファイルによるビルド。MKL などの巨大依存を排除し、バイナリサイズを大幅に削減（単体 **約500MB前後**）。Python 環境非依存の実行を実現。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, **物理アスペクト比対応**, **Axial医療慣習表示**)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
