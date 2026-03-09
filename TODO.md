@@ -3,8 +3,9 @@
 Date: 2026-03-09
 
 High priority
-- [x] **軽量化EXEのビルド成功とエラー修正**
-  - [x] `scipy.special` の `ModuleNotFoundError` を解決
+- [ ] **軽量化EXEのビルドと依存性エラーの解消 (進行中)**
+  - [x] `rtgamma_cli.exe` での `scipy.special` 等のインポートエラーを特定・一部回避
+  - [ ] `gamma_viewer.exe` のビルド実行と依存関係の整合（未完了）
   - [ ] `rtgamma_cli.exe` での PDF生成テスト（PIL/matplotlibの動作確認）
   - [ ] `gamma_viewer.exe` での 3D表示・モード切替テスト（Tkinter/scipy.specialの動作確認）
 - [ ] **マルチプレーンビューア (Axial/Sagittal/Coronal同時表示) の実装**
