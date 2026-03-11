@@ -1,3 +1,24 @@
+# Daily Summary: 2026-03-11 (セッション10)
+
+## 作業内容サマリ
+
+1. **CI エラー (Ruff I001) の修正と push**
+   - `rtgamma/io_dicom.py` の `import pydicom` 前に余分な空行があり、Ruff の `I001` エラーが発生していた。
+   - 原因: 前セッションで `try-except` ラッパーを除去した際に空行が残ったため。
+   - `ruff check --fix` で修正し、commit `ee70eb7` を push。GitHub Actions CI 全 6 ジョブ (Ubuntu/Windows × Python 3.10/3.11/3.12) が **PASS** に回復。
+   - 副障害: GitHub PAT 再発行によりPowerShell経由の push が認証失敗。Python スクリプト経由の `subprocess` + UTF-8 ログ書き出し方式で解決。
+
+2. **TROUBLESHOOTING.md への知見追記 (commit `5a7f3b6`)**
+   - 「CI Ruff I001 エラー」と「Windows git push 認証失敗」の原因・対策を日本語で追記。
+   - 今後の再発防止として、commit 前の `ruff check --fix` 実施と、git 出力は Python スクリプト経由で UTF-8 ログに書き出す手法を標準化。
+
+## 次のステップ (Next Steps)
+- **マルチプレーン・連動ビューアの実装** (Tier 2 最優先):
+  - `scripts/gamma_viewer.py` を 2×2 グリッドレイアウト（Axial/Sagittal/Coronal + コントロール）に拡張。
+  - マウスクリックで全 3 断面が同期するクロスヘア機能の実装。
+
+---
+
 # Daily Summary: 2026-03-11 (セッション9)
 
 ## 作業内容サマリ
