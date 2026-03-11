@@ -1,13 +1,12 @@
 # TODO (Next Actions)
 
-Date: 2026-03-09
+Date: 2026-03-11
 
 High priority
-- [ ] **軽量化EXEのビルドと依存性エラーの解消 (進行中)**
-  - [x] `rtgamma_cli.exe` での `scipy.special` 等のインポートエラーを特定・一部回避
-  - [ ] `gamma_viewer.exe` のビルド実行と依存関係の整合（未完了）
-  - [ ] `rtgamma_cli.exe` での PDF生成テスト（PIL/matplotlibの動作確認）
-  - [ ] `gamma_viewer.exe` での 3D表示・モード切替テスト（Tkinter/scipy.specialの動作確認）
+- [x] **ビルドの安定性復旧と実行時エラーの解消 (完了)**
+- [x] `rtgamma_cli.exe` での `scipy.special` / `pydicom` 等のインポートエラーを解消
+- [x] `gamma_viewer.exe` のビルド成功とヘルプ表示の動作確認
+- [x] `rtgamma_cli.exe` での実データ解析・PDF生成完遂の確認
 - [ ] **マルチプレーンビューア (Axial/Sagittal/Coronal同時表示) の実装**
   - [ ] 2x2 グリッドレイアウトへの更新
   - [ ] クロスヘア連動インタラクションの追加

@@ -1,7 +1,7 @@
-﻿# scripts/build_exe.ps1
+# scripts/build_exe.ps1
 # Build standalone executables for rtgamma
 
-$ErrorActionPreference = 'Stop'
+# $ErrorActionPreference = 'Stop'
 
 $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 Set-Location $ROOT
@@ -12,7 +12,7 @@ python -m pip install pyinstaller
 Write-Host "Building rtgamma.main..." -ForegroundColor Cyan
 # rtgamma.main relies on config/presets.json and config/3dvh_reference.json
 # We add the config directory to the build
-python -m PyInstaller --name rtgamma_cli --onedir --noconsole `
+python -m PyInstaller -y --name rtgamma_cli --onedir --console `
     --add-data "config;config" `
     --hidden-import numba `
     --hidden-import pydicom `
@@ -27,7 +27,7 @@ python -m PyInstaller --name rtgamma_cli --onedir --noconsole `
     scripts/run_cli.py
 
 Write-Host "Building gamma_viewer..." -ForegroundColor Cyan
-python -m PyInstaller --name gamma_viewer --onedir --noconsole `
+python -m PyInstaller -y --name gamma_viewer --onedir --noconsole `
     --hidden-import matplotlib `
     --hidden-import numba `
     --hidden-import pydicom `

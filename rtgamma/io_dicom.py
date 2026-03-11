@@ -2,10 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-try:
-    import pydicom
-except Exception:
-    pydicom = None
+import pydicom
 
 
 def _dircos_to_matrix(iop: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -20,8 +17,6 @@ def _dircos_to_matrix(iop: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarr
 
 def load_rtdose(path: str) -> Dict:
     import os
-    if pydicom is None:
-        raise RuntimeError("pydicom is required to read RTDOSE DICOM. Install pydicom.")
 
     target_path = path
     if os.path.isdir(path):
@@ -134,8 +129,6 @@ def load_ct(path: str) -> Dict:
         shape: tuple (nz, ny, nx)
     """
     import os
-    if pydicom is None:
-        raise RuntimeError("pydicom is required to read CT DICOM.")
 
     if not os.path.isdir(path):
         raise ValueError(f"load_ct requires a directory, got: {path}")
@@ -202,8 +195,6 @@ def load_ct(path: str) -> Dict:
 
 
 def load_rtplan(path: str) -> Dict:
-    if pydicom is None:
-        raise RuntimeError("pydicom is required to read RTPLAN DICOM. Install pydicom.")
     ds = pydicom.dcmread(path, force=True)
 
     if getattr(ds, 'Modality', None) != 'RTPLAN':
@@ -277,8 +268,6 @@ def load_rtstruct(path: str) -> Dict:
         dataset: raw pydicom Dataset
     """
     import os
-    if pydicom is None:
-        raise RuntimeError("pydicom is required to read RTSTRUCT DICOM.")
 
     target_path = path
     if os.path.isdir(path):

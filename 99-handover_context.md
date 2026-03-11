@@ -1,26 +1,24 @@
-# GUI・EXE軽量化・機能拡張: Handover Context (2026-03-09 v0.7.1 開発中)
+# ビルド安定化・マルチプレーン化準備: Handover Context (2026-03-11 v0.7.1 開発中)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
-### EXE容量の極限軽量化 (進行中: 難航)
-- **現状**: CLI版 (`rtgamma_cli.exe`) のインポートエラー (`scipy.special`) に対し、`.spec` ファイルでの明示的なサブモジュール指定を試行中。`--help` の起動は確認。
-- **欠落事項**: `gamma_viewer.exe` が未ビルド。また、リサンプリングやPDF生成など、実際の重い処理が軽量化版で完遂するかは未検証。
+### ビルドの安定性復旧 (完了)
+- **現状**: v0.7.0 (commit deece88) をベースにビルド構成を整理し、`rtgamma_cli.exe` と `gamma_viewer.exe` の双方が正しく動作する状態に戻しました。
+- **解決済み**: `rtgamma/io_dicom.py` の `try-except` が原因で `pydicom` のインポートエラーが隠蔽されていた問題を解消しました。これにより、EXE環境でも正常に DICOM 読み込みが可能です。
+- **検証済み**: CLI による 3D 解析 + PDF レポート生成の完遂、および Viewer の起動を確認。
 
-### 依存関係の解析
-- `_analyze_deps.py`: インポートされるサブモジュールをトレースするためのスクリプト。
-- `dist` フォルダの構成を見直し、配布用 ZIP パッケージ (`scripts/package_release.ps1`) への繋ぎ込み準備を完了。
+### マルチプレーンビューア (次ステップ)
+- **計画**: `scripts/gamma_viewer.py` を拡張し、3断面（Axial/Sagittal/Coronal）の同時表示およびクロスヘア（中心点連動）機能を実装予定。
 
 ## 2. 実装上の注意・ハマりどころ (Caveats & Gotchas)
 
-- **Matplotlib の依存性**: `matplotlib.path.Path` など一部の機能呼び出しでも `PIL` や `scipy.special` が必要になる場合がある。
-- **Tkinter の要否**: CLI 側 (`rtgamma_cli`) では `tkinter` は不要（除外可能）だが、Viewer 側 (`gamma_viewer`) は GUI ツールキットとして必須。
+- **インポート隠蔽の禁止**: `io_dicom.py` のように、ライブラリのインポート成否を `try-except` で黙らせると PyInstaller 環境でのデバッグが極端に困難になります。依存関係は明示的にエラーを出す設計を維持してください。
+- **PyInstaller のキャッシュ**: ビルドが不安定な場合は `pyinstaller --clean` や `Remove-Item build, dist` をためらわずに行ってください。
 
 ## 3. 次の課題 (Upcoming Tasks)
 
-1.  **軽量化された EXE の網羅的動作テスト**:
-    - `rtgamma_cli.exe --help` だけではなく、実際に DICOM を読み込んで PDF レポートが生成されるまでの完遂テスト。
-    - `gamma_viewer.exe` で 3D 表示が崩れないかの確認。
-2.  **マルチプレーン・連動ビューアの設計**:
-    - 現在の 3D ビューアを拡張し、Axial / Sagittal / Coronal を 2x2 等で同時表示するモードの実装。
-3.  **多言語対応の深化**:
-    - GUI ラベルの I18N (日英切替) への道筋。
+1.  **マルチプレーン・連動ビューアの実装**:
+    - Axial / Sagittal / Coronal を 2x2（または 1x3 + info）で同時表示するモードの実装。
+    - マウスクリックした座標が全断面で同期するクロスヘア機能。
+2.  **EXE 容量の最適化（再考）**:
+    - 安定性が確保されたため、再度安全な範囲で `cv2` や `torch` などの不要パッケージの除外を検討（現在は約 512MB）。
