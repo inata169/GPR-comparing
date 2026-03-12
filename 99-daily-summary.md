@@ -1,3 +1,20 @@
+# Daily Summary: 2026-03-12 (セッション15)
+
+## 作業内容サマリ
+
+1. **Gitリポジトリの履歴クリーンアップと正常化**
+   - 過去のコミットに含まれていた `dist/` や `build/` フォルダの巨大なバイナリ（約1.4GB分）を、`git reset` を用いて履歴から完全に抹消。
+   - ソースコードのみの健全なリポジトリ状態に復元し、GitHubへのPushを正常化（数百KB程度に削減）。
+
+2. **CI パイプラインの復旧とコード品質の向上**
+   - GitHub Actions で発生していた Ruff (Lint) エラーを解消。
+   - `phits-linac-validation/src/Comp_measured_phits_v9.1.py` の `bare except` を `except Exception:` に修正。
+   - `--pdf` 引数のデフォルト化に伴う `tests/test_cli_e2e.py` の実行時エラーを修正し、テストをパス。
+
+3. **環境整備と `.gitignore` の適正化**
+   - `temp/`, `_git_*.txt`, `release_staging/` 等を無視リストに追加。
+   - ローカルでの `pytest` 実行環境を整備し、E2Eテストの正常動作を確認。
+
 # Daily Summary: 2026-03-12 (セッション14)
 
 ## 作業内容サマリ
