@@ -55,7 +55,6 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         "--ref", ref_path,
         "--eval", eval_path,
         "--report", report_base,
-        "--pdf",
         "--opt-shift", "off",
         "--mode", "3d"
     ]
