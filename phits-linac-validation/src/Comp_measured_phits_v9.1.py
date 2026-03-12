@@ -1,15 +1,15 @@
 # **Comp\_measured\_phits\_v9.py (完全版)**
 # Comp_measured_phits_v9.py
-import pandas as pd
-import numpy as np
-import math
+import argparse
+import configparser  # INIファイル読み込みのために追加
 import os
+import re
 import sys
 from io import StringIO
-import re
 from textwrap import dedent
-import argparse
-import configparser # INIファイル読み込みのために追加
+
+import numpy as np
+import pandas as pd
 
 # --- 依存ライブラリのチェック ---
 try:
@@ -162,7 +162,7 @@ def calculate_gamma_index(df_measured, df_phits, dose_ta, dist_ta_mm, dose_thres
         return 0.0
     return (np.sum(valid_gamma <= 1) / len(valid_gamma) * 100)
 
-def save_results_to_text(report_dir, phits_file, measured_file, scaling_factor, 
+def save_results_to_text(report_dir, phits_file, measured_file, scaling_factor,
                          smoothing_params, gamma_criteria, rmse, gamma_pass_rate):
     base_phits = os.path.splitext(os.path.basename(phits_file))[0]
     base_measured = os.path.splitext(os.path.basename(measured_file))[0]
@@ -192,22 +192,13 @@ def save_results_to_text(report_dir, phits_file, measured_file, scaling_factor,
 
 
 # Comp_measured_phits_v9.1.py
-import pandas as pd
-import numpy as np
-import math
-import os
 import sys
-from io import StringIO
-import re
-from textwrap import dedent
-import argparse
-import configparser
 
 # (依存ライブラリのチェックは同じ)
 
 __version__ = "9.1.ROBUST_PATH"
 
-# (select_file_from_menu, load_measured_data, parse_phits_profile, 
+# (select_file_from_menu, load_measured_data, parse_phits_profile,
 #  calculate_rmse, calculate_gamma_index, save_results_to_text の各関数はv9と同じ)
 # ...
 
@@ -338,9 +329,9 @@ def main():
     rmse_value = calculate_rmse(df_measured, df_phits_eval)
     print(f"\n✅ 平均二乗平方根誤差 (RMSE): {rmse_value:.4f}")
     
-    gamma_pass_rate = calculate_gamma_index(df_measured, df_phits_eval, 
-                                            dose_ta=dose_ta, 
-                                            dist_ta_mm=dist_ta_mm, 
+    gamma_pass_rate = calculate_gamma_index(df_measured, df_phits_eval,
+                                            dose_ta=dose_ta,
+                                            dist_ta_mm=dist_ta_mm,
                                             dose_threshold=cutoff)
     print(f"✅ ガンマインデックス パス率: {gamma_pass_rate:.2f} %")
     
@@ -359,7 +350,7 @@ def main():
         x_min = min(df_measured['pos'].min(), df_phits['pos_center'].min())
         x_max = max(df_measured['pos'].max(), df_phits['pos_center'].max())
         plt.xlim(x_min - 1, x_max + 1)
-    except:
+    except Exception:
         plt.xlim(-15, 15)
     plt.ylim(0, 110)
     

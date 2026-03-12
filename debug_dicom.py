@@ -1,6 +1,8 @@
-import pydicom
-import numpy as np
 import sys
+
+import numpy as np
+import pydicom
+
 
 def compare_dicom_files(file1, file2):
     ds1 = pydicom.dcmread(file1, force=True)

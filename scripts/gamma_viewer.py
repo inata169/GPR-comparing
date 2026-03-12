@@ -13,9 +13,9 @@ import numpy as np
 
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap
 from matplotlib.widgets import CheckButtons, RadioButtons, Slider, TextBox
-from matplotlib.collections import LineCollection
 
 # Ensure repo root is on path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -68,7 +68,7 @@ class MultiPlaneViewer:
         self.overlay_mode = 'Gamma'
         self.show_help = False
 
-        self._load_state() 
+        self._load_state()
 
         # Precompute dose vmax
         self._dose_vmax = 1.0
@@ -166,7 +166,7 @@ class MultiPlaneViewer:
                 if hasattr(w, 'lines'):
                     for line_pair in w.lines:
                         for line in line_pair:
-                            line.set_color('#00AA00') 
+                            line.set_color('#00AA00')
                             line.set_linewidth(3)
                 w.ax.figure.canvas.draw_idle()
             except Exception: pass
@@ -174,7 +174,7 @@ class MultiPlaneViewer:
         style_checkboxes(self.w_vis)
         self.w_vis.on_clicked(lambda label: style_checkboxes(self.w_vis))
 
-        self.t_filenames = self.fig.text(0.08, 0.97, f"Ref : {self.ref_label}\nEval: {self.eval_label}", 
+        self.t_filenames = self.fig.text(0.08, 0.97, f"Ref : {self.ref_label}\nEval: {self.eval_label}",
                                          color='#AAAAAA', family='monospace', fontsize=8, va='top')
         self.t_stats = self.fig.text(0.84, 0.30, self._get_stats_text(), color='#00FF00', family='monospace', fontsize=8, va='top')
         
@@ -287,7 +287,7 @@ class MultiPlaneViewer:
             self.ims[(plane, 'ovl')] = ax.imshow(np.zeros((1,1)), alpha=0.5, origin=origin)
             self.lines[(plane, 'h')] = ax.axhline(0, color='yellow', lw=0.5, alpha=0.6)
             self.lines[(plane, 'v')] = ax.axvline(0, color='yellow', lw=0.5, alpha=0.6)
-            self.text_artists[plane] = ax.text(0.03, 0.05, "", transform=ax.transAxes, color='#00FF00', 
+            self.text_artists[plane] = ax.text(0.03, 0.05, "", transform=ax.transAxes, color='#00FF00',
                                               fontsize=8, fontweight='bold', bbox=dict(boxstyle='round,pad=0.2', fc='black', alpha=0.6, ec='#333333'))
             
             for ci, name in enumerate(self.roi_names):
@@ -534,17 +534,17 @@ def main():
         gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
             eval_meta = load_rtdose(args.eval)
+            from rtgamma.io_dicom import world_to_index
             from rtgamma.main import build_ref_world_coords
             from rtgamma.resample import resample_eval_onto_ref
-            from rtgamma.io_dicom import world_to_index
             Xw, Yw, Zw = build_ref_world_coords(dose_meta)
             w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
             eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
         eval_meta = load_rtdose(args.eval)
+        from rtgamma.io_dicom import world_to_index
         from rtgamma.main import build_ref_world_coords
         from rtgamma.resample import resample_eval_onto_ref
-        from rtgamma.io_dicom import world_to_index
         Xw, Yw, Zw = build_ref_world_coords(dose_meta)
         w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
         eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))

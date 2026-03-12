@@ -1,13 +1,14 @@
 # Comp_measured_phits_v10.py
-import pandas as pd
-import numpy as np
-import os
-import sys
-from io import StringIO
-import re
-from textwrap import dedent
 import argparse
 import configparser
+import os
+import re
+import sys
+from io import StringIO
+from textwrap import dedent
+
+import numpy as np
+import pandas as pd
 
 try:
     import matplotlib.pyplot as plt
@@ -284,8 +285,8 @@ def main():
     
     plt.figure(figsize=(12, 8))
     plt.scatter(df_measured['pos'], df_measured['dose_normalized'], label=f'Measured ({args.measured_file})', color='blue', s=20, alpha=0.7, zorder=5)
-    plt.plot(df_phits['pos'], df_phits['dose_normalized'], label=f'PHITS (Original Extracted)', color='gray', linestyle=':', lw=2, alpha=0.8)
-    plt.plot(df_phits_eval['pos'], df_phits_eval['dose_final'], label=f'PHITS (Scaled & Smoothed)', color='red', lw=2.5)
+    plt.plot(df_phits['pos'], df_phits['dose_normalized'], label='PHITS (Original Extracted)', color='gray', linestyle=':', lw=2, alpha=0.8)
+    plt.plot(df_phits_eval['pos'], df_phits_eval['dose_final'], label='PHITS (Scaled & Smoothed)', color='red', lw=2.5)
     
     plt.title(f'Comparison: PHITS vs. Measured ({args.axis}-axis profile)', fontsize=16)
     plt.xlabel(f'Position ({args.axis}-axis, cm)', fontsize=12)
