@@ -137,6 +137,18 @@ def save_summary_pdf(path: str, summary: dict):
     interp = summary.get('interp_fraction', 1)
     criteria_str = f"{dd}%, {dta}mm, TH: {cutoff}%, Interp: {interp}"
 
+    # Statistics extraction
+    g_mean = summary.get('gamma_mean', 'N/A')
+    g_median = summary.get('gamma_median', 'N/A')
+    g_max = summary.get('gamma_max', 'N/A')
+    g_p95 = summary.get('gamma_p95', 'N/A')
+    g_p99 = summary.get('gamma_p99', 'N/A')
+
+    def fmt_num(val, prec=3):
+        if isinstance(val, (float, int)):
+            return f"{val:.{prec}f}"
+        return str(val)
+
     info_data = [
         ["Patient ID:", patient_para, "Date:", date_str],
         ["Reference:", ref_para, "Machine:", config.get('machine_name', '')],
@@ -144,7 +156,7 @@ def save_summary_pdf(path: str, summary: dict):
         ["Criteria:", criteria_str, "Overall GPR:", gpr_str],
     ]
 
-    info_table = Table(info_data, colWidths=[1.5*inch, 3*inch, 1.2*inch, 1.5*inch])
+    info_table = Table(info_data, colWidths=[1.1*inch, 2.7*inch, 1.2*inch, 2.4*inch])
     info_table.setStyle(TableStyle([
         ('FONT', (0,0), (-1,-1), font_name, 10),
         ('FONT', (0,0), (0,-1), bold_font, 10),
@@ -176,7 +188,28 @@ def save_summary_pdf(path: str, summary: dict):
         alignment=1
     )
     Story.append(Paragraph(f"STATUS: {status} (GPR = {gpr_str})", status_style))
-    Story.append(Spacer(1, 0.4*inch))
+    Story.append(Spacer(1, 0.2*inch))
+
+    # Global Statistics Table
+    Story.append(Paragraph("Global Gamma Statistics", bold_style))
+    stats_data = [
+        ["Metric", "Value", "Metric", "Value"],
+        ["Mean", fmt_num(g_mean), "P95", fmt_num(g_p95)],
+        ["Median", fmt_num(g_median), "P99", fmt_num(g_p99)],
+        ["Maximum", fmt_num(g_max), "", ""],
+    ]
+    stats_table = Table(stats_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch], hAlign='LEFT')
+    stats_table.setStyle(TableStyle([
+        ('FONT', (0,0), (-1,-1), font_name, 9),
+        ('FONT', (0,0), (-1,0), bold_font, 9),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('ALIGN', (3,0), (3,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    Story.append(stats_table)
+    Story.append(Spacer(1, 0.3*inch))
 
     # Gamma Histogram
     hist = summary.get('histogram', None)

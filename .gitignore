@@ -24,3 +24,13 @@ create_graph.py
 
 # User Config
 config/report_template.json
+scripts/viewer_settings.json
+
+# Build artifacts
+dist/
+build/
+*.spec
+temp/
+release_staging/
+_local_commits_files.txt
+_git_status_after_reset.txt

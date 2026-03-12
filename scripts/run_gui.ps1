@@ -357,7 +357,7 @@ $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cb
 
 $yf += 28
 $cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
-$cbPDF    = New-DarkCheck 'Output PDF' 190 $yf $false
+$cbPDF    = New-DarkCheck 'Output PDF' 190 $yf $true
 $form.Controls.Add($cbOpen); $form.Controls.Add($cbPDF)
 
 $form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 290 $yf))
@@ -550,7 +550,7 @@ function Build-Command(){
   if ($cbPreset.SelectedItem -ne 'Custom') { $gammaArgs += @('--profile', $cbPreset.SelectedItem) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
-  if ($cbPDF.Checked) { $gammaArgs += @('--pdf') }
+  if (-not $cbPDF.Checked) { $gammaArgs += @('--no-pdf') }
   if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $gammaArgs += @('--rtstruct', $tbStruct.Text.Trim()) }
   if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
     foreach ($r in $tbRoi.Text.Split(',')) { if(-not [string]::IsNullOrWhiteSpace($r)) { $gammaArgs += @('--roi', $r.Trim()) } }
@@ -568,7 +568,7 @@ function Build-Command(){
     1 { # 3D
       $baseCmdName = 'python'
       $baseArgs = @('-u', '-m', 'rtgamma.main')
-      if (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe") {
+      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
         $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
         $baseArgs = @()
       }
@@ -584,7 +584,7 @@ function Build-Command(){
       if (-not [string]::IsNullOrWhiteSpace($tbPlaneIdx.Text)) { $pindex = $tbPlaneIdx.Text.Trim() }
       $baseCmdName = 'python'
       $baseArgs = @('-u', '-m', 'rtgamma.main')
-      if (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe") {
+      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
         $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
         $baseArgs = @()
       }
@@ -597,7 +597,7 @@ function Build-Command(){
       $ct = $tbCT.Text
       $baseCmdName = 'python'
       $baseArgs = @('-u', 'scripts/gamma_viewer.py')
-      if (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe") {
+      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe")) {
         $baseCmdName = "$ROOT\dist\gamma_viewer\gamma_viewer.exe"
         $baseArgs = @()
       }
@@ -685,22 +685,39 @@ function Run-Cmd([string[]]$cmd){
       }
       if ($cbOpen.Checked -and -not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
         try {
-          $pdf = Get-ChildItem -Path $tbOut.Text -Filter '*summary.pdf' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($pdf) { Start-Process $pdf.FullName }
-          else {
-            $preferred = $null
-            switch ($cbAction.SelectedIndex) {
-              0 { $preferred = Join-Path $tbOut.Text 'header_compare.md' }
-              1 { $preferred = Join-Path $tbOut.Text 'run3d.md' }
-              2 { $preferred = Join-Path $tbOut.Text ("{0}.md" -f $cbPlane.SelectedItem) }
-            }
-            if ($preferred -and (Test-Path $preferred)) { Start-Process $preferred }
+          # Attempt to find the specific PDF based on action name
+          $reportName = $(switch ($cbAction.SelectedIndex) {
+            0 { 'header_compare' }
+            1 { 'run3d' }
+            2 { $cbPlane.SelectedItem }
+            default { $null }
+          })
+          $specificPdf = $null
+          if ($reportName) {
+            $specificPdf = Join-Path $tbOut.Text ($reportName + ".pdf")
+          }
+          
+          if ($specificPdf -and (Test-Path $specificPdf)) {
+            Start-Process $specificPdf
+          } else {
+            # Fallback to any summary.pdf or most recent pdf
+            $pdf = Get-ChildItem -Path $tbOut.Text -Filter '*.pdf' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($pdf) { Start-Process $pdf.FullName }
             else {
-              $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-              if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
+              $preferred = $null
+              switch ($cbAction.SelectedIndex) {
+                0 { $preferred = Join-Path $tbOut.Text 'header_compare.md' }
+                1 { $preferred = Join-Path $tbOut.Text 'run3d.md' }
+                2 { $preferred = Join-Path $tbOut.Text ("{0}.md" -f $cbPlane.SelectedItem) }
+              }
+              if ($preferred -and (Test-Path $preferred)) { Start-Process $preferred }
+              else {
+                $md = Get-ChildItem -Path $tbOut.Text -Filter '*.md' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                if ($md) { Start-Process $md.FullName } else { Start-Process explorer.exe $tbOut.Text }
+              }
             }
           }
-        } catch {}
+        } catch { Append-Log "Error opening results: $_" }
       }
     })
 

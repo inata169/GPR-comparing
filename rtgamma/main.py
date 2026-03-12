@@ -136,7 +136,7 @@ def main(argv=None):
     parser.add_argument('--save-gamma-map')
     parser.add_argument('--save-dose-diff')
     parser.add_argument('--report')
-    parser.add_argument('--pdf', action='store_true', help='Generate PDF report along with standard reports')
+    parser.add_argument('--no-pdf', action='store_true', help='Disable PDF report generation (PDF is enabled by default)')
     parser.add_argument('--log-level', choices=['INFO', 'DEBUG'], default='INFO')
     parser.add_argument('--warn-large-shift-mm', type=float, default=20.0,
                         help='Warn if |best_shift| exceeds this magnitude (mm)')
@@ -422,8 +422,19 @@ def main(argv=None):
         logging.info(f"RTSTRUCT loaded. ROIs: {[r['name'] for r in rtstruct_meta['roi_list']]}")
         roi_masks = build_roi_masks(rtstruct_meta, meta_ref, roi_names=args.roi_names)
         for roi_name, roi_mask in roi_masks.items():
+            # In 2D fast path, gamma_map is a thin slice (1, Y, X), etc.
+            # We must slice the 3D roi_mask to match.
+            current_roi_mask = roi_mask
+            if args.mode == '2d' and args.opt_shift == 'off':
+                if args.plane == 'axial':
+                    current_roi_mask = roi_mask[sl:sl+1, :, :]
+                elif args.plane == 'sagittal':
+                    current_roi_mask = roi_mask[:, :, sl:sl+1]
+                else: # coronal
+                    current_roi_mask = roi_mask[:, sl:sl+1, :]
+
             # Apply mask to gamma_map
-            masked_gamma = gamma_map[roi_mask]
+            masked_gamma = gamma_map[current_roi_mask]
             finite = np.isfinite(masked_gamma)
             if finite.any():
                 roi_pr = float(np.sum(masked_gamma[finite] <= 1.0) / np.sum(finite) * 100.0)
@@ -433,7 +444,8 @@ def main(argv=None):
             else:
                 roi_pr = float('nan')
                 roi_mean = roi_median = roi_max = float('nan')
-            n_voxels = int(np.sum(roi_mask))
+            
+            n_voxels = int(np.sum(current_roi_mask))
             n_evaluated = int(np.sum(finite))
             logging.info(f"ROI '{roi_name}': GPR={roi_pr:.2f}%, voxels={n_voxels}, evaluated={n_evaluated}")
             per_structure.append({
@@ -595,7 +607,7 @@ def main(argv=None):
         save_summary_csv(base + '.csv', summary)
         save_summary_json(base + '.json', summary)
         save_summary_markdown(base + '.md', summary)
-        if args.pdf:
+        if not args.no_pdf:
             try:
                 save_summary_pdf(base + '.pdf', summary)
                 logging.info(f"Saved PDF report to {base}.pdf")

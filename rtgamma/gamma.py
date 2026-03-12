@@ -1,4 +1,4 @@
-﻿from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple
 
 import numba
 import numpy as np
@@ -54,6 +54,77 @@ def _trilinear(dose_eval, nz, ny, nx,
     return val, True
 
 
+@numba.jit(nopython=True)
+def _get_interp_offsets(interp_fraction: int, dta_mm: float):
+    step = dta_mm / interp_fraction
+    n_steps = interp_fraction
+    dta_mm_sq = dta_mm ** 2
+    
+    # Pre-allocate large enough (cube volume)
+    max_pts = (2 * n_steps + 1) ** 3
+    offsets = np.zeros((max_pts, 3))
+    dists_sq = np.zeros(max_pts)
+    count = 0
+    
+    for iz in range(-n_steps, n_steps + 1):
+        dz = iz * step
+        dz_sq = dz * dz
+        for iy in range(-n_steps, n_steps + 1):
+            dy = iy * step
+            dy_sq = dy * dy
+            for ix in range(-n_steps, n_steps + 1):
+                dx = ix * step
+                ds_sq = dz_sq + dy_sq + dx * dx
+                if ds_sq <= dta_mm_sq + 1e-9:
+                    offsets[count, 0] = dz
+                    offsets[count, 1] = dy
+                    offsets[count, 2] = dx
+                    dists_sq[count] = ds_sq
+                    count += 1
+    
+    # Sort by distance for early exit
+    res = offsets[:count]
+    rds = dists_sq[:count]
+    idx = np.argsort(rds)
+    return res[idx], rds[idx]
+
+
+@numba.jit(nopython=True)
+def _get_voxel_offsets(dz: float, dy: float, dx: float, dta_mm: float):
+    """Precompute integer index offsets (dk, dj, di) within DTA sphere, sorted by distance."""
+    dta_mm_sq = dta_mm ** 2
+    nk = int(dta_mm / abs(dz)) + 1 if dz != 0 else 0
+    nj = int(dta_mm / abs(dy)) + 1 if dy != 0 else 0
+    ni = int(dta_mm / abs(dx)) + 1 if dx != 0 else 0
+    
+    # Pre-allocate
+    max_pts = (2 * nk + 1) * (2 * nj + 1) * (2 * ni + 1)
+    offsets = np.zeros((max_pts, 3), dtype=np.int32)
+    dists_sq = np.zeros(max_pts, dtype=np.float64)
+    count = 0
+    
+    for k in range(-nk, nk + 1):
+        z = k * dz
+        z2 = z * z
+        for j in range(-nj, nj + 1):
+            y = j * dy
+            zy2 = z2 + y * y
+            for i in range(-ni, ni + 1):
+                x = i * dx
+                ds_sq = zy2 + x * x
+                if ds_sq <= dta_mm_sq + 1e-9:
+                    offsets[count, 0] = k
+                    offsets[count, 1] = j
+                    offsets[count, 2] = i
+                    dists_sq[count] = ds_sq
+                    count += 1
+    
+    res_o = offsets[:count]
+    res_d = dists_sq[:count]
+    idx = np.argsort(res_d)
+    return res_o[idx], res_d[idx]
+
+
 @numba.jit(nopython=True, parallel=True)
 def _numba_gamma_3d(
     axes_ref_mm: Tuple[np.ndarray, np.ndarray, np.ndarray],
@@ -66,65 +137,83 @@ def _numba_gamma_3d(
     norm_factor: float,
     local_mode: int,
     tiny: float,
+    offsets_ijk: np.ndarray,
+    dists_sq: np.ndarray,
 ) -> np.ndarray:
     gamma = np.full_like(dose_ref, np.nan)
     dta_mm_sq = dta_mm ** 2
     dd_percent_sq = dd_percent ** 2
     shape_ref = dose_ref.shape
+    nz_e, ny_e, nx_e = dose_eval.shape
 
     z_ref_ax, y_ref_ax, x_ref_ax = axes_ref_mm
     z_eval_ax, y_eval_ax, x_eval_ax = axes_eval_mm
 
+    # Pre-calculate nearest eval index for each reference pixel axis (for initial guess)
+    z_near_indices = np.searchsorted(z_eval_ax, z_ref_ax)
+    y_near_indices = np.searchsorted(y_eval_ax, y_ref_ax)
+    x_near_indices = np.searchsorted(x_eval_ax, x_ref_ax)
+
+    # Clamp nearest indices
+    for i in range(len(z_near_indices)):
+        z_near_indices[i] = min(max(0, z_near_indices[i]), nz_e - 1)
+    for i in range(len(y_near_indices)):
+        y_near_indices[i] = min(max(0, y_near_indices[i]), ny_e - 1)
+    for i in range(len(x_near_indices)):
+        x_near_indices[i] = min(max(0, x_near_indices[i]), nx_e - 1)
+
+    n_offsets = len(dists_sq)
+
     for k_ref in numba.prange(shape_ref[0]):
+        k_near = z_near_indices[k_ref]
+
         for j_ref in range(shape_ref[1]):
+            j_near = y_near_indices[j_ref]
+
             for i_ref in range(shape_ref[2]):
                 dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
 
-                # Cutoff check is applied relative to global reference norm_factor
                 if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
                     continue
 
                 min_gamma_sq = np.inf
+                found_pass = False
+                i_near = x_near_indices[i_ref]
 
-                z_ref = z_ref_ax[k_ref]
-                y_ref = y_ref_ax[j_ref]
-                x_ref = x_ref_ax[i_ref]
+                # Search distance-sorted voxel offsets
+                for o_idx in range(n_offsets):
+                    dist_sq = dists_sq[o_idx]
+                    
+                    if dist_sq >= min_gamma_sq * dta_mm_sq:
+                        break # Sorted, so all subsequent will be larger
 
-                z_min_idx = np.searchsorted(z_eval_ax, z_ref - dta_mm)
-                z_max_idx = np.searchsorted(z_eval_ax, z_ref + dta_mm, side='right')
-                y_min_idx = np.searchsorted(y_eval_ax, y_ref - dta_mm)
-                y_max_idx = np.searchsorted(y_eval_ax, y_ref + dta_mm, side='right')
-                x_min_idx = np.searchsorted(x_eval_ax, x_ref - dta_mm)
-                x_max_idx = np.searchsorted(x_eval_ax, x_ref + dta_mm, side='right')
+                    dk = offsets_ijk[o_idx, 0]
+                    dj = offsets_ijk[o_idx, 1]
+                    di = offsets_ijk[o_idx, 2]
+                    
+                    ke = k_near + dk
+                    je = j_near + dj
+                    ie = i_near + di
 
-                for k_eval in range(z_min_idx, z_max_idx):
-                    dist_z_sq = (z_eval_ax[k_eval] - z_ref) ** 2
-                    if dist_z_sq > dta_mm_sq:
+                    # Boundary check
+                    if ke < 0 or ke >= nz_e or je < 0 or je >= ny_e or ie < 0 or ie >= nx_e:
                         continue
-                    for j_eval in range(y_min_idx, y_max_idx):
-                        dist_y_sq = (y_eval_ax[j_eval] - y_ref) ** 2
-                        dist_zy_sq = dist_z_sq + dist_y_sq
-                        if dist_zy_sq > dta_mm_sq:
+
+                    dose_eval_val = dose_eval[ke, je, ie]
+                    if local_mode == 1:
+                        denom = dose_ref_val
+                        if denom < tiny and denom > -tiny:
                             continue
-                        for i_eval in range(x_min_idx, x_max_idx):
-                            dist_x_sq = (x_eval_ax[i_eval] - x_ref) ** 2
-                            dist_sq = dist_zy_sq + dist_x_sq
+                        dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
+                    else:
+                        dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
 
-                            if dist_sq <= dta_mm_sq:
-                                dose_eval_val = dose_eval[k_eval, j_eval, i_eval]
-                                # Global vs Local dose difference normalisation
-                                if local_mode == 1:
-                                    denom = dose_ref_val
-                                    if denom < tiny and denom > -tiny:
-                                        # avoid division by zero; skip contribution
-                                        continue
-                                    dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
-                                else:
-                                    dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
-
-                                gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
-                                if gamma_sq < min_gamma_sq:
-                                    min_gamma_sq = gamma_sq
+                    gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
+                    if gamma_sq < min_gamma_sq:
+                        min_gamma_sq = gamma_sq
+                        if min_gamma_sq <= 1.0:
+                            found_pass = True
+                            break
 
                 if np.isfinite(min_gamma_sq):
                     gamma[k_ref, j_ref, i_ref] = np.sqrt(min_gamma_sq)
@@ -145,6 +234,8 @@ def _numba_gamma_3d_interp(
     local_mode: int,
     tiny: float,
     interp_fraction: int,
+    offsets: np.ndarray,
+    dists_sq: np.ndarray,
 ) -> np.ndarray:
     """Gamma kernel with sub-voxel interpolation.
     
@@ -178,10 +269,7 @@ def _numba_gamma_3d_interp(
     y_eval_origin = y_eval_ax[0]
     x_eval_origin = x_eval_ax[0]
 
-    step = dta_mm / interp_fraction
-
-    # Pre-compute search offsets (half-axis)
-    n_steps = interp_fraction  # number of steps from 0 to dta_mm
+    n_offsets = len(dists_sq)
 
     for k_ref in numba.prange(shape_ref[0]):
         for j_ref in range(shape_ref[1]):
@@ -198,84 +286,41 @@ def _numba_gamma_3d_interp(
                 y_ref = y_ref_ax[j_ref]
                 x_ref = x_ref_ax[i_ref]
 
-                # Search in expanding shells for early exit
-                # Shell radius r goes from 0 to dta_mm in steps
-                for shell in range(n_steps + 1):
-                    if found_pass:
-                        break
-                    r = shell * step
+                for o_idx in range(n_offsets):
+                    dz = offsets[o_idx, 0]
+                    dy = offsets[o_idx, 1]
+                    dx = offsets[o_idx, 2]
+                    dist_sq = dists_sq[o_idx]
 
-                    # iterate over all grid points at distance ~r
-                    iz_start = int(np.floor(-r / step)) if shell > 0 else 0
-                    iz_end = int(np.ceil(r / step)) if shell > 0 else 0
+                    # Optimization: Skip if distance already >= min_gamma_sq
+                    if dist_sq >= min_gamma_sq * dta_mm_sq:
+                        continue
 
-                    for iz in range(iz_start, iz_end + 1):
-                        if found_pass:
-                            break
-                        dz = iz * step
-                        dz_sq = dz * dz
-                        if dz_sq > dta_mm_sq:
+                    # Fractional indices into eval grid
+                    kf = (z_ref + dz - z_eval_origin) / dz_eval
+                    jf = (y_ref + dy - y_eval_origin) / dy_eval
+                    if_ = (x_ref + dx - x_eval_origin) / dx_eval
+
+                    dose_eval_val, valid = _trilinear(
+                        dose_eval, nz_e, ny_e, nx_e,
+                        kf, jf, if_)
+                    if not valid:
+                        continue
+
+                    if local_mode == 1:
+                        denom = dose_ref_val
+                        if denom < tiny and denom > -tiny:
                             continue
-                        remain_yz = dta_mm_sq - dz_sq
+                        dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
+                    else:
+                        dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
 
-                        iy_lim = int(np.floor(np.sqrt(max(remain_yz, 0.0)) / step))
-
-                        for iy in range(-iy_lim, iy_lim + 1):
-                            if found_pass:
-                                break
-                            dy = iy * step
-                            dy_sq = dy * dy
-                            dzy_sq = dz_sq + dy_sq
-                            if dzy_sq > dta_mm_sq:
-                                continue
-                            remain_x = dta_mm_sq - dzy_sq
-
-                            ix_lim = int(np.floor(np.sqrt(max(remain_x, 0.0)) / step))
-
-                            for ix in range(-ix_lim, ix_lim + 1):
-                                dx = ix * step
-                                dist_sq = dzy_sq + dx * dx
-                                if dist_sq > dta_mm_sq:
-                                    continue
-
-                                # Check if this point is on the current shell
-                                # (on shell boundary or shell==0 for center)
-                                max_abs = max(abs(iz), max(abs(iy), abs(ix)))
-                                if shell == 0:
-                                    if max_abs != 0:
-                                        continue
-                                else:
-                                    if max_abs != shell:
-                                        continue
-
-                                # Fractional indices into eval grid
-                                eval_z = z_ref + dz
-                                eval_y = y_ref + dy
-                                eval_x = x_ref + dx
-
-                                kf = (eval_z - z_eval_origin) / dz_eval
-                                jf = (eval_y - y_eval_origin) / dy_eval
-                                if_ = (eval_x - x_eval_origin) / dx_eval
-
-                                dose_eval_val, valid = _trilinear(
-                                    dose_eval, nz_e, ny_e, nx_e,
-                                    kf, jf, if_)
-                                if not valid:
-                                    continue
-
-                                if local_mode == 1:
-                                    denom = dose_ref_val
-                                    if denom < tiny and denom > -tiny:
-                                        continue
-                                    dd_sq = ((dose_eval_val - dose_ref_val) / denom * 100.0) ** 2
-                                else:
-                                    dd_sq = ((dose_eval_val - dose_ref_val) / norm_factor * 100.0) ** 2
-
-                                gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
-                                if gamma_sq < min_gamma_sq:
-                                    min_gamma_sq = gamma_sq
-                                    if min_gamma_sq <= 1.0:
-                                        found_pass = True
+                    gamma_sq = dd_sq / dd_percent_sq + dist_sq / dta_mm_sq
+                    if gamma_sq < min_gamma_sq:
+                        min_gamma_sq = gamma_sq
+                        if min_gamma_sq <= 1.0:
+                            found_pass = True
+                            break
 
                 if np.isfinite(min_gamma_sq):
                     gamma[k_ref, j_ref, i_ref] = np.sqrt(min_gamma_sq)
@@ -315,6 +360,8 @@ def compute_gamma(
         local_mode = 1 if gamma_type == 'local' else 0
 
         if interp_fraction > 1:
+            # Precompute offsets for interp outside the parallel loop
+            offsets, dists_sq = _get_interp_offsets(interp_fraction, dta_mm)
             g = _numba_gamma_3d_interp(
                 axes_ref_mm,
                 dose_ref,
@@ -327,8 +374,18 @@ def compute_gamma(
                 local_mode,
                 1e-12,
                 interp_fraction,
+                offsets,
+                dists_sq
             )
         else:
+            # Precompute voxel offsets for non-interp
+            z_eval_ax, y_eval_ax, x_eval_ax = axes_eval_mm
+            dz_e = z_eval_ax[1] - z_eval_ax[0] if len(z_eval_ax) > 1 else 1.0
+            dy_e = y_eval_ax[1] - y_eval_ax[0] if len(y_eval_ax) > 1 else 1.0
+            dx_e = x_eval_ax[1] - x_eval_ax[0] if len(x_eval_ax) > 1 else 1.0
+            
+            v_offsets, v_dists_sq = _get_voxel_offsets(dz_e, dy_e, dx_e, dta_mm)
+            
             g = _numba_gamma_3d(
                 axes_ref_mm,
                 dose_ref,
@@ -340,6 +397,8 @@ def compute_gamma(
                 nf,
                 local_mode,
                 1e-12,
+                v_offsets,
+                v_dists_sq
             )
 
     valid = ~np.isnan(g)

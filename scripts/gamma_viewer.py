@@ -1,23 +1,9 @@
 #!/usr/bin/env python
-"""Interactive 3D Gamma Viewer with CT background, Dose overlay, and Structure overlay.
-
-Usage:
-    python scripts/gamma_viewer.py \
-        --ct dicom/PROSTATE/ \
-        --ref dicom/PROSTATE/RTDOSE_*.dcm \
-        --eval dicom/PROSTATE/RTDOSE_*.dcm \
-        --rtstruct dicom/PROSTATE/RTSTRUCT_*.dcm \
-        --dd 3 --dta 2 --cutoff 10
-
-    # Or with pre-computed gamma NPZ:
-    python scripts/gamma_viewer.py \
-        --ct dicom/PROSTATE/ \
-        --ref dicom/PROSTATE/RTDOSE_*.dcm \
-        --eval dicom/PROSTATE/RTDOSE_*.dcm \
-        --gamma-npz output/gamma3d.npz \
-        --rtstruct dicom/PROSTATE/RTSTRUCT_*.dcm
+"""Interactive 3D Multi-plane Gamma Viewer (Axial/Sagittal/Coronal) with 3D Cursor.
+Optimized for high performance with many structures and large volumes.
 """
 import argparse
+import json
 import logging
 import os
 import sys
@@ -28,8 +14,8 @@ import numpy as np
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-from matplotlib.patches import Polygon
-from matplotlib.widgets import CheckButtons, RadioButtons, Slider
+from matplotlib.widgets import CheckButtons, RadioButtons, Slider, TextBox
+from matplotlib.collections import LineCollection
 
 # Ensure repo root is on path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,52 +30,21 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# -- Predefined ROI colors -----------------------------------------------
 ROI_COLORS = [
-    '#FF4444',  # red
-    '#4488FF',  # blue
-    '#44DD44',  # green
-    '#FFAA00',  # orange
-    '#FF44FF',  # magenta
-    '#44FFFF',  # cyan
-    '#FFFF44',  # yellow
-    '#AA44FF',  # purple
-    '#FF8888',  # light red
-    '#88AAFF',  # light blue
+    '#FF4444', '#4488FF', '#44DD44', '#FFAA00', '#FF44FF',
+    '#44FFFF', '#FFFF44', '#AA44FF', '#FF8888', '#88AAFF',
 ]
-
-# -- Pass/Fail colormap (green=OK, red=NG) --------------------------------
 _PASS_FAIL_CMAP = ListedColormap(['#00CC00', '#FF2222'])
 
-
-def get_contours_for_slice(roi_contours, z_world, z_tol):
-    """Return list of contour point arrays matching a given world Z."""
-    matched = []
-    for c in roi_contours:
-        if abs(c['z'] - z_world) <= z_tol:
-            matched.append(c['points'])
-    return matched
-
-
-def compute_dose_z_world(dose_meta, k):
-    """World Z coordinate of dose slice k."""
-    ipp = dose_meta['ipp']
-    v_slice = dose_meta['v_slice']
-    z_off = dose_meta['z_coords_mm'][k]
-    return float(ipp[2] + z_off * v_slice[2])
-
-
-class GammaViewer:
-    def __init__(self, ct_on_dose, gamma_map, dose_meta,
-                 ref_dose=None, eval_dose=None,
-                 rtstruct_meta=None,
-                 roi_names=None, roi_masks=None, per_structure_stats=None,
+class MultiPlaneViewer:
+    def __init__(self, ct, gamma, dose_meta, ref_dose=None, eval_dose=None,
+                 rtstruct_meta=None, roi_names=None, per_structure_stats=None,
                  gpr_cond=None, ref_label='', eval_label=''):
-        self.ct = ct_on_dose  # (z, y, x) HU
-        self.gamma = gamma_map  # (z, y, x)
+        self.ct = ct        # (z, y, x)
+        self.gamma = gamma  # (z, y, x)
         self.dose_meta = dose_meta
-        self.ref_dose = ref_dose    # (z, y, x) Gy
-        self.eval_dose = eval_dose  # (z, y, x) Gy resampled onto ref grid
+        self.ref_dose = ref_dose
+        self.eval_dose = eval_dose
         self.rtstruct_meta = rtstruct_meta
         self.roi_names = roi_names or []
         self.per_structure_stats = per_structure_stats or []
@@ -97,330 +52,472 @@ class GammaViewer:
         self.ref_label = ref_label
         self.eval_label = eval_label
 
-        self.plane = 'axial'
         self.nz, self.ny, self.nx = self.ct.shape
-        self.slice_idx = self.nz // 2
+        self.cur_z = self.nz // 2
+        self.cur_y = self.ny // 2
+        self.cur_x = self.nx // 2
 
-        # Pixel spacings for correct aspect ratio
-        self._sp_col = float(dose_meta['s_col'])   # mm per column pixel (x)
-        self._sp_row = float(dose_meta['s_row'])   # mm per row pixel (y)
+        # Spacings
+        self.sx = float(dose_meta['s_col'])
+        self.sy = float(dose_meta['s_row'])
         z_mm = dose_meta['z_coords_mm']
-        self._sp_slice = abs(float(z_mm[1] - z_mm[0])) if len(z_mm) > 1 else 1.0
+        self.sz = abs(float(z_mm[1] - z_mm[0])) if len(z_mm) > 1 else 1.0
 
         self.visible = {'CT': True, 'Structure': True}
         self.roi_visible = {name: True for name in self.roi_names}
-
-        # Overlay mode
         self.overlay_mode = 'Gamma'
+        self.show_help = False
 
-        # Precompute dose vmax for consistent color scaling
-        self._dose_vmax = 0.0
-        if ref_dose is not None:
-            self._dose_vmax = max(self._dose_vmax, float(np.nanmax(ref_dose)))
-        if eval_dose is not None:
-            self._dose_vmax = max(self._dose_vmax, float(np.nanmax(eval_dose)))
-        if self._dose_vmax == 0:
-            self._dose_vmax = 1.0
+        self._load_state() 
 
-        # Precompute dose ratio (Eval / Ref)
+        # Precompute dose vmax
+        self._dose_vmax = 1.0
+        for d in [ref_dose, eval_dose]:
+            if d is not None:
+                self._dose_vmax = max(self._dose_vmax, float(np.nanmax(d)))
+        
         self.dose_ratio = None
         if ref_dose is not None and eval_dose is not None:
             with np.errstate(divide='ignore', invalid='ignore'):
-                ratio = np.where(ref_dose > 0, eval_dose / ref_dose, np.nan)
-            self.dose_ratio = ratio
+                self.dose_ratio = np.where(ref_dose > 0, eval_dose / ref_dose, np.nan)
 
-        # Precompute world Z for dose slices
-        self.dose_z_world = np.array([compute_dose_z_world(dose_meta, k) for k in range(self.nz)])
-        if self.nz > 1:
-            self.z_tol = abs(float(self.dose_z_world[1] - self.dose_z_world[0])) * 0.5
-        else:
-            self.z_tol = 1.0
-
-        self.roi_contour_data = {}
+        self.roi_contours = {}
         if rtstruct_meta:
             for roi in rtstruct_meta['roi_list']:
                 if roi['name'] in self.roi_names:
-                    self.roi_contour_data[roi['name']] = roi['contours']
+                    self.roi_contours[roi['name']] = roi['contours']
 
-        self._build_ui()
+        # Cache axial contours per slice for speed
+        self._axial_contour_cache = {} # {z_idx: {roi_name: [segments]}}
 
-    def _get_slice(self, vol):
-        s = self.slice_idx
-        if self.plane == 'axial': return vol[s, :, :]
-        if self.plane == 'sagittal': return vol[:, :, s]
-        return vol[:, s, :]
+        self._init_plots()
 
-    def _build_ui(self):
-        self.fig = plt.figure(figsize=(14, 9), facecolor='#111111')
-        self.fig.canvas.manager.set_window_title('rtgamma 3D Viewer')
-        self.ax = self.fig.add_axes([0.05, 0.13, 0.62, 0.78])
-        self.ax.set_facecolor('#000000')
-        self._cbar_ax = self.fig.add_axes([0.68, 0.13, 0.012, 0.78])
-        self._cbar_ax.set_visible(False)
+    def _init_plots(self):
+        self.fig = plt.figure(figsize=(15, 10), facecolor='#111111')
+        self.fig.canvas.manager.set_window_title('rtgamma 3D Multi-Plane Viewer (Optimized)')
+        self.fig.subplots_adjust(left=0.08, right=0.82, top=0.92, bottom=0.08, wspace=0.2, hspace=0.2)
+        
+        self.ax_ax = self.fig.add_subplot(221, facecolor='black')
+        self.ax_sag = self.fig.add_subplot(222, facecolor='black')
+        self.ax_cor = self.fig.add_subplot(223, facecolor='black')
+        self.fig.subplots_adjust(left=0.08, right=0.82, top=0.92, bottom=0.10, wspace=0.25, hspace=0.35)
 
-        # -- File info text (top-left) --
-        info_lines = []
-        if self.ref_label:
-            info_lines.append(f"Ref : {self.ref_label}")
-        if self.eval_label:
-            info_lines.append(f"Eval: {self.eval_label}")
-        if info_lines:
-            self.fig.text(0.05, 0.97, '\n'.join(info_lines),
-                          color='#AAAAAA', family='monospace', fontsize=7,
-                          va='top', ha='left')
+        self.axes_map = {
+            'axial': self.ax_ax,
+            'sagittal': self.ax_sag,
+            'coronal': self.ax_cor
+        }
+        
+        # Physical coordinates for display
+        self.coords_mm = {
+            'axial': self.dose_meta['z_coords_mm'],
+            'sagittal': self.dose_meta['x_coords_mm'],
+            'coronal': self.dose_meta['y_coords_mm']
+        }
+        
+        # Artist storage to avoid ax.clear()
+        self.ims = {} # imshow objects
+        self.lines = {} # crosshairs
+        self.roi_artists = {} # LineCollection objects per plane per ROI
+        self.text_artists = {}
+        self.widgets = {} # Store widgets to prevent garbage collection
 
-        # Slider
-        ax_slider = self.fig.add_axes([0.05, 0.04, 0.62, 0.03], facecolor='#222222')
-        self.slider = Slider(ax_slider, 'Slice', 0, self.nz-1,
-                             valinit=self.slice_idx, valstep=1, color='#4466FF')
-        self.slider.on_changed(self._on_slider_move)
+        self.cax = self.fig.add_axes([0.48, 0.1, 0.01, 0.35])
+        self.cax.set_visible(False)
 
-        # -- Right panel layout --
-        # CheckButtons: CT / Structure / ROIs
-        toggle_labels = ['CT', 'Structure'] + self.roi_names
-        toggle_defaults = [True] * len(toggle_labels)
-        n_toggles = len(toggle_labels)
-        toggle_h = min(0.28, 0.04 * n_toggles + 0.04)
-        ax_toggles = self.fig.add_axes([0.75, 0.96 - toggle_h, 0.22, toggle_h], facecolor='#222222')
-        self.check = CheckButtons(ax_toggles, toggle_labels, toggle_defaults)
-        self.check.on_clicked(self._on_toggle)
-        for lbl in self.check.labels:
-            lbl.set_color('#FFFFFF')
-            lbl.set_fontsize(8)
-
-        # Style checkboxes
-        if hasattr(self.check, 'set_frame_props'):
-            self.check.set_frame_props({'edgecolor': '#AAAAAA', 'facecolor': '#222222', 'linewidths': 1.0})
-            self.check.set_check_props({'color': '#00FF00', 'linewidths': 2.0})
-            self._update_check_sizes()
-        else:
-            if hasattr(self.check, 'rectangles'):
-                for rect in self.check.rectangles:
-                    rect.set_edgecolor('#AAAAAA')
-                    rect.set_facecolor('#222222')
-                    rect.set_linewidth(1.5)
-            if hasattr(self.check, 'lines'):
-                for line in self.check.lines:
-                    for l in line:
-                        l.set_color('#00FF00')
-                        l.set_linewidth(2.0)
-
-        # Overlay mode RadioButtons
-        overlay_labels = ['Gamma', 'Pass/Fail', 'Ref Dose', 'Eval Dose', 'Dose Ratio']
-        overlay_top = 0.96 - toggle_h - 0.02
-        overlay_h = 0.22
-        ax_overlay = self.fig.add_axes([0.75, overlay_top - overlay_h, 0.22, overlay_h], facecolor='#222222')
-        self.overlay_radio = RadioButtons(ax_overlay, overlay_labels, active=0)
-        self.overlay_radio.on_clicked(self._on_overlay_mode)
-        for lbl in self.overlay_radio.labels:
-            lbl.set_color('#EEEEEE')
-            lbl.set_fontsize(9)
-
-        # Plane RadioButtons
-        plane_top = overlay_top - overlay_h - 0.02
-        plane_h = 0.12
-        ax_plane = self.fig.add_axes([0.75, plane_top - plane_h, 0.22, plane_h], facecolor='#222222')
-        self.radio = RadioButtons(ax_plane, ('axial', 'sagittal', 'coronal'), active=0)
-        self.radio.on_clicked(self._on_plane)
-        for lbl in self.radio.labels:
-            lbl.set_color('#EEEEEE')
-            lbl.set_fontsize(9)
-
-        # GPR / info text
-        txt_top = plane_top - plane_h - 0.02
-        self.txt = self.fig.text(0.75, txt_top, self._gpr_text(),
-                                 color='#00FF00', family='monospace', fontsize=8, va='top')
-
-        self._draw()
+        # --- CRITICAL: First draw creation MUST happen before widget setup
+        # because Slider.set_val triggers _on_widget_change -> _update_display
+        self._first_draw()
+        
+        self._setup_widgets()
+        
+        self.fig.canvas.mpl_connect('button_press_event', self._on_click)
+        self.fig.canvas.mpl_connect('motion_notify_event', self._on_mouse_move)
         self.fig.canvas.mpl_connect('scroll_event', self._on_scroll)
+        self.fig.canvas.mpl_connect('key_press_event', self._on_key)
+        self.fig.canvas.mpl_connect('close_event', lambda e: self._save_state())
 
-    def _gpr_text(self):
-        if self.gpr_cond:
-            res = f"Criteria: {self.gpr_cond['dta']}mm / {self.gpr_cond['dd']}%\n"
-            res += f"Cutoff  : {self.gpr_cond['cutoff']}%\n"
-            res += "-"*22 + "\n"
+    def _setup_widgets(self):
+        modes = ['Gamma', 'Pass/Fail', 'Ref Dose', 'Eval Dose', 'Dose Ratio']
+        active_idx = modes.index(self.overlay_mode) if self.overlay_mode in modes else 0
+
+        ax_modes = self.fig.add_axes([0.84, 0.32, 0.14, 0.16], facecolor='#222222')
+        self.w_modes = RadioButtons(ax_modes, modes, active=active_idx)
+        self.w_modes.on_clicked(self._on_mode_change)
+        for l in self.w_modes.labels: l.set_color('white'); l.set_fontsize(8)
+
+        ax_vis = self.fig.add_axes([0.84, 0.52, 0.14, 0.43], facecolor='#222222')
+        vis_labels = ['CT', 'Structure'] + self.roi_names
+        actives = [self.visible.get(l, self.roi_visible.get(l, True)) for l in vis_labels]
+        self.w_vis = CheckButtons(ax_vis, vis_labels, actives)
+        self.w_vis.on_clicked(self._on_visibility_change)
+        for l in self.w_vis.labels:
+            l.set_color('black')
+            l.set_fontsize(7)
+        
+        def style_checkboxes(w):
+            try:
+                w.ax.set_facecolor('#CCCCCC')
+                if hasattr(w, 'rectangles'):
+                    for r in w.rectangles:
+                        r.set_facecolor('white')
+                        r.set_edgecolor('black')
+                        r.set_linewidth(1.5)
+                if hasattr(w, 'lines'):
+                    for line_pair in w.lines:
+                        for line in line_pair:
+                            line.set_color('#00AA00') 
+                            line.set_linewidth(3)
+                w.ax.figure.canvas.draw_idle()
+            except Exception: pass
+            
+        style_checkboxes(self.w_vis)
+        self.w_vis.on_clicked(lambda label: style_checkboxes(self.w_vis))
+
+        self.t_filenames = self.fig.text(0.08, 0.97, f"Ref : {self.ref_label}\nEval: {self.eval_label}", 
+                                         color='#AAAAAA', family='monospace', fontsize=8, va='top')
+        self.t_stats = self.fig.text(0.84, 0.30, self._get_stats_text(), color='#00FF00', family='monospace', fontsize=8, va='top')
+        
+        # --- Slice Navigation (Sliders + TextBoxes) ---
+        def add_ctrl(plane, x, y, w, max_val):
+            ax_sl = self.fig.add_axes([x, y, w * 0.65, 0.015], facecolor='#333333')
+            sl = Slider(ax_sl, f'{plane[:1].upper()} ', 0, max_val, valinit=0, valstep=1, color='#00AA00')
+            sl.label.set_color('white'); sl.label.set_fontsize(8); sl.valtext.set_visible(False)
+            
+            ax_txt = self.fig.add_axes([x + w * 0.72, y - 0.005, w * 0.28, 0.025], facecolor='#222222')
+            txt = TextBox(ax_txt, '', initial='0', color='#222222', hovercolor='#333333')
+            txt.label.set_color('white'); txt.text_disp.set_color('white'); txt.text_disp.set_fontsize(8)
+            
+            # Events
+            sl.on_changed(lambda v: self._on_widget_change(plane, 'slider', v))
+            txt.on_submit(lambda s: self._on_widget_change(plane, 'text', s))
+            
+            self.widgets[plane] = {'slider': sl, 'text': txt}
+
+        # Positions below each subplot (tuned for hspace=0.35)
+        # 221 (top-left) -> [0.08, 0.52, 0.35, 0.35]
+        # 222 (top-right) -> [0.48, 0.52, 0.35, 0.35]
+        # 223 (bot-left) -> [0.08, 0.10, 0.35, 0.35]
+        add_ctrl('axial', 0.10, 0.49, 0.30, self.nz - 1)
+        self.widgets['axial']['slider'].set_val(self.cur_z)
+        
+        add_ctrl('sagittal', 0.50, 0.49, 0.30, self.nx - 1)
+        self.widgets['sagittal']['slider'].set_val(self.cur_x)
+        
+        add_ctrl('coronal', 0.10, 0.06, 0.30, self.ny - 1)
+        self.widgets['coronal']['slider'].set_val(self.cur_y)
+
+        help_txt = ("--- Help ---\nL-Click: Move Cursor\nScroll: Change Slice\nH: Toggle Help | Q: Quit\nInput: Enter Index or '12.3mm'")
+        self.t_help = self.fig.text(0.5, 0.5, help_txt, color='white', family='monospace', fontsize=10, ha='center', va='center',
+                                    bbox=dict(boxstyle='round,pad=1', fc='#333333', alpha=0.9, ec='#00FF00'))
+        self.t_help.set_visible(False)
+
+    def _on_widget_change(self, plane, source, val):
+        if source == 'slider':
+            idx = int(val)
         else:
-            res = ""
+            try:
+                s = val.strip().lower()
+                if s.endswith('mm'):
+                    v_mm = float(s[:-2].strip())
+                    idx = np.argmin(np.abs(self.coords_mm[plane] - v_mm))
+                else:
+                    idx = int(s)
+            except Exception: return
+        
+        idx = np.clip(idx, 0, (self.nz if plane=='axial' else (self.nx if plane=='sagittal' else self.ny)) - 1)
+        if plane == 'axial': self.cur_z = idx
+        elif plane == 'sagittal': self.cur_x = idx
+        elif plane == 'coronal': self.cur_y = idx
+        self._update_display()
 
-        res += "ROI GPR[%]\n" + "-"*15 + "\n"
-        for ps in self.per_structure_stats:
-            v = ps['pass_rate_percent']
-            status = f"{v:5.1f}%" if np.isfinite(v) else "  N/A"
-            res += f"{ps['roi_name'][:10]:10}: {status}\n"
-        return res
+    def _get_stats_text(self):
+        txt = ""
+        if self.gpr_cond:
+            txt += f"Criteria: {self.gpr_cond['dta']:.1f}mm / {self.gpr_cond['dd']:.1f}%\n"
+            txt += f"Cutoff  : {self.gpr_cond['cutoff']:.1f}%\n"
+        txt += "--------------------\n"
+        txt += "ROI GPR[%]\n"
+        for s in self.per_structure_stats:
+            val = s['pass_rate_percent']
+            val_str = f"{val:5.1f}%" if np.isfinite(val) else "  N/A"
+            txt += f"{s['roi_name'][:12]:12}: {val_str}\n"
+        return txt
 
-    def _on_slider_move(self, val):
-        idx = int(val)
-        if idx != self.slice_idx:
-            self.slice_idx = idx
-            self._draw()
+    def _on_mode_change(self, label):
+        self.overlay_mode = label
+        self._update_display(full=True)
+
+    def _on_visibility_change(self, label):
+        if label in self.visible: self.visible[label] = not self.visible[label]
+        else: self.roi_visible[label] = not self.roi_visible[label]
+        self._update_display(full=True)
+
+    def _on_click(self, event):
+        if event.inaxes in self.axes_map.values(): self._update_cursor(event); self._update_display()
+
+    def _on_mouse_move(self, event):
+        if event.button == 1 and event.inaxes in self.axes_map.values(): self._update_cursor(event); self._update_display()
 
     def _on_scroll(self, event):
-        step = 1 if event.button == 'up' else -1
-        mx = int(self.slider.valmax)
-        new_idx = max(0, min(self.slice_idx + step, mx))
-        if new_idx != self.slice_idx:
-            self.slice_idx = new_idx
-            self.slider.set_val(new_idx)
-            self._draw()
+        ax, step = event.inaxes, (1 if event.button == 'up' else -1)
+        if ax == self.ax_ax: self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
+        elif ax == self.ax_sag: self.cur_x = np.clip(self.cur_x + step, 0, self.nx - 1)
+        elif ax == self.ax_cor: self.cur_y = np.clip(self.cur_y + step, 0, self.ny - 1)
+        else: self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
+        self._update_display()
 
-    def _on_toggle(self, label):
-        if label in self.visible:
-            self.visible[label] = not self.visible[label]
-        else:
-            self.roi_visible[label] = not self.roi_visible[label]
-        self._update_check_sizes()
-        self._draw()
+    def _on_key(self, event):
+        if event.key in ['h', 'H']: self.t_help.set_visible(not self.t_help.get_visible()); self.fig.canvas.draw_idle()
+        elif event.key in ['q', 'Q']: plt.close(self.fig)
 
-    def _update_check_sizes(self):
-        """Manually update sizes to ensure toggling works with custom styles."""
-        if not hasattr(self.check, 'set_check_props'):
-            return
-        try:
-            status = self.check.get_status()
-            if hasattr(self.check, 'checks'):
-                sizes = [70 if s else 0 for s in status]
-                self.check.checks.set_sizes(sizes)
-            elif hasattr(self.check, '_checks'):
-                colors = ['#00FF00' if s else 'none' for s in status]
-                self.check._checks.set_facecolor(colors)
-                self.check._checks.set_edgecolor(colors)
-        except Exception:
-            pass
-        self.fig.canvas.draw_idle()
+    def _update_cursor(self, event):
+        ix, iy = int(round(event.xdata)), int(round(event.ydata))
+        if event.inaxes == self.ax_ax: self.cur_x, self.cur_y = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.ny-1)
+        elif event.inaxes == self.ax_sag: self.cur_y, self.cur_z = np.clip(ix, 0, self.ny-1), np.clip(iy, 0, self.nz-1)
+        elif event.inaxes == self.ax_cor: self.cur_x, self.cur_z = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.nz-1)
 
-    def _on_overlay_mode(self, label):
-        self.overlay_mode = label
-        self._draw()
+    def _first_draw(self):
+        """Initial creation of all artists."""
+        for plane in ['axial', 'sagittal', 'coronal']:
+            ax = self.axes_map[plane]
+            # Axial: usually top is Anterior (index 0). S/C: Superior (index N) is top.
+            origin = 'upper' if plane == 'axial' else 'lower'
+            self.ims[(plane, 'ct')] = ax.imshow(np.zeros((1,1)), cmap='gray', vmin=-200, vmax=300, origin=origin)
+            self.ims[(plane, 'ovl')] = ax.imshow(np.zeros((1,1)), alpha=0.5, origin=origin)
+            self.lines[(plane, 'h')] = ax.axhline(0, color='yellow', lw=0.5, alpha=0.6)
+            self.lines[(plane, 'v')] = ax.axvline(0, color='yellow', lw=0.5, alpha=0.6)
+            self.text_artists[plane] = ax.text(0.03, 0.05, "", transform=ax.transAxes, color='#00FF00', 
+                                              fontsize=8, fontweight='bold', bbox=dict(boxstyle='round,pad=0.2', fc='black', alpha=0.6, ec='#333333'))
+            
+            for ci, name in enumerate(self.roi_names):
+                lc = LineCollection([], colors=ROI_COLORS[ci % len(ROI_COLORS)], linewidths=1.2, alpha=0.9)
+                ax.add_collection(lc)
+                self.roi_artists[(plane, name)] = lc
+        
+        self._set_aspects()
+        self._update_display(full=True)
 
-    def _on_plane(self, label):
-        self.plane = label
-        mx = self.nz-1 if label == 'axial' else (self.nx-1 if label == 'sagittal' else self.ny-1)
-        self.slider.valmax = mx
-        self.slice_idx = min(self.slice_idx, mx)
-        self.slider.set_val(self.slice_idx)
-        self.slider.ax.set_xlim(0, mx)
-        self._draw()
+    def _set_aspects(self):
+        self.ax_ax.set_aspect(self.sy / self.sx)
+        self.ax_sag.set_aspect(self.sz / self.sy)
+        self.ax_cor.set_aspect(self.sz / self.sx)
+        
+        # Standard orientation check: Superior is Up for Sagittal/Coronal
+        # origin='lower' handles this if index Z increases Superiorly.
 
-    def _draw(self):
-        self.ax.clear()
-
-        # Determine origin and physical aspect ratio per plane
-        if self.plane == 'axial':
-            origin = 'upper'   # Medical convention: anterior at top
-            aspect = self._sp_row / self._sp_col
-        elif self.plane == 'sagittal':
-            origin = 'lower'
-            aspect = self._sp_slice / self._sp_row
-        else:  # coronal
-            origin = 'lower'
-            aspect = self._sp_slice / self._sp_col
-
-        # -- CT background --
-        if self.visible['CT']:
-            ct2d = self._get_slice(self.ct)
-            self.ax.imshow(ct2d, cmap='gray', vmin=-200, vmax=300,
-                           aspect=aspect, origin=origin)
-
-        # -- Overlay --
-        self._cbar_ax.clear()
-        self._cbar_ax.set_visible(False)
-
+    def _update_display(self, full=False):
+        """Update existings artists with new data. Very fast."""
+        v_ct = self.visible['CT']
+        v_str = self.visible['Structure']
         mode = self.overlay_mode
 
-        if mode == 'Gamma':
-            g2d = self._get_slice(self.gamma)
-            gm = np.ma.masked_where(~np.isfinite(g2d) | (g2d == 0), g2d)
-            im = self.ax.imshow(gm, cmap='turbo', vmin=0, vmax=2,
-                                alpha=0.5, aspect=aspect, origin=origin)
-            self._cbar_ax.set_visible(True)
-            self.fig.colorbar(im, cax=self._cbar_ax)
-            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
-            self._cbar_ax.set_ylabel('Gamma Index', color='white', fontsize=8)
+        # Update slices
+        self._update_plane('axial', self.cur_z, v_ct, v_str, mode)
+        self._update_plane('sagittal', self.cur_x, v_ct, v_str, mode)
+        self._update_plane('coronal', self.cur_y, v_ct, v_str, mode)
 
-        elif mode == 'Pass/Fail':
-            g2d = self._get_slice(self.gamma)
-            # Build pass/fail: 0 = pass (gamma <= 1), 1 = fail (gamma > 1)
-            pf = np.full_like(g2d, np.nan)
-            valid = np.isfinite(g2d) & (g2d != 0)
-            pf[valid & (g2d <= 1.0)] = 0.0  # OK
-            pf[valid & (g2d > 1.0)] = 1.0   # NG
-            pfm = np.ma.masked_where(~valid, pf)
-            self.ax.imshow(pfm, cmap=_PASS_FAIL_CMAP, vmin=0, vmax=1,
-                           alpha=0.55, aspect=aspect, origin=origin,
-                           interpolation='nearest')
-            # Count pass/fail for this slice
-            n_pass = int(np.sum(pf[valid] == 0))
-            n_fail = int(np.sum(pf[valid] == 1))
-            n_total = n_pass + n_fail
-            if n_total > 0:
-                slice_gpr = n_pass / n_total * 100.0
-                self.ax.text(0.02, 0.02,
-                             f"Slice GPR: {slice_gpr:.1f}%  (OK:{n_pass} / NG:{n_fail})",
-                             transform=self.ax.transAxes, color='white', fontsize=9,
-                             bbox=dict(boxstyle='round,pad=0.3', fc='#000000', alpha=0.7))
+        # Update crosshairs
+        self.lines[('axial', 'h')].set_ydata([self.cur_y, self.cur_y])
+        self.lines[('axial', 'v')].set_xdata([self.cur_x, self.cur_x])
+        self.lines[('sagittal', 'h')].set_ydata([self.cur_z, self.cur_z])
+        self.lines[('sagittal', 'v')].set_xdata([self.cur_y, self.cur_y])
+        self.lines[('coronal', 'h')].set_ydata([self.cur_z, self.cur_z])
+        self.lines[('coronal', 'v')].set_xdata([self.cur_x, self.cur_x])
 
-        elif mode == 'Ref Dose' and self.ref_dose is not None:
-            d2d = self._get_slice(self.ref_dose)
-            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
-            dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
-            im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
-                                alpha=0.5, aspect=aspect, origin=origin)
-            self._cbar_ax.set_visible(True)
-            self.fig.colorbar(im, cax=self._cbar_ax)
-            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
-            self._cbar_ax.set_ylabel('Dose [Gy]', color='white', fontsize=8)
+        # Sync Widgets (only if initialized)
+        def sync(plane, idx):
+            if plane not in self.widgets: return
+            w = self.widgets[plane]
+            w['slider'].eventson = False
+            w['slider'].set_val(idx)
+            w['slider'].eventson = True
+            pos_mm = self.coords_mm[plane][idx]
+            w['text'].set_val(f"{idx} ({pos_mm:+.1f}mm)")
+        
+        sync('axial', self.cur_z)
+        sync('sagittal', self.cur_x)
+        sync('coronal', self.cur_y)
 
-        elif mode == 'Eval Dose' and self.eval_dose is not None:
-            d2d = self._get_slice(self.eval_dose)
-            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
-            dm = np.ma.masked_where(d2d < cutoff_abs, d2d)
-            im = self.ax.imshow(dm, cmap='jet', vmin=0, vmax=self._dose_vmax,
-                                alpha=0.5, aspect=aspect, origin=origin)
-            self._cbar_ax.set_visible(True)
-            self.fig.colorbar(im, cax=self._cbar_ax)
-            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
-            self._cbar_ax.set_ylabel('Dose [Gy]', color='white', fontsize=8)
-
-        elif mode == 'Dose Ratio' and self.dose_ratio is not None:
-            r2d = self._get_slice(self.dose_ratio)
-            # Mask where ref dose is below cutoff (ratio is meaningless)
-            cutoff_abs = self._dose_vmax * (self.gpr_cond['cutoff'] / 100.0) if self.gpr_cond else 0
-            ref2d = self._get_slice(self.ref_dose)
-            rm = np.ma.masked_where(~np.isfinite(r2d) | (ref2d < cutoff_abs), r2d)
-            im = self.ax.imshow(rm, cmap='bwr', vmin=0.8, vmax=1.2,
-                                alpha=0.55, aspect=aspect, origin=origin)
-            self._cbar_ax.set_visible(True)
-            self.fig.colorbar(im, cax=self._cbar_ax)
-            self._cbar_ax.yaxis.set_tick_params(colors='white', labelsize=7)
-            self._cbar_ax.set_ylabel('Eval / Ref', color='white', fontsize=8)
-
-        # -- Structure contours --
-        if self.visible['Structure'] and self.plane == 'axial' and self.rtstruct_meta:
-            z_w = self.dose_z_world[self.slice_idx]
-            from rtgamma.mask import _world_xy_to_grid_rc
-            for i, name in enumerate(self.roi_names):
-                if not self.roi_visible[name]:
-                    continue
-                for pts in get_contours_for_slice(self.roi_contour_data[name], z_w, self.z_tol):
-                    rc = _world_xy_to_grid_rc(pts, self.dose_meta)
-                    self.ax.add_patch(Polygon(rc[:, [1, 0]], closed=True, fill=False,
-                                             edgecolor=ROI_COLORS[i % len(ROI_COLORS)], lw=1))
-
-        # -- Title --
-        self.ax.set_title(f"{self.plane} view - slice {self.slice_idx}  [{mode}]",
-                          color='white', fontsize=10)
         self.fig.canvas.draw_idle()
 
+    def _update_plane(self, plane, idx, v_ct, v_str, mode):
+        ax = self.axes_map[plane]
+        if plane == 'axial':
+            ct2d, g2d = self.ct[idx, :, :], self.gamma[idx, :, :]
+            ref2d = self.ref_dose[idx, :, :] if self.ref_dose is not None else None
+            eval2d = self.eval_dose[idx, :, :] if self.eval_dose is not None else None
+            ratio2d = self.dose_ratio[idx, :, :] if self.dose_ratio is not None else None
+        elif plane == 'sagittal':
+            ct2d, g2d = self.ct[:, :, idx], self.gamma[:, :, idx]
+            ref2d = self.ref_dose[:, :, idx] if self.ref_dose is not None else None
+            eval2d = self.eval_dose[:, :, idx] if self.eval_dose is not None else None
+            ratio2d = self.dose_ratio[:, :, idx] if self.dose_ratio is not None else None
+        else:
+            ct2d, g2d = self.ct[:, idx, :], self.gamma[:, idx, :]
+            ref2d = self.ref_dose[:, idx, :] if self.ref_dose is not None else None
+            eval2d = self.eval_dose[:, idx, :] if self.eval_dose is not None else None
+            ratio2d = self.dose_ratio[:, idx, :] if self.dose_ratio is not None else None
+
+        # CT
+        im_ct = self.ims[(plane, 'ct')]
+        if v_ct:
+            im_ct.set_data(ct2d)
+            im_ct.set_visible(True)
+            im_ct.set_extent([0, ct2d.shape[1], ct2d.shape[0], 0] if plane=='axial' else [0, ct2d.shape[1], 0, ct2d.shape[0]])
+        else:
+            im_ct.set_visible(False)
+
+        # Overlay
+        im_ovl = self.ims[(plane, 'ovl')]
+        if mode == 'Gamma':
+            m = np.ma.masked_where(~np.isfinite(g2d) | (g2d == 0), g2d)
+            im_ovl.set_data(m)
+            im_ovl.set_cmap('turbo')
+            im_ovl.set_clim(0, 2)
+            im_ovl.set_visible(True)
+        elif mode == 'Pass/Fail':
+            pf = np.full_like(g2d, np.nan); v = np.isfinite(g2d) & (g2d != 0)
+            pf[v & (g2d <= 1.0)] = 0; pf[v & (g2d > 1.0)] = 1
+            im_ovl.set_data(np.ma.masked_where(~v, pf))
+            im_ovl.set_cmap(_PASS_FAIL_CMAP)
+            im_ovl.set_clim(0, 1)
+            im_ovl.set_visible(True)
+        elif mode == 'Ref Dose' and ref2d is not None:
+            im_ovl.set_data(np.ma.masked_where(ref2d < self._dose_vmax*0.1, ref2d))
+            im_ovl.set_cmap('jet')
+            im_ovl.set_clim(0, self._dose_vmax)
+            im_ovl.set_visible(True)
+        elif mode == 'Eval Dose' and eval2d is not None:
+            im_ovl.set_data(np.ma.masked_where(eval2d < self._dose_vmax*0.1, eval2d))
+            im_ovl.set_cmap('jet')
+            im_ovl.set_clim(0, self._dose_vmax)
+            im_ovl.set_visible(True)
+        elif mode == 'Dose Ratio' and ratio2d is not None:
+            im_ovl.set_data(np.ma.masked_where(~np.isfinite(ratio2d), ratio2d))
+            im_ovl.set_cmap('bwr')
+            im_ovl.set_clim(0.8, 1.2)
+            im_ovl.set_visible(True)
+        else:
+            im_ovl.set_visible(False)
+        
+        im_ovl.set_extent(im_ct.get_extent())
+
+        # Stats text
+        valid = np.isfinite(g2d) & (g2d > 0)
+        if np.any(valid):
+            n_v, n_ok = np.sum(valid), np.sum(g2d[valid] <= 1.0)
+            sgpr = n_ok / n_v * 100.0
+            self.text_artists[plane].set_text(f"Slice GPR: {sgpr:.1f}% ({n_ok}/{n_v})")
+            self.text_artists[plane].set_visible(True)
+        else:
+            self.text_artists[plane].set_visible(False)
+
+        # Structures
+        if v_str and self.rtstruct_meta:
+            self._update_structures(plane, idx)
+        else:
+            for name in self.roi_names: self.roi_artists[(plane, name)].set_segments([])
+
+        ax.set_title(f"{plane.capitalize()} (idx {idx})", color='white', fontsize=9)
+
+    def _update_structures(self, plane, idx):
+        ipp = self.dose_meta['ipp']
+        s_col, s_row = self.dose_meta['s_col'], self.dose_meta['s_row']
+        v_col, v_row, v_slice = self.dose_meta['v_col'], self.dose_meta['v_row'], self.dose_meta['v_slice']
+        
+        for name in self.roi_names:
+            if not self.roi_visible.get(name, True):
+                self.roi_artists[(plane, name)].set_segments([])
+                continue
+            
+            segments = []
+            if plane == 'axial':
+                # Check cache for axial
+                if idx in self._axial_contour_cache and name in self._axial_contour_cache[idx]:
+                    segments = self._axial_contour_cache[idx][name]
+                else:
+                    from rtgamma.mask import _world_xy_to_grid_rc
+                    z_w = ipp[2] + self.dose_meta['z_coords_mm'][idx] * v_slice[2]
+                    for c_pts_dict in self.roi_contours.get(name, []):
+                        if abs(c_pts_dict['z'] - z_w) < self.sz * 0.51:
+                            rc = _world_xy_to_grid_rc(c_pts_dict['points'], self.dose_meta)
+                            # Convert to list of segments for LineCollection consistency or just plot
+                            # For Axial, we use segments of (x,y)
+                            pts = rc[:, [1, 0]]
+                            for i in range(len(pts)):
+                                segments.append([pts[i], pts[(i+1)%len(pts)]])
+                    if idx not in self._axial_contour_cache: self._axial_contour_cache[idx] = {}
+                    self._axial_contour_cache[idx][name] = segments
+            
+            elif plane == 'sagittal':
+                x_w = ipp[0] + self.dose_meta['x_coords_mm'][idx] * v_col[0]
+                for c_pts_dict in self.roi_contours.get(name, []):
+                    pts = c_pts_dict['points']
+                    z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
+                    inters = []
+                    for k in range(len(pts)):
+                        p1, p2 = pts[k], pts[(k+1)%len(pts)]
+                        if (p1[0]-x_w)*(p2[0]-x_w) <= 0 and p1[0] != p2[0]:
+                            inters.append((p1[1] + (x_w-p1[0])/(p2[0]-p1[0])*(p2[1]-p1[1]) - ipp[1]) / (s_row * v_row[1]))
+                    if len(inters) >= 2:
+                        inters.sort()
+                        for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
+            
+            elif plane == 'coronal':
+                y_w = ipp[1] + self.dose_meta['y_coords_mm'][idx] * v_row[1]
+                for c_pts_dict in self.roi_contours.get(name, []):
+                    pts = c_pts_dict['points']
+                    z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
+                    inters = []
+                    for k in range(len(pts)):
+                        p1, p2 = pts[k], pts[(k+1)%len(pts)]
+                        if (p1[1]-y_w)*(p2[1]-y_w) <= 0 and p1[1] != p2[1]:
+                            inters.append((p1[0] + (y_w-p1[1])/(p2[1]-p1[1])*(p2[0]-p1[0]) - ipp[0]) / (s_col * v_col[0]))
+                    if len(inters) >= 2:
+                        inters.sort()
+                        for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
+
+            self.roi_artists[(plane, name)].set_segments(segments)
+
+    def _get_state_path(self):
+        return os.path.join(ROOT, 'scripts', 'viewer_settings.json')
+
+    def _save_state(self):
+        state = {
+            'cur_z': int(self.cur_z), 'cur_y': int(self.cur_y), 'cur_x': int(self.cur_x),
+            'visible': self.visible, 'roi_visible': self.roi_visible, 'overlay_mode': self.overlay_mode,
+        }
+        try:
+            win = self.fig.canvas.manager.window
+            state['geometry'] = win.geometry()
+            state['is_maximized'] = (win.state() == 'zoomed')
+        except Exception: pass
+        try:
+            with open(self._get_state_path(), 'w') as f: json.dump(state, f)
+        except Exception: pass
+
+    def _load_state(self):
+        path = self._get_state_path()
+        if not os.path.exists(path): return
+        try:
+            with open(path, 'r') as f: state = json.load(f)
+            self.cur_z = min(state.get('cur_z', self.cur_z), self.nz - 1)
+            self.cur_y = min(state.get('cur_y', self.cur_y), self.ny - 1)
+            self.cur_x = min(state.get('cur_x', self.cur_x), self.nx - 1)
+            self.visible.update(state.get('visible', {}))
+            self.roi_visible.update(state.get('roi_visible', {}))
+            self.overlay_mode = state.get('overlay_mode', self.overlay_mode)
+        except Exception: pass
 
 def main():
-    parser = argparse.ArgumentParser(description='3D Gamma Viewer with CT + Dose + Structure overlay')
-    parser.add_argument('--ct', required=True, help='Directory containing CT DICOM slices')
-    parser.add_argument('--ref', required=True, help='Reference RTDOSE DICOM file')
-    parser.add_argument('--eval', help='Evaluation RTDOSE DICOM file (omit if using --gamma-npz only)')
-    parser.add_argument('--gamma-npz', help='Pre-computed gamma NPZ file (skip gamma calculation)')
-    parser.add_argument('--rtstruct', help='RTSTRUCT DICOM file or directory')
-    parser.add_argument('--roi', help='Comma-separated ROI names (default: all)')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ct', required=True)
+    parser.add_argument('--ref', required=True)
+    parser.add_argument('--eval')
+    parser.add_argument('--gamma-npz')
+    parser.add_argument('--rtstruct')
+    parser.add_argument('--roi')
     parser.add_argument('--dd', type=float, default=3.0)
     parser.add_argument('--dta', type=float, default=2.0)
     parser.add_argument('--cutoff', type=float, default=10.0)
@@ -428,118 +525,46 @@ def main():
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
     args = parser.parse_args()
 
-    # Extract filenames for display
-    ref_label = os.path.basename(args.ref) if args.ref else ''
-    eval_label = os.path.basename(args.eval) if args.eval else ''
-
-    # Load CT
-    logger.info(f'Loading CT from: {args.ct}')
     ct_meta = load_ct(args.ct)
-    logger.info(f'CT loaded: {ct_meta["shape"]}')
-
-    # Load reference DOSE
-    logger.info(f'Loading reference DOSE: {args.ref}')
     dose_meta = load_rtdose(args.ref)
-    logger.info(f'DOSE loaded: {dose_meta["shape"]}')
-    ref_dose = dose_meta['dose']  # (z, y, x)
-
-    # Resample CT onto DOSE grid
-    logger.info('Resampling CT onto DOSE grid...')
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
-    logger.info(f'CT resampled: {ct_on_dose.shape}')
-
-    # Eval dose (resampled onto ref grid)
+    
     eval_on_ref = None
-
-    # Gamma map: compute or load
     if args.gamma_npz:
-        logger.info(f'Loading pre-computed gamma from: {args.gamma_npz}')
-        npz = np.load(args.gamma_npz)
-        gamma_map = npz['gamma']
-
-        # If --eval is also provided, load and resample for dose display
+        gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
-            logger.info(f'Loading evaluation DOSE for display: {args.eval}')
             eval_meta = load_rtdose(args.eval)
             from rtgamma.main import build_ref_world_coords
-            Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-            from rtgamma.io_dicom import world_to_index
-            def world_to_eval_ijk(pts):
-                return world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'],
-                                      eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'],
-                                      eval_meta['z_offsets'], pts)
             from rtgamma.resample import resample_eval_onto_ref
-            logger.info('Resampling eval onto ref grid for display...')
-            eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], world_to_eval_ijk,
-                                                  (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
+            from rtgamma.io_dicom import world_to_index
+            Xw, Yw, Zw = build_ref_world_coords(dose_meta)
+            w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
+            eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
-        if not args.eval:
-            parser.error('--eval is required when --gamma-npz is not provided')
-        logger.info(f'Loading evaluation DOSE: {args.eval}')
         eval_meta = load_rtdose(args.eval)
-
-        # Build world coords
         from rtgamma.main import build_ref_world_coords
-        Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-
-        from rtgamma.io_dicom import world_to_index
-        def world_to_eval_ijk(pts):
-            return world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'],
-                                  eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'],
-                                  eval_meta['z_offsets'], pts)
-
         from rtgamma.resample import resample_eval_onto_ref
-        logger.info('Resampling eval onto ref grid...')
-        eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], world_to_eval_ijk,
-                                              (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
-
-        logger.info('Computing 3D gamma...')
+        from rtgamma.io_dicom import world_to_index
+        Xw, Yw, Zw = build_ref_world_coords(dose_meta)
+        w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
+        eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
         axes = (dose_meta['z_coords_mm'], dose_meta['y_coords_mm'], dose_meta['x_coords_mm'])
-        gamma_map, pass_rate, gstats = compute_gamma(
-            axes_ref_mm=axes, dose_ref=dose_meta['dose'],
-            axes_eval_mm=axes, dose_eval=eval_on_ref,
-            dd_percent=args.dd, dta_mm=args.dta, cutoff_percent=args.cutoff,
-            gamma_type=args.gamma_type, norm=args.norm, use_pymedphys=False,
-        )
-        logger.info(f'Gamma computed. Global GPR: {pass_rate:.2f}%')
+        gamma_map, _, _ = compute_gamma(axes, dose_meta['dose'], axes, eval_on_ref, args.dd, args.dta, args.cutoff, args.gamma_type, args.norm)
 
-    # Load RTSTRUCT
-    rtstruct_meta = None
-    roi_names = []
-    roi_masks = {}
+    rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None
+    roi_names = [n.strip() for n in args.roi.split(',')] if args.roi else ([r['name'] for r in rtstruct_meta['roi_list']] if rtstruct_meta else [])
+    
     per_structure = []
-    if args.rtstruct:
-        logger.info(f'Loading RTSTRUCT: {args.rtstruct}')
-        rtstruct_meta = load_rtstruct(args.rtstruct)
-        if args.roi:
-            roi_names = [r.strip() for r in args.roi.split(',')]
-        else:
-            roi_names = [r['name'] for r in rtstruct_meta['roi_list']]
-        logger.info(f'Building ROI masks for: {roi_names}')
-        roi_masks = build_roi_masks(rtstruct_meta, dose_meta, roi_names=roi_names)
+    roi_masks = build_roi_masks(rtstruct_meta, dose_meta, roi_names=roi_names) if rtstruct_meta else {}
+    for name, mask in roi_masks.items():
+        masked_g = gamma_map[mask]; finite = np.isfinite(masked_g)
+        pr = float(np.sum(masked_g[finite] <= 1.0) / np.sum(finite) * 100.0) if finite.any() else float('nan')
+        per_structure.append({'roi_name': name, 'pass_rate_percent': pr})
 
-        # Compute per-structure GPR
-        for name, mask in roi_masks.items():
-            masked_g = gamma_map[mask]
-            finite = np.isfinite(masked_g)
-            if finite.any():
-                pr = float(np.sum(masked_g[finite] <= 1.0) / np.sum(finite) * 100.0)
-            else:
-                pr = float('nan')
-            per_structure.append({'roi_name': name, 'pass_rate_percent': pr,
-                                  'voxel_count': int(np.sum(mask))})
-
-    # Launch viewer
-    logger.info('Launching viewer...')
-    gpr_cond = {'dd': args.dd, 'dta': args.dta, 'cutoff': args.cutoff}
-    viewer = GammaViewer(ct_on_dose, gamma_map, dose_meta,
-                         ref_dose=ref_dose, eval_dose=eval_on_ref,
-                         rtstruct_meta=rtstruct_meta, roi_names=roi_names,
-                         roi_masks=roi_masks, per_structure_stats=per_structure,
-                         gpr_cond=gpr_cond,
-                         ref_label=ref_label, eval_label=eval_label)
+    viewer = MultiPlaneViewer(ct_on_dose, gamma_map, dose_meta, dose_meta['dose'], eval_on_ref, rtstruct_meta, roi_names, per_structure,
+                             {'dd': args.dd, 'dta': args.dta, 'cutoff': args.cutoff},
+                             os.path.basename(args.ref), os.path.basename(args.eval) if args.eval else '')
     plt.show()
-
 
 if __name__ == '__main__':
     main()
