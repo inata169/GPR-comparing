@@ -1,8 +1,10 @@
 # TODO (Next Actions)
 
-Date: 2026-03-12
+Date: 2026-03-13
 
 High priority
+- [x] **ポータブル実行環境 (EXE版GUI) の構築と安定化 (完了)**
+- [x] **DVH（線量体積ヒストグラム）計算・比較機能の実装 (完了)**
 - [x] **ビルドの安定性復旧と実行時エラーの解消 (完了)**
 - [x] `rtgamma_cli.exe` での `scipy.special` / `pydicom` 等のインポートエラーを解消
 - [x] `gamma_viewer.exe` のビルド成功とヘルプ表示の動作確認
