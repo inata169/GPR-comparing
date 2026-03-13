@@ -16,6 +16,7 @@ from .pdf_report import save_summary_pdf
 from .report import save_summary_csv, save_summary_json, save_summary_markdown
 from .resample import resample_eval_onto_ref
 from .viz import save_dose_diff_2d, save_gamma_map_2d
+from .header_compare import run_header_comparison
 
 
 def build_ref_world_coords(meta_ref):
@@ -104,7 +105,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='DICOM RTDOSE gamma analysis (2D/3D) with shift optimization')
     parser.add_argument('--ref', required=True, help='Reference RTDOSE (DICOM)')
     parser.add_argument('--eval', required=True, help='Evaluation RTDOSE (DICOM)')
-    parser.add_argument('--mode', choices=['3d', '2d'], default='3d')
+    parser.add_argument('--mode', choices=['3d', '2d', 'header'], default='3d')
     parser.add_argument('--plane', choices=['axial', 'sagittal', 'coronal'])
     # Allow 'auto' to pick the central slice for the chosen plane
     parser.add_argument('--plane-index', type=str, default='auto')
@@ -190,20 +191,13 @@ def main(argv=None):
 
     logging.info(f"Arguments: {args}")
 
-    if args.profile:
-        preset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'presets.json')
-        if os.path.exists(preset_path):
-            try:
-                with open(preset_path, 'r', encoding='utf-8') as f:
-                    presets = json.load(f)
-                if args.profile in presets:
-                    logging.info(f"Loaded profile '{args.profile}': overriden values to DTA={args.dta}, DD={args.dd}, Cutoff={args.cutoff}, Norm={args.norm}")
-                else:
-                    logging.warning(f"Profile '{args.profile}' not found in {preset_path}")
-            except Exception as e:
-                logging.error(f"Failed to load presets: {e}")
-        else:
-            logging.warning(f"Preset file not found at {preset_path}")
+    if args.mode == 'header':
+        logging.info("Running header comparison mode.")
+        if not args.report:
+            raise SystemExit('--report is required for header comparison mode')
+        run_header_comparison(args.ref, args.eval, args.report)
+        logging.info(f"Header comparison report saved to {args.report}")
+        return
 
     logging.info(f"Loading reference dose: {args.ref}")
     meta_ref = load_rtdose(args.ref)

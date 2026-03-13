@@ -1,4 +1,4 @@
-﻿Param()
+Param()
 
 $ErrorActionPreference = 'Stop'
 
@@ -561,9 +561,13 @@ function Build-Command(){
 
   switch ($cbAction.SelectedIndex){
     0 { # Header compare
-      # Note: Header compare is an auxiliary script, theoretically we could pack it, but currently assuming python exists or we package it too.
-      # For now, we will leave it as python scripts/compare_rtdose_headers.py since it's a minor feature.
-      return @('python','-u','scripts/compare_rtdose_headers.py','--a',$ref,'--b',$eval,'--out',(Join-Path $out 'header_compare.md'))
+      $baseCmdName = 'python'
+      $baseArgs = @('-u', '-m', 'rtgamma.main')
+      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
+        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
+        $baseArgs = @()
+      }
+      return @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','header','--report',(Join-Path $out 'header_compare.md'))
     }
     1 { # 3D
       $baseCmdName = 'python'
