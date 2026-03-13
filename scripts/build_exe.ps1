@@ -16,13 +16,17 @@ python -m PyInstaller -y --name rtgamma_cli --onedir --console `
     --add-data "config;config" `
     --hidden-import numba `
     --hidden-import pydicom `
+    --hidden-import reportlab `
     --hidden-import rtgamma.gamma `
     --hidden-import rtgamma.io_dicom `
     --hidden-import rtgamma.mask `
     --hidden-import rtgamma.optimize `
     --hidden-import rtgamma.report `
     --hidden-import rtgamma.resample `
+    --hidden-import rtgamma.dvh `
+    --hidden-import rtgamma.pdf_report `
     --collect-submodules scipy `
+    --collect-all reportlab `
     --clean `
     scripts/run_cli.py
 
