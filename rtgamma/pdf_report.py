@@ -3,6 +3,7 @@
 import json
 import os
 from datetime import datetime
+import numpy as np
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -112,6 +113,11 @@ def save_summary_pdf(path: str, summary: dict):
     Story.append(Paragraph("Gamma Analysis QA Report", title_style))
     Story.append(Spacer(1, 0.2*inch))
 
+    # Output directory for charts
+    output_dir = os.path.dirname(path)
+    chart_dir = os.path.join(output_dir, 'chart')
+    os.makedirs(chart_dir, exist_ok=True)
+
     # Patient Info & Run Info Table
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -219,7 +225,8 @@ def save_summary_pdf(path: str, summary: dict):
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
 
-            hist_path = path.replace('.pdf', '_autohist.png')
+            hist_filename = os.path.basename(path).replace('.pdf', '_autohist.png')
+            hist_path = os.path.join(chart_dir, hist_filename)
             edges = hist['bin_edges']
             counts = hist['counts']
             c_pass = hist['cumulative_pass']
@@ -313,6 +320,77 @@ def save_summary_pdf(path: str, summary: dict):
         ]))
         Story.append(roi_table)
         Story.append(Spacer(1, 0.4*inch))
+
+        # --- ROI DVH Comparison Plots ---
+        for s in per_struct:
+            roi_name = s.get('roi_name', 'ROI')
+            ref_dvh = s.get('ref_dvh')
+            eval_dvh = s.get('eval_dvh')
+
+            if ref_dvh and eval_dvh and 'dvh_bins' in ref_dvh:
+                try:
+                    import matplotlib.pyplot as plt
+                    plt.figure(figsize=(6, 4))
+                    
+                    ref_name = summary.get('ref', 'Reference')
+                    eval_name = summary.get('eval', 'Evaluation')
+                    
+                    plt.plot(ref_dvh['dvh_bins'], ref_dvh['dvh_vol'], 'k-', label=f'Ref: {ref_name}', linewidth=2)
+                    plt.plot(eval_dvh['dvh_bins'], eval_dvh['dvh_vol'], 'r--', label=f'Eval: {eval_name}', linewidth=1.5)
+                    
+                    plt.title(f"DVH Comparison: {roi_name}", fontsize=12)
+                    plt.xlabel("Dose", fontsize=10)
+                    plt.ylabel("Volume (%)", fontsize=10)
+                    plt.grid(True, linestyle=':', alpha=0.6)
+                    plt.legend(loc='upper right', fontsize=8) # Smaller font to fit filenames
+                    plt.ylim(0, 105)
+                    plt.xlim(left=0)
+                    
+                    # Sanitize ROI name for filename
+                    safe_roi = "".join([c if c.isalnum() or c in '.-' else '_' for c in roi_name])
+                    dvh_filename = os.path.basename(path).replace('.pdf', f'_dvh_{safe_roi}.png')
+                    dvh_plot_path = os.path.join(chart_dir, dvh_filename)
+                    
+                    plt.tight_layout()
+                    plt.savefig(dvh_plot_path, dpi=120)
+                    plt.close()
+
+                    Story.append(Paragraph(f"DVH: {roi_name}", bold_style))
+                    img_dvh = Image(dvh_plot_path, width=5*inch, height=3.3*inch, kind='proportional')
+                    img_dvh.hAlign = 'CENTER'
+                    Story.append(img_dvh)
+                    
+                    # Add metrics table for this ROI
+                    metrics_headers = ["Metric", "Reference", "Evaluation", "Diff"]
+                    metrics_data = [metrics_headers]
+                    
+                    for m in ['mean', 'max', 'd98', 'd95', 'd50', 'd2']:
+                        r_val = ref_dvh.get(m, float('nan'))
+                        e_val = eval_dvh.get(m, float('nan'))
+                        diff = e_val - r_val if (not np.isnan(r_val) and not np.isnan(e_val)) else float('nan')
+                        
+                        metrics_data.append([
+                            m.upper(),
+                            fmt_num(r_val),
+                            fmt_num(e_val),
+                            fmt_num(diff)
+                        ])
+                    
+                    m_table = Table(metrics_data, colWidths=[1.2*inch, 1.2*inch, 1.2*inch, 1.2*inch], hAlign='CENTER')
+                    m_table.setStyle(TableStyle([
+                        ('FONT', (0,0), (-1,0), bold_font, 9),
+                        ('FONT', (0,1), (-1,-1), font_name, 8),
+                        ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
+                        ('ALIGN', (1,0), (-1,-1), 'CENTER'),
+                        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                    ]))
+                    Story.append(Spacer(1, 0.1*inch))
+                    Story.append(m_table)
+                    Story.append(Spacer(1, 0.4*inch))
+                    
+                except Exception as e:
+                    import logging
+                    logging.error(f"Failed to generate DVH plot for {roi_name}: {e}")
 
     # Gamma Map image
     img_path = summary.get('save_gamma_map_path')

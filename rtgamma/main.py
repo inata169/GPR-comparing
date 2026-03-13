@@ -7,6 +7,7 @@ import sys
 import numpy as np
 
 from .db import save_summary_db
+from .dvh import calculate_dvh_stats
 from .gamma import compute_gamma
 from .io_dicom import load_rtdose, load_rtstruct, world_to_index
 from .mask import build_roi_masks
@@ -447,6 +448,15 @@ def main(argv=None):
             
             n_voxels = int(np.sum(current_roi_mask))
             n_evaluated = int(np.sum(finite))
+
+            # --- DVH calculation ---
+            # Use resampled eval dose to match ref mask
+            eor = get_eval_on_ref(_eval_on_ref_shift[0])
+            # Ref DVH
+            ref_dvh_stats = calculate_dvh_stats(dose_ref, current_roi_mask)
+            # Eval DVH
+            eval_dvh_stats = calculate_dvh_stats(eor, current_roi_mask)
+
             logging.info(f"ROI '{roi_name}': GPR={roi_pr:.2f}%, voxels={n_voxels}, evaluated={n_evaluated}")
             per_structure.append({
                 'roi_name': roi_name,
@@ -456,6 +466,8 @@ def main(argv=None):
                 'gamma_mean': roi_mean,
                 'gamma_median': roi_median,
                 'gamma_max': roi_max,
+                'ref_dvh': ref_dvh_stats,
+                'eval_dvh': eval_dvh_stats,
             })
 
     # Create output directories if they don't exist

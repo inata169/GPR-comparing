@@ -2,7 +2,7 @@
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
-- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
+- Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
@@ -25,8 +25,9 @@
   - 2D: gamma 画像（PNG/TIFF）、dose diff 画像（%）。
   - 3D: gamma（NPZ）、dose_diff_pct（NPZ）。
   - レポート: CSV/JSON/MD/PDF（スキーマ叩き台は `docs/openspec/report.schema.json`）。
-    - JSONとMDには `per_structure` が含まれ、指定ROI単位での voxel_count, evaluated_count, pass_rate, mean, median, max が出力される。
+    - JSONとMDには `per_structure` が含まれ、指定ROI単位での voxel_count, evaluated_count, pass_rate, mean, median, max が出力される。さらに、Ref/Eval それぞれの DVH 統計値（D95, D50等）とヒストグラムデータも保持。
     - PDFには再現性確保のため実行時パッケージバージョンとコマンド引数が印字される。
+    - **DVH比較**: 各ROIごとにRef/Evalを重ね合わせたDVHグラフと指標比較テーブルが出力される。グラフ画像は `chart/` サブフォルダに保存される。
   - バッチサマリ: CSV（`batch_summary.csv` 等）、JSON、MD形式での全体集計レポート。
   - GUI: 実行ログ run_log_*.txt、サマリ自動オープン（run3d.md / <plane>.md / header_compare.md）。
 
@@ -62,12 +63,18 @@
 - `local`:
   - 各ボクセル自身の**その場所の線量値**を 100% とみなし、場所ごとに異なる許容幅を使用します。例えば 50 Gy の場所の許容幅は 1.5 Gy、10 Gy の場所は 0.3 Gy となり、線量が低い領域ほど要求される精度が非常に厳しくなります。強度変調の急峻な線量勾配をシビアに検証する特殊なケースで用いられます。
 
+## 6.3 DVH Analysis (v0.7.4 で追加)
+RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構築します。
+- **計算手法**: 推奨される interp_fraction に基づき、RTDOSE グリッド上でマスクされたボクセルの線量ヒストグラムから算出。
+- **抽出指標**: D98, D95, D50, D2, Mean, Max, Min。
+- **比較**: Reference と Evaluation（シフト補正後）の DVH を同一チャート上にプロット。凡例にはそれぞれの DICOM ファイル名を表示。
+- **可視化**: 出力先ディレクトリの `chart/` フォルダに PNG 形式で保存。
+
 ## 7. Shift Optimization
 - coarse→fine の二段探索。fine は `±(fine-range-mm)` を `fine-step-mm` で走査する標準的2段階探索。
 - 探索順序: 中心（原点、またはベストシフト位置）から外側へ向かうように距離順 (Magnitude) でソートして実行。
 - 早期停止: パス率の改善幅が `epsilon` 未満の状態が `patience` 回続いた場合、無駄な探索を打ち切る (Early stop)。
 - 2D プリスキャン: 中央スライスで XY 範囲を狭めて 3D 探索の初期領域を短縮。
-- PowerShell のコロン混在引数は複合書式 `"x:{0}:{1}:1" -f a,b` を推奨。
 
 ## 8. Performance & Accuracy
 - 性能
@@ -175,5 +182,5 @@
 「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
 - **Tier 1: コア品質と信頼性 (Completed)**: バッチ処理一括化（`batch.py`）、PDFQA帳票自動生成（`pdf_report.py`）、RTPLANヘッダ統合、CIテストカバレッジ強化（E2E JSONSchema検証・合成データ回帰テスト）
 - **Tier 2: ユーザー体験の飛躍 (Completed)**: Web GUI設計、マルチプレーン連動ビューア（**Axial/Sagittal/Coronal同期・Slice GPR表示・設定永続化完了**）、SQLトレンド保存・プリセット管理、GUI ワンクリックPDF対応（完了）、GUI設定解説ツールチップ実装（完了）
-- **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験（**完了**: Prostate=3, BreastBolus=2 に決定・反映済み）、**GPR計算カーネル高速化**（**完了**: 距離順探索リファクタリングにより劇的改善）、不確かさ推論（未着手）
+- **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験（**完了**: Prostate=3, BreastBolus=2 に決定・反映済み）、**GPR計算カーネル高速化**（**完了**: 距離順探索リファクタリングにより劇的改善）、**DVH（線量体積ヒストグラム）計算・比較機能**（**完了**: 指標算出と PDF 連携完了）、不確かさ推論（未着手）
 - **Tier 4: 運用エコシステム**: `.exe` バイナリビルド同梱と GUI 統合連携（完了）、最小構成ZIPパッケージ生成・配布対応（完了）、**EXE容量の本格削減**（クリーンvenv + exclude + UPX で200〜250MB目標）、**出力形式PDF主軸化**（MD→PDF移行）、完全日英多言語対応、コンプライアンス準拠

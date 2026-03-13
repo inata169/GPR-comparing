@@ -1,4 +1,0 @@
-fix(ci): fix ruff lint errors (import sort and bare except)
-
-- Run ruff check --fix to sort imports
-- Fix bare except in phits-linac-validation/src/Comp_measured_phits_v9.1.py
