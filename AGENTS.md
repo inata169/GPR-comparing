@@ -42,3 +42,12 @@ This guide helps contributors and agents work efficiently in this repository.
 - Coronal GPR investigation: recent coronal pass rate (~82%) may differ from prior (~93%) due to stricter normalization behavior and corrected plane geometry. See `TODO.md` follow-up (2025-10-16) for concrete reproduction steps (plane-index 100/101/102 sweep, `--norm` sensitivity, and 2D vs 3D slice consistency check).
 - Reproduction settings: use clinical presets (e.g., `clinical_rel`), `--opt-shift off`, `--interp linear`, `--cutoff 10`, and write outputs under `phits-linac-validation/output/rtgamma/`. Save GUI logs (`run_log_*.txt`) for traceability.
 - Encoding tip: prefer UTF-8 (no BOM) for Markdown to avoid mojibake on Windows.
+
+## GUI State Management & External Integration (2026-04-14)
+- **Config Sync**: The GUI's persistent state is stored in `config/gui_config.ini`.
+- **Seamless Launch**: External automation tools (like `dicom-phits_inp`) can achieve seamless integration by updating this INI file programmatically before launching `scripts/run_gui_exe.ps1`.
+- **Recommended Auto-Sync Keys**:
+  - `Paths/ref_dose`, `Paths/eval_dose`, `Paths/ct_dir`: Auto-populate file selectors.
+  - `Paths/output_dir`: Sets the default results folder; if `gamma_map.npz` exists here, the 3D Viewer will load it automatically.
+  - `Analysis/action`: Set to `3D Viewer` to bypass the main menu and open the viewer directly.
+

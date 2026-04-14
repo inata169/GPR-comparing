@@ -67,6 +67,15 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
    - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
 
+## 🛠 外部ツールとの連携
+本ツールの GUI は起動時に `config/gui_config.ini` を読み込みます。外部スクリプト（`dicom-phits_inp` など）からこの INI ファイルを事前に書き換えることで、特定の DICOM ファイルや解析結果を選択した状態でシームレスにビュアーを起動することが可能です。
+
+**主な設定項目 (`[Paths]` セクション):**
+- `ref_dose`: 参照線量のパス
+- `eval_dose`: 評価線量のパス
+- `ct_dir`: CT 画像ディレクトリのパス
+- `output_dir`: 解析結果（`gamma_map.npz` 等）が含まれるディレクトリのパス
+
 ### 💡 ガンマパス率が低い場合の推奨ワークフロー
 パス率が著しく低い場合、座標系やセットアップの違いが原因であるケースがあります。
 1. **Header Compare**: `Action` を `Header Compare` にし、RTDOSE (可能なら RTPLAN も) のヘッダを比較します。Isocenter のズレや、**SSD (Source-to-Surface Distance) vs SAD (Source-to-Axis Distance) の定義の違い**により、初期座標(IPP)が数十mm〜100mm規模でズレて出力されているケース（例: `-114mm` のズレ等）を発見できます。

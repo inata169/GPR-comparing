@@ -51,6 +51,16 @@ Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X
 - 快適機能: 進捗表示、ログ保存、サマリ自動オープン、Local gamma トグル
 - 詳細: `docs/openspec/GUI_RUN.md`
 
+## 🛠 外部ツールとの連携
+本ツールの GUI は起動時に `config/gui_config.ini` を読み込みます。外部スクリプト（`dicom-phits_inp` など）からこの INI ファイルを事前に書き換えることで、特定の DICOM ファイルや解析結果を選択した状態でシームレスにビュアーを起動することが可能です。
+
+**主な設定項目 (`[Paths]` セクション):**
+- `ref_dose`: 参照線量のパス
+- `eval_dose`: 評価線量のパス
+- `ct_dir`: CT 画像ディレクトリのパス
+- `output_dir`: 解析結果（`gamma_map.npz` 等）が含まれるディレクトリのパス
+
+
 ### スクリーンショット（任意・小さめ推奨）
 - `docs/openspec/images/Gui-screenshot.png`
 
