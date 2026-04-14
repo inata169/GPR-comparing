@@ -1,6 +1,7 @@
 import numpy as np
-import pytest
+
 from rtgamma.dvh import calculate_dvh, calculate_dvh_stats
+
 
 def test_calculate_dvh_uniform():
     # Uniform dose ROI

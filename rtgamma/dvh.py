@@ -1,5 +1,7 @@
+from typing import Dict, Tuple
+
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+
 
 def calculate_dvh(dose: np.ndarray, mask: np.ndarray, n_bins: int = 1000) -> Tuple[np.ndarray, np.ndarray]:
     """Calculate the cumulative Dose-Volume Histogram (DVH).

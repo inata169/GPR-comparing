@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 from .io_dicom import load_rtdose, load_rtplan
 
 

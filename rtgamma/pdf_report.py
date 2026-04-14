@@ -3,8 +3,8 @@
 import json
 import os
 from datetime import datetime
-import numpy as np
 
+import numpy as np
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
