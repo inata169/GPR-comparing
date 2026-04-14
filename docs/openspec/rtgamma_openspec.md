@@ -1,4 +1,4 @@
-# rtgamma OpenSpec (v0.8.0 開発中 - 2026-03-13版)
+# rtgamma OpenSpec (v0.8.7 - 2026-04-14版)
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。

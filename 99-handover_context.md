@@ -1,6 +1,13 @@
-# 記憶の引き継ぎ書: Handover Context (2026-03-13 v0.8.0 完了時)
+# 記憶の引き継ぎ書: Handover Context (2026-04-14 v0.8.7 完了時)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (18) で完了したこと
+- **リポジトリ同期とCI安定化 (v0.8.7)**:
+    - **GitHub同期**: GPR-comparing および dicom-phits_inp の両リポジトリを最新化し、v0.8.7 タグを反映。
+    - **CI復旧**: `config/gui_config.ini` の不正な `action` 値を `3D Viewer` へ戻し、`ruff --fix` による Lint エラーを一掃。CI パスを確認。
+- **外部連携ガイドの追加**:
+    - `AGENTS.md` 等に外部ツールからのシームレスな起動（INI連携）に関するプロトコルを追記。
 
 ### 本セッション (17) で完了したこと
 - **ポータブル実行環境（EXE版GUI）の構築と安定化**:

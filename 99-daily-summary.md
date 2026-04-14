@@ -1,3 +1,18 @@
+# Daily Summary: 2026-04-14 (セッション18)
+
+## 作業内容サマリ
+
+1. **リポジトリの同期と v0.8.7 リリース反映**
+   - **GPR-comparing**: 外部ツール（dicom-phits_inp）連携ガイドのドキュメント更新を push し、リモートとの同期を完了。
+   - **dicom-phits_inp**: v0.8.7 のリリースおよびタグ、最新コミットをリモートへ反映。
+
+2. **CI パイプラインの安定化と Lint 修正**
+   - **構成不整合の解消**: `config/gui_config.ini` の `action` キーが誤って変更されていた問題を修正し、CI テストのクラッシュを防止。
+   - **Ruff Lint 修正**: 自動修正 (`ruff --fix`) を適用し、インポート順序の不備や未使用インポート等の 8 エラーを解消。GitHub Actions が正常（Green）であることを確認。
+
+3. **ドキュメントの最新化**
+   - `TODO.md`, `99-handover_context.md`, `openspec` を v0.8.7 完了状態に更新。
+
 # Daily Summary: 2026-03-13 (セッション17)
 
 ## 作業内容サマリ

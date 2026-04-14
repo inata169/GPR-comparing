@@ -1,11 +1,13 @@
 # TODO (Next Actions)
 
-Date: 2026-03-13
+Date: 2026-04-14 (v0.8.7)
 
 High priority
 - [x] **ポータブル実行環境 (EXE版GUI) の構築と安定化 (完了)**
 - [x] **DVH（線量体積ヒストグラム）計算・比較機能の実装 (完了)**
 - [x] **ビルドの安定性復旧と実行時エラーの解消 (完了)**
+- [x] **CI（Ruff Lint/GitHub Actions）の安定化完了 (v0.8.7)**
+- [x] リモートリポジトリ（GPR-comparing / dicom-phits_inp）の同期完了
 - [x] `rtgamma_cli.exe` での `scipy.special` / `pydicom` 等のインポートエラーを解消
 - [x] `gamma_viewer.exe` のビルド成功とヘルプ表示の動作確認
 - [x] `rtgamma_cli.exe` での実データ解析・PDF生成完遂の確認
