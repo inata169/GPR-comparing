@@ -4,6 +4,7 @@
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
+- PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
@@ -82,6 +83,14 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - 3D: Numba JIT + `--threads` で並列。初回は JIT によりウォームアップが必要。
   - **高速化方針（2026-03-12 完了）**: ノン補間・補間両モードにおいて「距離順探索（中心から外側へ螺旋状に探索）」と「Early Exit（ガンマ1以下で即時終了）」を実装。ノン補間モードで約2.6倍、補間モードで約1.1倍の高速化を達成。GPR並列計算のメモリバス負荷を低減。
   - **描画性能**: Structure が多い場合の `plt.plot()` ループは遅いため `LineCollection` で一括描画し高速化。さらに `viewer_settings.json` による座標や可視性の永続化をサポート。
+  - **Fast 3D Viewer PoC**: `scripts/gamma_viewer_fast.py` はPyQtGraph + PySide6による描画高速化検証用の独立PoCであり、既存 `scripts/gamma_viewer.py` の挙動を変更しない。
+    - 範囲は3断面、CT grayscale、Gamma overlay、共有voxel cursor、`HU / Ref / Eval` ラベルに限定する。
+    - 内部カーソルは voxel index `(z, y, x)` とし、Axial / Sagittal / Coronal の3断面で共有する。物理座標やDICOM patient coordinateの厳密対応はPoC範囲外。
+    - 操作は、クリックで共有cursor移動、ホイールで操作中断面のslice移動、各断面sliderでslice移動とする。すべての経路でcrosshairと値ラベルを同期更新する。
+    - Gamma overlayはCTとは別ImageItemとし、NaN/inf/未計算領域を透明扱い、alpha sliderはGamma overlayのみに作用する。
+    - `--gamma-npz` は既存Viewerと同じ `gamma` キーを基本とし、キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化する。
+    - HU / Ref / Eval は個別に欠損・shape不一致・範囲外・非finiteを確認し、取得できない値だけ `N/A` と表示する。Dose単位は表示上 `Gy` とする。
+    - 非範囲: 画像保存、スクリーンショット保存、設定保存、ROI/RTSTRUCT、全overlay mode互換、EXE同梱、既存GUI統合。
 - 精度受け入れ
   - Self-compare ≈ 100%。
   - 2D（fast path）と 3D 同一スライスの GPR 差は ≲ 0.5pp を目安。
@@ -176,6 +185,7 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と、最適化済み `.spec` ファイルによるビルド。MKL などの巨大依存を排除し、バイナリサイズを大幅に削減（単体 **約500MB前後**）。Python 環境非依存の実行を実現。さらに、Python未インストール環境向けにEXEを強制使用するポータブルランチャー (`run_gui_exe.bat`) を同梱。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (Axial/Sagittal/Coronal同期2x2マルチプレーン, 3Dカーソル, Slice GPR表示, 設定永続化, 5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, 物理アスペクト比対応, Axial医療慣習表示)
+- Fast 3D Viewer PoC: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/Gamma表示, 共有voxel cursor, HU/Ref/Evalラベル, 保存・設定・ROIは非対応)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
 
 ## 14. Commercial Roadmap (商用化ロードマップ)

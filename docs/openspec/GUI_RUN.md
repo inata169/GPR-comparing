@@ -8,6 +8,22 @@
 - ダブルクリック: `run_gui.bat`
 - または: `scripts/run_gui.ps1`
 
+## Fast 3D Viewer PoC（任意）
+- 目的: Matplotlib/TkAgg 版3D Viewerの描画限界を超えられるか、PyQtGraph + PySide6 で検証します。
+- 起動: `run_viewer_fast_test.bat`
+- 依存関係: `pip install -r requirements-fast-viewer.txt`
+- 範囲: Axial / Sagittal / Coronal の3断面、CT表示、Gamma overlay、共有voxel cursor、`HU / Ref / Eval` ラベル表示。
+- 非範囲: 画像保存、スクリーンショット保存、設定保存、ROI/RTSTRUCT、EXE同梱、既存GUI統合。
+- 操作:
+  - マウスクリック: クリック断面上のvoxelへ共有cursorを移動。
+  - マウスホイール: 操作中断面のslice indexを移動。
+  - slice slider: Axial / Sagittal / Coronal を個別に移動。
+  - いずれの操作でも3断面のcrosshairと `HU / Ref / Eval` ラベルを同期更新。
+  - Gamma alpha sliderはGamma overlayのみに作用。
+- 安全動作:
+  - `--gamma-npz` は既存Viewerと同じく `gamma` キーを基本とします。キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化します。
+  - HU / Ref / Eval は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
+
 ## 手順
 - ファイル選択
   - `Ref RTDOSE (.dcm)` と `Eval RTDOSE (.dcm)` を選択。
@@ -50,4 +66,3 @@
 - GUI スクリプト: `scripts/run_gui.ps1`
 - バッチランチャ: `run_gui.bat`
 - 設定: `config/gui_defaults.json`
-
