@@ -39,7 +39,8 @@ _PASS_FAIL_CMAP = ListedColormap(['#00CC00', '#FF2222'])
 class MultiPlaneViewer:
     def __init__(self, ct, gamma, dose_meta, ref_dose=None, eval_dose=None,
                  rtstruct_meta=None, roi_names=None, per_structure_stats=None,
-                 gpr_cond=None, ref_label='', eval_label='', cache_radius=15):
+                 gpr_cond=None, ref_label='', eval_label='', cache_radius=15,
+                 eval_dose_unit=None):
         self.ct = ct        # (z, y, x)
         self.gamma = gamma  # (z, y, x)
         self.dose_meta = dose_meta
@@ -52,6 +53,8 @@ class MultiPlaneViewer:
         self.ref_label = ref_label
         self.eval_label = eval_label
         self.cache_radius = max(0, int(cache_radius))
+        self.ref_dose_unit = dose_meta.get('units', '')
+        self.eval_dose_unit = eval_dose_unit or ''
 
         self.nz, self.ny, self.nx = self.ct.shape
         self.cur_z = self.nz // 2
@@ -375,8 +378,8 @@ class MultiPlaneViewer:
         self._trim_caches()
         self.fig.canvas.draw_idle()
 
-    def _format_dose_unit(self):
-        unit = str(self.dose_meta.get('units', '') or '').strip()
+    def _format_dose_unit(self, unit):
+        unit = str(unit or '').strip()
         if unit.upper() == 'GY':
             return 'Gy'
         return unit
@@ -402,12 +405,14 @@ class MultiPlaneViewer:
         hu = self._safe_voxel_value(self.ct, z, y, x)
         ref = self._safe_voxel_value(self.ref_dose, z, y, x)
         eva = self._safe_voxel_value(self.eval_dose, z, y, x)
-        unit = self._format_dose_unit()
-        unit_suffix = f" {unit}" if unit else ""
+        ref_unit = self._format_dose_unit(self.ref_dose_unit)
+        eval_unit = self._format_dose_unit(self.eval_dose_unit)
+        ref_suffix = f" {ref_unit}" if ref_unit else ""
+        eval_suffix = f" {eval_unit}" if eval_unit else ""
 
         hu_text = f"{int(round(hu))}" if hu is not None else "N/A"
-        ref_text = f"{ref:.3f}{unit_suffix}" if ref is not None else "N/A"
-        eval_text = f"{eva:.3f}{unit_suffix}" if eva is not None else "N/A"
+        ref_text = f"{ref:.3f}{ref_suffix}" if ref is not None else "N/A"
+        eval_text = f"{eva:.3f}{eval_suffix}" if eva is not None else "N/A"
         return f"HU: {hu_text}\nRef: {ref_text}\nEval: {eval_text}"
 
     def _cursor_xy_for_plane(self, plane):
@@ -738,10 +743,12 @@ def main():
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
     
     eval_on_ref = None
+    eval_dose_unit = None
     if args.gamma_npz:
         gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
             eval_meta = load_rtdose(args.eval)
+            eval_dose_unit = eval_meta.get('units')
             from rtgamma.io_dicom import world_to_index
             from rtgamma.main import build_ref_world_coords
             from rtgamma.resample import resample_eval_onto_ref
@@ -750,6 +757,7 @@ def main():
             eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
         eval_meta = load_rtdose(args.eval)
+        eval_dose_unit = eval_meta.get('units')
         from rtgamma.io_dicom import world_to_index
         from rtgamma.main import build_ref_world_coords
         from rtgamma.resample import resample_eval_onto_ref
@@ -772,7 +780,7 @@ def main():
     viewer = MultiPlaneViewer(ct_on_dose, gamma_map, dose_meta, dose_meta['dose'], eval_on_ref, rtstruct_meta, roi_names, per_structure,
                              {'dd': args.dd, 'dta': args.dta, 'cutoff': args.cutoff},
                              os.path.basename(args.ref), os.path.basename(args.eval) if args.eval else '',
-                             cache_radius=args.cache_radius)
+                             cache_radius=args.cache_radius, eval_dose_unit=eval_dose_unit)
     plt.show()
 
 if __name__ == '__main__':
