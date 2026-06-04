@@ -20,6 +20,7 @@ if exist ".venv\Scripts\python.exe" (
 set CT_DIR=dicom\PROSTATE
 set REF_FILE=dicom\PROSTATE\RTDOSE_2.16.840.1.114337.1.11224.1772428288.1.dcm
 set EVAL_FILE=dicom\PROSTATE_MC\RTDOSE_2.16.840.1.114337.1.14324.1772511250.1.dcm
+set STRUCT_FILE=dicom\PROSTATE\RTSTRUCT_2.16.840.1.114337.1.11224.1772428287.0.dcm
 set GAMMA_NPZ=output\test_gamma_3d_mc.npz
 
 if not exist "%CT_DIR%" (
@@ -34,6 +35,11 @@ if not exist "%REF_FILE%" (
 )
 if not exist "%EVAL_FILE%" (
     echo [ERROR] Evaluation RTDOSE not found: %EVAL_FILE%
+    pause
+    exit /b 1
+)
+if not exist "%STRUCT_FILE%" (
+    echo [ERROR] RTSTRUCT not found: %STRUCT_FILE%
     pause
     exit /b 1
 )
@@ -61,7 +67,8 @@ echo [2/2] Launching Fast 3D Viewer PoC...
     --ct "%CT_DIR%" ^
     --ref "%REF_FILE%" ^
     --eval "%EVAL_FILE%" ^
-    --gamma-npz "%GAMMA_NPZ%"
+    --gamma-npz "%GAMMA_NPZ%" ^
+    --rtstruct "%STRUCT_FILE%"
 
 if errorlevel 1 (
     echo [ERROR] Fast Viewer failed to launch.

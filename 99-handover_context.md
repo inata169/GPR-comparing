@@ -19,7 +19,30 @@
     - `scripts/gamma_viewer_fast.py` のimport順を修正し、6 checks成功を確認。
 - **次Issue作成**:
     - Issue #9: `Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証` を作成。
-    - 次回はFast Viewerの断面方向・上下左右・crosshair同期を旧Viewerと比較する。
+- **Issue #9 断面方向・同期検証の完了**:
+    - `run_viewer_test.bat` と `run_viewer_fast_test.bat` を同一PROSTATEデータで比較。
+    - Fast Viewer側で axial のY方向を旧Viewer (`origin='upper'`) に合わせ、Gamma overlay の NaN/inf 色変換warningも抑制。
+    - 目視確認で「臨床で普段扱うビューア相当の速度感」「Axi/Cor/Sag のスクロールも問題なし」と判断。
+    - 既存 `scripts/gamma_viewer.py`, `run_viewer_test.bat`, `run_gui_exe.bat` は変更なし。
+- **Fast Viewer旧Viewer相当サイドバー機能の追加**:
+    - Fast ViewerにRef/Evalファイル名、CT/Structure/ROI checkbox、Criteria/Cutoff、ROI GPR[%]表示を追加。
+    - overlay modeを `Gamma`, `Pass/Fail`, `Ref Dose`, `Eval Dose`, `Dose Ratio` へ拡張。
+    - `--rtstruct` / `--roi` に対応し、`run_viewer_fast_test.bat` でPROSTATE RTSTRUCTを渡すよう更新。
+    - 旧Viewerと既存GUIランチャーは変更なし。次は既存GUIへどう統合するかを判断する段階。
+- **Fast Viewer UI修正**:
+    - 画像クリックがImageItem/ROI描画に遮られてcrosshairへ反映されない問題に対し、PyQtGraph scene clickでもcursor更新するよう補強。
+    - 右サイドバーを廃止し、Ref/Evalファイル名・Structure/ROI・Overlay・ROI GPR表示を右下パネルへ移動。
+    - Overlay radio button / checkbox のindicatorを大きく色付きにして、選択状態を視覚的に分かりやすく修正。
+    - 追加修正: CT/overlayのImageItem自体にもclick handlerを持たせ、画像上のクリックを直接crosshair更新へ流すよう補強。右下パネルのStructure/ROI/Overlayの文字サイズ・フォントをROI GPRと同じmonospace小サイズへ統一。
+    - クリック不反応の原因調査: PyQtGraphのGraphicsScene内でImageItem/overlay/ROI itemが前面にある場合、ViewBox/scene click handlerだけでは実画面クリックを安定して拾えない。`GraphicsLayoutWidget.viewport()` にeventFilterを追加し、QtのMouseButtonPressを最前段で捕捉してcursor更新へ流すよう修正。
+    - Sagittal/Coronal画面のwheel方向を反転。トラックボールUp/Down時のcrosshair移動が臨床操作の体感と一致するよう調整。
+- **Fast Viewerの既存GUI選択式統合**:
+    - `scripts/run_gui.ps1` と `scripts/run_gui_exe.ps1` に `Viewer: Legacy / Fast` コンボを追加。
+    - 既定は Legacy。Fast選択時は `.venv\Scripts\python.exe` を優先し、無ければ `python` で `scripts/gamma_viewer_fast.py` を起動。
+    - INI保存時に `Analysis/viewer_type = legacy|fast` を保存し、次回起動時に復元。
+    - EXE版GUIでもFast選択は可能だが、Fast Viewer単体EXEは未作成のためPython/venvが必要。
+    - `run_gui_python.bat` を追加し、Python/source mode GUIを明示的に起動可能にした。
+    - `scripts/run_gui.ps1` をUTF-8 with BOMへ変換し、Windows PowerShellの `-File` 実行で日本語ツールチップが文字化けして構文エラーになる問題を修正。
 
 ### 本セッション (18) で完了したこと
 - **リポジトリ同期とCI安定化 (v0.8.7)**:
@@ -84,27 +107,22 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 
 | 優先度 | タスク | Tier | 備考 |
 |---|---|---|---|
-| 1 | **Fast 3D Viewer断面方向検証** | 2 | Issue #9。旧ViewerとFast Viewerで中心sliceを比較し、向き・crosshair同期を確認。 |
-| 2 | **Fast Viewer統合方針の決定** | 2 | 置換か選択式か、EXE同梱の要否をIssue #9後に判断。 |
-| 3 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
-| 4 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 5 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
+| 1 | **Fast ViewerのEXE同梱方針決定** | 2 | PySide6/pyqtgraphをPyInstallerへ含めるか、Python/venv前提にするか判断。 |
+| 2 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
+| 3 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
+| 4 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
 
 ## 3. 次のセッションで実行すべきこと
-1. **Issue #9の実施**:
-    - `run_viewer_test.bat` と `run_viewer_fast_test.bat` を同一PROSTATEデータで起動。
-    - axial / sagittal / coronal の中心sliceを比較。
-    - 明らかな上下左右反転、断面入れ替わり、cursor位置ズレがないか確認。
-2. **必要ならFast Viewer側のみ修正**:
-    - `scripts/gamma_viewer.py`, `run_viewer_test.bat`, `run_gui_exe.bat` は引き続き変更しない。
-    - 修正対象は `scripts/gamma_viewer_fast.py` とOpenSpec文書に限定。
-3. **検証コマンド**:
+1. **Fast ViewerのEXE同梱方針決定**:
+    - PySide6 / pyqtgraph をPyInstaller配布に含める場合のサイズ影響を確認する。
+    - 当面はGUI選択式で、FastはPython/venv起動のまま運用可能。
+2. **検証コマンド**:
     - `python -m ruff check rtgamma/ tests/ scripts/`
     - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
     - `git diff -- scripts/gamma_viewer.py run_viewer_test.bat run_gui_exe.bat`
 
 ## 4. 補足情報
-- Fast Viewer PoCは「まあまあ早い」体感で、継続判断可能。既存Viewerの正式置換はまだ行わない。
+- Fast Viewer PoCは「めちゃくちゃ速い」「普段臨床で扱っているものと同様」「文句なし」と目視評価済み。Axi/Cor/Sag のスクロールも問題なし。旧Viewer相当のサイドバー表示と5 overlay modeもFast Viewer側へ追加済み。
 - `.venv` は `.gitignore` に追加済み。Fast Viewerの依存関係は `setup_fast_viewer_venv.bat` で導入可能。
 - 現在ローカルmainはPR #8 merge commit `326c5c9` まで反映済み。
 - 未関係のローカル変更として `_ruff_log.txt` / `_ruff_log_utf8.txt` の削除、`config/gui_config.ini` の変更が残っている。次回コミット時に混ぜないこと。

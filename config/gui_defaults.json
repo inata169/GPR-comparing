@@ -4,6 +4,7 @@
     "cutoff":  "10.0",
     "norm":  "global_max",
     "action":  "3d",
+    "viewer_type":  "legacy",
     "threads":  1,
     "output_dir":  "C:\\Repositories\\GPR-comparing\\phits-linac-validation\\output\\rtgamma\\Test07_guiTest",
     "ct_dir":  "C:\\Repositories\\GPR-comparing\\dicom\\BreastBolus_CCC",

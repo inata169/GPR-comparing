@@ -12,14 +12,16 @@
 - 目的: Matplotlib/TkAgg 版3D Viewerの描画限界を超えられるか、PyQtGraph + PySide6 で検証します。
 - 起動: `run_viewer_fast_test.bat`
 - 依存関係: `pip install -r requirements-fast-viewer.txt`
-- 範囲: Axial / Sagittal / Coronal の3断面、CT表示、Gamma overlay、共有voxel cursor、`HU / Ref / Eval` ラベル表示。
-- 非範囲: 画像保存、スクリーンショット保存、設定保存、ROI/RTSTRUCT、EXE同梱、既存GUI統合。
+- 範囲: Axial / Sagittal / Coronal の3断面、CT表示、5 overlay mode（Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio）、共有voxel cursor、`HU / Ref / Eval` ラベル表示、Ref/Evalファイル名表示、RTSTRUCT輪郭表示、ROI別GPR表示。
+- 非範囲: 画像保存、スクリーンショット保存、設定保存、EXE同梱、既存GUI統合。
 - 操作:
   - マウスクリック: クリック断面上のvoxelへ共有cursorを移動。
   - マウスホイール: 操作中断面のslice indexを移動。
   - slice slider: Axial / Sagittal / Coronal を個別に移動。
   - いずれの操作でも3断面のcrosshairと `HU / Ref / Eval` ラベルを同期更新。
-  - Gamma alpha sliderはGamma overlayのみに作用。
+  - Overlay alpha sliderは現在選択中のoverlay表示に作用。
+  - CT / Structure / ROI checkboxで表示を切り替え。
+  - Overlay radio buttonでGamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratioを切り替え。
 - 安全動作:
   - `--gamma-npz` は既存Viewerと同じく `gamma` キーを基本とします。キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化します。
   - HU / Ref / Eval は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
@@ -30,6 +32,8 @@
   - `Output Folder` に保存先ディレクトリ（例: `phits-linac-validation/output/rtgamma/Test05_gui`）を指定。
 - アクション選択
   - Action: `3D (clinical preset)` または `2D (clinical preset)`（2D は Plane/Index 指定あり）。
+  - 3D Viewer起動時は Viewer: `Legacy` / `Fast` を選択可能。既定は `Legacy`。
+  - `Fast` は `.venv\Scripts\python.exe` を優先して `scripts/gamma_viewer_fast.py` を起動します。未セットアップの場合は `setup_fast_viewer_venv.bat` を実行してください。
   - Clinical Preset: 既定は `clinical_rel`（3%/2mm/10%、norm=global_max、opt-shift=off）。
   - Optimize shift: 既定は OFF（必要時のみ ON）。
   - Threads: CPU コア数を目安（0=auto）。
