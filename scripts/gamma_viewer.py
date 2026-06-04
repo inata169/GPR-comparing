@@ -122,6 +122,7 @@ class MultiPlaneViewer:
         self.lines = {} # crosshairs
         self.roi_artists = {} # LineCollection objects per plane per ROI
         self.text_artists = {}
+        self.cursor_value_artists = {}
         self.widgets = {} # Store widgets to prevent garbage collection
 
         self.cax = self.fig.add_axes([0.48, 0.1, 0.01, 0.35])
@@ -307,6 +308,18 @@ class MultiPlaneViewer:
             self.lines[(plane, 'v')] = ax.axvline(0, color='yellow', lw=0.5, alpha=0.6)
             self.text_artists[plane] = ax.text(0.03, 0.05, "", transform=ax.transAxes, color='#00FF00',
                                               fontsize=8, fontweight='bold', bbox=dict(boxstyle='round,pad=0.2', fc='black', alpha=0.6, ec='#333333'))
+            self.cursor_value_artists[plane] = ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(6, 6),
+                textcoords="offset points",
+                color='white',
+                family='monospace',
+                fontsize=8,
+                va='bottom',
+                ha='left',
+                bbox=dict(boxstyle='round,pad=0.25', fc='black', alpha=0.65, ec='#777777'),
+            )
             
             for ci, name in enumerate(self.roi_names):
                 lc = LineCollection([], colors=ROI_COLORS[ci % len(ROI_COLORS)], linewidths=1.2, alpha=0.9)
@@ -357,9 +370,59 @@ class MultiPlaneViewer:
         sync('sagittal', self.cur_x)
         sync('coronal', self.cur_y)
 
+        self._update_cursor_value_artists()
         self._prefetch_neighbors()
         self._trim_caches()
         self.fig.canvas.draw_idle()
+
+    def _format_dose_unit(self):
+        unit = str(self.dose_meta.get('units', '') or '').strip()
+        if unit.upper() == 'GY':
+            return 'Gy'
+        return unit
+
+    def _safe_voxel_value(self, volume, z, y, x):
+        if volume is None:
+            return None
+        if getattr(volume, 'ndim', None) != 3:
+            return None
+        if volume.shape != self.ct.shape:
+            return None
+        if not (0 <= z < volume.shape[0] and 0 <= y < volume.shape[1] and 0 <= x < volume.shape[2]):
+            return None
+        value = volume[z, y, x]
+        if not np.isfinite(value):
+            return None
+        return float(value)
+
+    def _format_cursor_value_text(self):
+        z = int(self.cur_z)
+        y = int(self.cur_y)
+        x = int(self.cur_x)
+        hu = self._safe_voxel_value(self.ct, z, y, x)
+        ref = self._safe_voxel_value(self.ref_dose, z, y, x)
+        eva = self._safe_voxel_value(self.eval_dose, z, y, x)
+        unit = self._format_dose_unit()
+        unit_suffix = f" {unit}" if unit else ""
+
+        hu_text = f"{int(round(hu))}" if hu is not None else "N/A"
+        ref_text = f"{ref:.3f}{unit_suffix}" if ref is not None else "N/A"
+        eval_text = f"{eva:.3f}{unit_suffix}" if eva is not None else "N/A"
+        return f"HU: {hu_text}\nRef: {ref_text}\nEval: {eval_text}"
+
+    def _cursor_xy_for_plane(self, plane):
+        if plane == 'axial':
+            return (int(self.cur_x), int(self.cur_y))
+        if plane == 'sagittal':
+            return (int(self.cur_y), int(self.cur_z))
+        return (int(self.cur_x), int(self.cur_z))
+
+    def _update_cursor_value_artists(self):
+        text = self._format_cursor_value_text()
+        for plane, artist in self.cursor_value_artists.items():
+            artist.xy = self._cursor_xy_for_plane(plane)
+            artist.set_text(text)
+            artist.set_visible(True)
 
     def _overlay_cache_key(self, plane, idx, mode):
         return (plane, int(idx), mode)
