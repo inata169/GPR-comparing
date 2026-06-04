@@ -1,4 +1,4 @@
-Param()
+﻿Param()
 
 $ErrorActionPreference = 'Stop'
 
@@ -297,9 +297,16 @@ $cbAction = New-DarkCombo 130 ($yf - 2) 180 @('Header Compare','3D Gamma','2D Ga
 $cbAction.SelectedIndex = 1
 $form.Controls.Add($cbAction)
 
+# Viewer Type
+$form.Controls.Add((New-DarkLabel 'Viewer' 340 $yf))
+$cbViewerType = New-DarkCombo 410 ($yf - 2) 110 @('Legacy','Fast')
+$cbViewerType.SelectedIndex = 0
+$tooltip.SetToolTip($cbViewerType, "3D Viewer起動時のみ有効です。Legacyは従来Matplotlib版、FastはPyQtGraph版を起動します。")
+$form.Controls.Add($cbViewerType)
+
 # Norm
-$form.Controls.Add((New-DarkLabel 'Norm' 340 $yf))
-$cbNorm = New-DarkCombo 410 ($yf - 2) 180 @('global_max','max_ref','none')
+$form.Controls.Add((New-DarkLabel 'Norm' 550 $yf))
+$cbNorm = New-DarkCombo 610 ($yf - 2) 130 @('global_max','max_ref','none')
 $cbNorm.SelectedIndex = 0
 $tooltip.SetToolTip($cbNorm, "DD[%]やCutoff[%]の100%の基準を定義します。`r`n・global_max: 全体の最大線量を100%とする（標準のQA運用）。`r`n・none: 正規化せず絶対線量(Gy)を直接%として扱う（特殊用途。GPRが大幅に低下します）。")
 $form.Controls.Add($cbNorm)
@@ -599,11 +606,25 @@ function Build-Command(){
     }
     3 { # 3D Viewer
       $ct = $tbCT.Text
-      $baseCmdName = 'python'
-      $baseArgs = @('-u', 'scripts/gamma_viewer.py')
-      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe")) {
-        $baseCmdName = "$ROOT\dist\gamma_viewer\gamma_viewer.exe"
-        $baseArgs = @()
+      $viewerType = [string]$cbViewerType.SelectedItem
+      if ($viewerType -eq 'Fast') {
+        $fastPython = Join-Path $ROOT '.venv\Scripts\python.exe'
+        if (Test-Path $fastPython) {
+          $baseCmdName = $fastPython
+        } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+          $baseCmdName = 'python'
+        } else {
+          [System.Windows.Forms.MessageBox]::Show("Fast Viewer requires Python with pyqtgraph/PySide6. Run setup_fast_viewer_venv.bat first.","Error","OK","Error")
+          return $null
+        }
+        $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
+      } else {
+        $baseCmdName = 'python'
+        $baseArgs = @('-u', 'scripts/gamma_viewer.py')
+        if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe")) {
+          $baseCmdName = "$ROOT\dist\gamma_viewer\gamma_viewer.exe"
+          $baseArgs = @()
+        }
       }
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
@@ -823,6 +844,12 @@ try {
       'viewer' { $cbAction.SelectedIndex = 3 }
     }
   }
+  if ($cfg['viewer_type']) {
+    switch ([string]$cfg['viewer_type']) {
+      'legacy' { $cbViewerType.SelectedIndex = 0 }
+      'fast'   { $cbViewerType.SelectedIndex = 1 }
+    }
+  }
   if ($cfg['plane']) {
     $plIdx = $cbPlane.Items.IndexOf([string]$cfg['plane'])
     if ($plIdx -ge 0) { $cbPlane.SelectedIndex = $plIdx }
@@ -851,6 +878,8 @@ $btnSave.Add_Click({
   if (-not $presetVal) { $presetVal = 'Custom' }
   $normVal = $cbNorm.SelectedItem
   if (-not $normVal) { $normVal = 'global_max' }
+  $viewerTypeVal = ([string]$cbViewerType.SelectedItem).ToLower()
+  if (-not $viewerTypeVal) { $viewerTypeVal = 'legacy' }
   $data = [ordered]@{
     'Paths' = [ordered]@{
       ref_dose   = $tbRef.Text
@@ -872,6 +901,7 @@ $btnSave.Add_Click({
       action           = $actionKey
       plane            = $planeVal
       plane_index      = $tbPlaneIdx.Text
+      viewer_type      = $viewerTypeVal
       threads          = [string][int]$nudThreads.Value
       optimize_shift   = $cbOpt.Checked.ToString().ToLower()
       local_gamma      = $cbLocal.Checked.ToString().ToLower()

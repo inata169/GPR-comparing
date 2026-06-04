@@ -17,6 +17,34 @@
    - 次Issueとして **Issue #9: Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証** を作成。
    - 次回は旧ViewerとFast Viewerを同一データ・同一中心sliceで比較し、断面方向とcrosshair同期を確認する。
 
+4. **Issue #9: Fast Viewer 断面方向・同期確認**
+   - 旧ViewerとFast Viewerを同一PROSTATEデータで比較し、Axi/Cor/Sag のスクロールとcrosshair同期を目視確認。
+   - Fast Viewer側のみ、axial のY方向を旧Viewerの表示仕様に合わせる最小修正を実施。
+   - Gamma overlay の NaN/inf 色変換warningを抑制。
+   - 目視評価として「臨床で普段扱うビューア相当の速度感」「文句なし」と判断。次は既存GUIへの統合方式を決める段階。
+
+5. **Fast Viewer旧Viewer相当サイドバー機能の追加**
+   - Ref/Evalファイル名、CT/Structure/ROI checkbox、Criteria/Cutoff、ROI GPR[%]表示をFast Viewerへ追加。
+   - overlay modeを `Gamma`, `Pass/Fail`, `Ref Dose`, `Eval Dose`, `Dose Ratio` に拡張。
+   - `--rtstruct` / `--roi` に対応し、PROSTATE用 `run_viewer_fast_test.bat` からRTSTRUCTを渡すよう更新。
+   - OpenSpecを更新し、Fast ViewerのROI/RTSTRUCT非対応記述を現状に合わせて修正。
+
+6. **Fast Viewer UI修正**
+   - 画像クリックがcrosshairへ反映されない問題を、PyQtGraph scene click経由でもcursor更新することで修正。
+   - 右サイドバーを右下パネルへ移動し、画像表示領域を広く確保。
+   - Overlay radio button / checkbox の選択状態を大きく色付きで表示し、視認性を改善。
+   - 追加修正として、CT/overlayのImageItemにもclick handlerを追加し、画像上のクリックを直接crosshair更新へ流すよう補強。右下パネルのフォントをROI GPRと同じmonospace小サイズへ統一。
+   - クリック不反応の原因調査として、PyQtGraphのitem/view click経路だけでは前面item構成により実画面クリックを安定して拾えないことを確認。`GraphicsLayoutWidget.viewport()` のeventFilterでMouseButtonPressを捕捉する方式へ補強。
+   - Sagittal/Coronal画面のwheel方向を反転し、トラックボールUp/Down時のcrosshair移動が臨床操作の体感と一致するよう調整。
+
+7. **Fast Viewerの既存GUI選択式統合**
+   - `scripts/run_gui.ps1` と `scripts/run_gui_exe.ps1` に `Viewer: Legacy / Fast` コンボを追加。
+   - Legacyは従来Viewer、Fastは `.venv\Scripts\python.exe` 優先で `scripts/gamma_viewer_fast.py` を起動。
+   - `Analysis/viewer_type = legacy|fast` をINI保存・復元対象に追加。
+   - 既定は安全側のLegacyを維持。EXE版GUIでFastを選ぶ場合はPython/venvが必要。
+   - `run_gui_python.bat` を追加し、Python/source mode GUIを明示的に起動できるようにした。
+   - `scripts/run_gui.ps1` をUTF-8 with BOMへ変換し、Windows PowerShellの `-File` 実行で日本語文字列が文字化けして構文エラーになる問題を修正。
+
 ## 検証
 
 - PR #8 CI: ubuntu/windows x Python 3.10/3.11/3.12 の6 checks成功。
@@ -24,6 +52,14 @@
   - `python -m ruff check rtgamma/ tests/ scripts/`
   - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
   - `python -m py_compile scripts/gamma_viewer_fast.py`（`PYTHONPYCACHEPREFIX` 指定）
+  - Fast ViewerをPROSTATE + RTSTRUCTでヘッドレス起動し、overlay mode / CT / Structure / ROI切替を確認
+  - Fast Viewerのviewport click / scene click / ImageItem click経由でcrosshair cursorが更新されることを確認
+  - Sagittal wheelでUp時に `cur_x` が減少し、Down時に戻ることを確認
+  - Coronal wheelでUp時に `cur_y` が減少し、Down時に戻ることを確認
+  - `scripts/run_gui.ps1` / `scripts/run_gui_exe.ps1` をUTF-8としてPowerShell AST parse確認
+  - `scripts/run_gui.ps1` をBOM付きとして `ParseFile` 確認
+  - `run_gui_python.bat` 起動でPowerShell/Pythonプロセスが立つことを確認
+  - `git diff -- scripts/gamma_viewer.py run_viewer_test.bat` が空であり、旧Viewer本体と旧Viewerテストbatを変更していないことを確認
 
 ---
 

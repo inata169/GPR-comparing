@@ -10,10 +10,19 @@ High priority
   - [x] `.venv` セットアップ用 `setup_fast_viewer_venv.bat` を追加
   - [x] `run_viewer_fast_test.bat` を追加
   - [x] OpenSpecへPoC範囲・非範囲・操作仕様を反映
-- [ ] **Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証**（Issue #9）
-  - [ ] 旧ViewerとFast Viewerで同一中心sliceを比較
-  - [ ] axial / sagittal / coronal の上下左右反転・断面入れ替わりを確認
-  - [ ] click / wheel / slider のcrosshair同期と `HU / Ref / Eval` ラベル同期を確認
+- [x] **Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証**（Issue #9）
+  - [x] 旧ViewerとFast Viewerで同一中心sliceを比較
+  - [x] axial / sagittal / coronal の上下左右反転・断面入れ替わりを確認
+  - [x] click / wheel / slider のcrosshair同期と `HU / Ref / Eval` ラベル同期を確認
+  - [x] 臨床で普段扱うビューア相当の速度感で、Axi/Cor/Sag のスクロールも問題なしと目視確認
+- [x] **Fast Viewer旧Viewer相当サイドバー機能の追加**
+  - [x] Ref/Evalファイル名、CT/Structure/ROI checkbox、Criteria/Cutoff、ROI GPRを表示
+  - [x] `Gamma`, `Pass/Fail`, `Ref Dose`, `Eval Dose`, `Dose Ratio` のoverlay切替を追加
+  - [x] `--rtstruct` / `--roi` に対応し、PROSTATE用 `run_viewer_fast_test.bat` からRTSTRUCTを渡す
+- [x] **Fast Viewer統合方針の決定とGUI選択式統合**
+  - [x] 旧Viewerを残し、GUIから `Legacy` / `Fast` を選択できる方式に決定
+  - [x] `config/gui_config.ini` 保存時に `Analysis/viewer_type = legacy|fast` を保持
+  - [x] Fast選択時は `.venv\Scripts\python.exe` 優先で `scripts/gamma_viewer_fast.py` を起動
 - [x] **ポータブル実行環境 (EXE版GUI) の構築と安定化 (完了)**
 - [x] **DVH（線量体積ヒストグラム）計算・比較機能の実装 (完了)**
 - [x] **ビルドの安定性復旧と実行時エラーの解消 (完了)**
