@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 def _import_qtgraph():
     try:
-        from PySide6 import QtCore, QtWidgets
         import pyqtgraph as pg
+        from PySide6 import QtCore, QtWidgets
     except ImportError as exc:
         print("[ERROR] Fast Viewer dependencies are missing.")
         print("Install them with:")
