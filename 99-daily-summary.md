@@ -1,3 +1,32 @@
+# Daily Summary: 2026-06-04 (セッション19)
+
+## 作業内容サマリ
+
+1. **3D Viewer高速化・表示補助機能の完了**
+   - **PR #6**: `scripts/gamma_viewer.py` に軽量overlay/structure cacheを追加し、`--cache-radius` によるキャッシュ制御を実装。既存表示仕様・座標仕様は変更せず、CI通過後にmainへマージ。
+   - **PR #7**: 3D Viewerのクロスポイントに `HU / Ref Dose / Eval Dose` を表示するAnnotationを追加。strict shape matching、個別N/A表示、Ref/Eval別Dose単位表示に対応し、mainへマージ。
+
+2. **PyQtGraph版 Fast 3D Viewer PoC の追加**
+   - **PR #8**: `scripts/gamma_viewer_fast.py`、`requirements-fast-viewer.txt`、`run_viewer_fast_test.bat`、`setup_fast_viewer_venv.bat` を追加。
+   - Fast Viewerは Axial / Sagittal / Coronal の3断面、CT grayscale、Gamma overlay、共有voxel cursor、`HU / Ref / Eval` ラベルに限定したPoC。
+   - `.venv` セットアップと起動batを整備し、既存 `scripts/gamma_viewer.py` / `run_viewer_test.bat` / `run_gui_exe.bat` は変更しない方針を維持。
+   - CI失敗（ruff import ordering）を修正し、6 checks成功後にPR #8をReady化してmainへsquash merge。
+
+3. **OpenSpecと次Issueの整理**
+   - `docs/openspec/GUI_RUN.md` と `docs/openspec/rtgamma_openspec.md` にFast Viewer PoCの目的、範囲、非範囲、操作仕様、安全動作を反映。
+   - 次Issueとして **Issue #9: Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証** を作成。
+   - 次回は旧ViewerとFast Viewerを同一データ・同一中心sliceで比較し、断面方向とcrosshair同期を確認する。
+
+## 検証
+
+- PR #8 CI: ubuntu/windows x Python 3.10/3.11/3.12 の6 checks成功。
+- ローカル確認:
+  - `python -m ruff check rtgamma/ tests/ scripts/`
+  - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
+  - `python -m py_compile scripts/gamma_viewer_fast.py`（`PYTHONPYCACHEPREFIX` 指定）
+
+---
+
 # Daily Summary: 2026-04-14 (セッション18)
 
 ## 作業内容サマリ

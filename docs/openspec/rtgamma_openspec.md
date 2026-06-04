@@ -5,6 +5,7 @@
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
+- Status (2026-06-04): Fast 3D Viewer PoC は PR #8 で main にマージ済み。次段階は Issue #9 で旧Viewerとの断面方向比較を行う。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases

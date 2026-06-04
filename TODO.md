@@ -1,8 +1,19 @@
 # TODO (Next Actions)
 
-Date: 2026-04-14 (v0.8.7)
+Date: 2026-06-04 (Fast Viewer PoC merged)
 
 High priority
+- [x] **3D Viewer軽量キャッシュ高速化PRの完了**（PR #6 merged）
+- [x] **3D Viewerクロスポイント値表示の完了**（PR #7 merged）
+- [x] **PyQtGraph版 Fast 3D Viewer PoC の追加**（PR #8 merged）
+  - [x] `scripts/gamma_viewer_fast.py` を追加
+  - [x] `.venv` セットアップ用 `setup_fast_viewer_venv.bat` を追加
+  - [x] `run_viewer_fast_test.bat` を追加
+  - [x] OpenSpecへPoC範囲・非範囲・操作仕様を反映
+- [ ] **Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証**（Issue #9）
+  - [ ] 旧ViewerとFast Viewerで同一中心sliceを比較
+  - [ ] axial / sagittal / coronal の上下左右反転・断面入れ替わりを確認
+  - [ ] click / wheel / slider のcrosshair同期と `HU / Ref / Eval` ラベル同期を確認
 - [x] **ポータブル実行環境 (EXE版GUI) の構築と安定化 (完了)**
 - [x] **DVH（線量体積ヒストグラム）計算・比較機能の実装 (完了)**
 - [x] **ビルドの安定性復旧と実行時エラーの解消 (完了)**

@@ -1,6 +1,25 @@
-# 記憶の引き継ぎ書: Handover Context (2026-04-14 v0.8.7 完了時)
+# 記憶の引き継ぎ書: Handover Context (2026-06-04 Fast Viewer PoC 完了時)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (19) で完了したこと
+- **3D Viewer軽量高速化PRの完了**:
+    - PR #6 `feat(viewer): 3Dビューアに軽量キャッシュを追加` をmainへマージ。
+    - `--cache-radius`、overlay cache、structure cacheを追加。表示仕様・座標仕様・CT Window/Levelは変更しない方針を維持。
+- **クロスポイント値表示の完了**:
+    - PR #7 `feat(viewer): クロスポイントにHUと線量を表示` をmainへマージ。
+    - 各断面のcrosshair交点に `HU / Ref / Eval` を表示。strict shape matching、個別 `N/A`、Dose単位 `Gy` 表示に対応。
+- **PyQtGraph版 Fast 3D Viewer PoC の追加**:
+    - PR #8 `feat(viewer): PyQtGraph版Fast 3D Viewer PoCを追加` をmainへsquash merge。
+    - 追加ファイル: `scripts/gamma_viewer_fast.py`, `requirements-fast-viewer.txt`, `run_viewer_fast_test.bat`, `setup_fast_viewer_venv.bat`。
+    - `.venv` 環境でFast Viewerを起動できるよう整備。
+    - 既存 `scripts/gamma_viewer.py`, `run_viewer_test.bat`, `run_gui_exe.bat` は変更なし。
+- **CI対応**:
+    - PR #8 初回CI失敗は `ruff` のimport orderingが原因。
+    - `scripts/gamma_viewer_fast.py` のimport順を修正し、6 checks成功を確認。
+- **次Issue作成**:
+    - Issue #9: `Fast 3D Viewer PoC: 断面方向と旧Viewer比較の検証` を作成。
+    - 次回はFast Viewerの断面方向・上下左右・crosshair同期を旧Viewerと比較する。
 
 ### 本セッション (18) で完了したこと
 - **リポジトリ同期とCI安定化 (v0.8.7)**:
@@ -65,15 +84,27 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 
 | 優先度 | タスク | Tier | 備考 |
 |---|---|---|---|
-| 1 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 (現在Pending) |
-| 2 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 3 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 4 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
+| 1 | **Fast 3D Viewer断面方向検証** | 2 | Issue #9。旧ViewerとFast Viewerで中心sliceを比較し、向き・crosshair同期を確認。 |
+| 2 | **Fast Viewer統合方針の決定** | 2 | 置換か選択式か、EXE同梱の要否をIssue #9後に判断。 |
+| 3 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
+| 4 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
+| 5 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
 
 ## 3. 次のセッションで実行すべきこと
-1. **不確かさの解析機能実装**: ブートストラップ法によるパス率の信頼区間算出。
-2. **EXEビルドの再挑戦 (再開時)**: `scripts/build_exe.ps1` を見直し、MKL等の除外を徹底して 250MB 程度を目指す。
+1. **Issue #9の実施**:
+    - `run_viewer_test.bat` と `run_viewer_fast_test.bat` を同一PROSTATEデータで起動。
+    - axial / sagittal / coronal の中心sliceを比較。
+    - 明らかな上下左右反転、断面入れ替わり、cursor位置ズレがないか確認。
+2. **必要ならFast Viewer側のみ修正**:
+    - `scripts/gamma_viewer.py`, `run_viewer_test.bat`, `run_gui_exe.bat` は引き続き変更しない。
+    - 修正対象は `scripts/gamma_viewer_fast.py` とOpenSpec文書に限定。
+3. **検証コマンド**:
+    - `python -m ruff check rtgamma/ tests/ scripts/`
+    - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
+    - `git diff -- scripts/gamma_viewer.py run_viewer_test.bat run_gui_exe.bat`
 
 ## 4. 補足情報
-- 今回の最適化により、GPR計算自体のボトルネックはほぼ解消。次なる速度向上はI/O（DICOM読み込み）やリサンプリング側の並列化となるが、現状で十分実用的。
-- `rtgamma_openspec.md` および `TODO.md` は高速化完了を反映済み。
+- Fast Viewer PoCは「まあまあ早い」体感で、継続判断可能。既存Viewerの正式置換はまだ行わない。
+- `.venv` は `.gitignore` に追加済み。Fast Viewerの依存関係は `setup_fast_viewer_venv.bat` で導入可能。
+- 現在ローカルmainはPR #8 merge commit `326c5c9` まで反映済み。
+- 未関係のローカル変更として `_ruff_log.txt` / `_ruff_log_utf8.txt` の削除、`config/gui_config.ini` の変更が残っている。次回コミット時に混ぜないこと。
