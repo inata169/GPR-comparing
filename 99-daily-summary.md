@@ -1,3 +1,30 @@
+# Daily Summary: 2026-06-05 (セッション20 引き継ぎ)
+
+## 作業内容サマリ
+
+1. **Fast Viewer最終確認タスクの整理**
+   - PR #11 / #12 修正後の最終確認として、PROSTATEデータでFast Viewerを再起動する。
+   - Gamma overlayで `gamma=0` 領域が消えないことを確認する。
+   - 古い/別gridの `gamma3d.npz` でも、RTSTRUCT付き起動で落ちないことを確認する。
+
+2. **GUI経由の運用確認予定**
+   - `run_gui_python.bat` でGUIを起動する。
+   - Viewerを `Fast` にして3D Viewerを起動する。
+   - Legacy / Fast の切替が期待通り動くか確認する。
+
+3. **次の判断事項**
+   - Fast Viewerを既定Viewerにするか、Legacy/Fast選択式のまま運用するかを判断する。
+   - EXE化する場合はPySide6込みでサイズが大きくなるため、配布方法を決める。
+
+## 引き継ぎ受領時の状態
+
+- `config/gui_config.ini` のローカル差分は戻し済み。
+- `main...origin/main`
+- 未コミット差分なし。
+- `C:\Users\...\ .config\git\ignore` の Permission denied 警告はリポジトリ差分ではない。
+
+---
+
 # Daily Summary: 2026-06-04 (セッション19)
 
 ## 作業内容サマリ

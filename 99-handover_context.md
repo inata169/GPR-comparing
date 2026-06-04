@@ -1,4 +1,4 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-04 Fast Viewer PoC 完了時)
+# 記憶の引き継ぎ書: Handover Context (2026-06-05 Fast Viewer最終確認前)
 
 ## 1. 現在の進捗状況 (Current Progress)
 
@@ -107,16 +107,27 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 
 | 優先度 | タスク | Tier | 備考 |
 |---|---|---|---|
-| 1 | **Fast ViewerのEXE同梱方針決定** | 2 | PySide6/pyqtgraphをPyInstallerへ含めるか、Python/venv前提にするか判断。 |
-| 2 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
-| 3 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 4 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
+| 1 | **Fast Viewerの実運用前最終確認** | 2 | PR #11 / #12 修正後にPROSTATEデータで再起動し、`gamma=0` overlayと古い/別grid `gamma3d.npz` + RTSTRUCT起動を確認。 |
+| 2 | **GUI経由の運用確認** | 2 | `run_gui_python.bat` からViewerを `Fast` にして3D Viewerを起動し、Legacy / Fast切替を確認。 |
+| 3 | **Fast Viewer運用方針の最終判断** | 2 | 既定Viewer化するか、Legacy/Fast選択式のまま運用するか判断。 |
+| 4 | **Fast ViewerのEXE同梱方針決定** | 2 | PySide6/pyqtgraphをPyInstallerへ含める場合はサイズが大きくなるため、配布方法を決める。 |
+| 5 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
+| 6 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
+| 7 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
 
 ## 3. 次のセッションで実行すべきこと
-1. **Fast ViewerのEXE同梱方針決定**:
-    - PySide6 / pyqtgraph をPyInstaller配布に含める場合のサイズ影響を確認する。
-    - 当面はGUI選択式で、FastはPython/venv起動のまま運用可能。
-2. **検証コマンド**:
+1. **Fast Viewerの最終確認**:
+    - PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する。
+    - Gamma overlayで `gamma=0` 領域が消えないことを確認する。
+    - 古い/別gridの `gamma3d.npz` でもRTSTRUCT付き起動で落ちないことを確認する。
+2. **GUI経由の運用確認**:
+    - `run_gui_python.bat` でGUIを起動する。
+    - Viewerを `Fast` にして3D Viewerを起動する。
+    - Legacy / Fast の切替が期待通り動くか確認する。
+3. **次の判断**:
+    - Fast Viewerを既定Viewerにするか、Legacy/Fast選択式のまま運用するか判断する。
+    - EXE化する場合はPySide6込みでサイズが大きくなるため、配布方法を決める。
+4. **検証コマンド**:
     - `python -m ruff check rtgamma/ tests/ scripts/`
     - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
     - `git diff -- scripts/gamma_viewer.py run_viewer_test.bat run_gui_exe.bat`
@@ -124,5 +135,5 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 ## 4. 補足情報
 - Fast Viewer PoCは「めちゃくちゃ速い」「普段臨床で扱っているものと同様」「文句なし」と目視評価済み。Axi/Cor/Sag のスクロールも問題なし。旧Viewer相当のサイドバー表示と5 overlay modeもFast Viewer側へ追加済み。
 - `.venv` は `.gitignore` に追加済み。Fast Viewerの依存関係は `setup_fast_viewer_venv.bat` で導入可能。
-- 現在ローカルmainはPR #8 merge commit `326c5c9` まで反映済み。
-- 未関係のローカル変更として `_ruff_log.txt` / `_ruff_log_utf8.txt` の削除、`config/gui_config.ini` の変更が残っている。次回コミット時に混ぜないこと。
+- 引き継ぎ受領時の作業ツリーは `main...origin/main` で未コミット差分なし。`config/gui_config.ini` のローカル差分は戻し済み。
+- `C:\Users\...\ .config\git\ignore` の Permission denied 警告はリポジトリ差分ではない。

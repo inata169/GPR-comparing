@@ -1,8 +1,20 @@
 # TODO (Next Actions)
 
-Date: 2026-06-04 (Fast Viewer PoC merged)
+Date: 2026-06-05 (Fast Viewer final operational check)
 
 High priority
+- [ ] **Fast Viewerの実運用前最終確認**
+  - [ ] PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する
+  - [ ] Gamma overlayで `gamma=0` 領域が消えないことを確認する
+  - [ ] 古い/別gridの `gamma3d.npz` でもRTSTRUCT付き起動で落ちないことを確認する
+- [ ] **GUI経由の運用確認**
+  - [ ] `run_gui_python.bat` でGUIを起動する
+  - [ ] Viewerを `Fast` にして3D Viewerを起動する
+  - [ ] Legacy / Fast の切替が期待通り動くことを確認する
+- [ ] **Fast Viewer運用方針の最終判断**
+  - [ ] Fast Viewerを既定Viewerにするか判断する
+  - [ ] Legacy/Fast選択式のまま運用するか判断する
+  - [ ] EXE化する場合はPySide6込みでサイズが大きくなるため、配布方法を決める
 - [x] **3D Viewer軽量キャッシュ高速化PRの完了**（PR #6 merged）
 - [x] **3D Viewerクロスポイント値表示の完了**（PR #7 merged）
 - [x] **PyQtGraph版 Fast 3D Viewer PoC の追加**（PR #8 merged）
