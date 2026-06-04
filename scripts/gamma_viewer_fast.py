@@ -874,7 +874,8 @@ def main(argv=None) -> int:
         roi_names = []
 
     per_structure = []
-    roi_masks = build_roi_masks(rtstruct_meta, dose_meta, roi_names=roi_names) if rtstruct_meta and gamma is not None else {}
+    gamma_shape_matches_ref = gamma is not None and gamma.shape == dose_meta["dose"].shape
+    roi_masks = build_roi_masks(rtstruct_meta, dose_meta, roi_names=roi_names) if rtstruct_meta and gamma_shape_matches_ref else {}
     for name, mask in roi_masks.items():
         masked_gamma = gamma[mask]
         finite = np.isfinite(masked_gamma)
