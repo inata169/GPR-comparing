@@ -39,7 +39,7 @@ _PASS_FAIL_CMAP = ListedColormap(['#00CC00', '#FF2222'])
 class MultiPlaneViewer:
     def __init__(self, ct, gamma, dose_meta, ref_dose=None, eval_dose=None,
                  rtstruct_meta=None, roi_names=None, per_structure_stats=None,
-                 gpr_cond=None, ref_label='', eval_label=''):
+                 gpr_cond=None, ref_label='', eval_label='', cache_radius=15):
         self.ct = ct        # (z, y, x)
         self.gamma = gamma  # (z, y, x)
         self.dose_meta = dose_meta
@@ -51,6 +51,7 @@ class MultiPlaneViewer:
         self.gpr_cond = gpr_cond
         self.ref_label = ref_label
         self.eval_label = eval_label
+        self.cache_radius = max(0, int(cache_radius))
 
         self.nz, self.ny, self.nx = self.ct.shape
         self.cur_z = self.nz // 2
@@ -67,6 +68,7 @@ class MultiPlaneViewer:
         self.roi_visible = {name: True for name in self.roi_names}
         self.overlay_mode = 'Gamma'
         self.show_help = False
+        self._last_active_plane = 'axial'
 
         self._load_state()
 
@@ -87,8 +89,8 @@ class MultiPlaneViewer:
                 if roi['name'] in self.roi_names:
                     self.roi_contours[roi['name']] = roi['contours']
 
-        # Cache axial contours per slice for speed
-        self._axial_contour_cache = {} # {z_idx: {roi_name: [segments]}}
+        self._overlay_cache = {}
+        self._structure_cache = {}
 
         self._init_plots()
 
@@ -213,6 +215,7 @@ class MultiPlaneViewer:
         self.t_help.set_visible(False)
 
     def _on_widget_change(self, plane, source, val):
+        self._last_active_plane = plane
         if source == 'slider':
             idx = int(val)
         else:
@@ -246,6 +249,7 @@ class MultiPlaneViewer:
 
     def _on_mode_change(self, label):
         self.overlay_mode = label
+        self._invalidate_overlay_cache()
         self._update_display(full=True)
 
     def _on_visibility_change(self, label):
@@ -261,10 +265,18 @@ class MultiPlaneViewer:
 
     def _on_scroll(self, event):
         ax, step = event.inaxes, (1 if event.button == 'up' else -1)
-        if ax == self.ax_ax: self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
-        elif ax == self.ax_sag: self.cur_x = np.clip(self.cur_x + step, 0, self.nx - 1)
-        elif ax == self.ax_cor: self.cur_y = np.clip(self.cur_y + step, 0, self.ny - 1)
-        else: self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
+        if ax == self.ax_ax:
+            self._last_active_plane = 'axial'
+            self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
+        elif ax == self.ax_sag:
+            self._last_active_plane = 'sagittal'
+            self.cur_x = np.clip(self.cur_x + step, 0, self.nx - 1)
+        elif ax == self.ax_cor:
+            self._last_active_plane = 'coronal'
+            self.cur_y = np.clip(self.cur_y + step, 0, self.ny - 1)
+        else:
+            self._last_active_plane = 'axial'
+            self.cur_z = np.clip(self.cur_z + step, 0, self.nz - 1)
         self._update_display()
 
     def _on_key(self, event):
@@ -273,9 +285,15 @@ class MultiPlaneViewer:
 
     def _update_cursor(self, event):
         ix, iy = int(round(event.xdata)), int(round(event.ydata))
-        if event.inaxes == self.ax_ax: self.cur_x, self.cur_y = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.ny-1)
-        elif event.inaxes == self.ax_sag: self.cur_y, self.cur_z = np.clip(ix, 0, self.ny-1), np.clip(iy, 0, self.nz-1)
-        elif event.inaxes == self.ax_cor: self.cur_x, self.cur_z = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.nz-1)
+        if event.inaxes == self.ax_ax:
+            self._last_active_plane = 'axial'
+            self.cur_x, self.cur_y = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.ny-1)
+        elif event.inaxes == self.ax_sag:
+            self._last_active_plane = 'sagittal'
+            self.cur_y, self.cur_z = np.clip(ix, 0, self.ny-1), np.clip(iy, 0, self.nz-1)
+        elif event.inaxes == self.ax_cor:
+            self._last_active_plane = 'coronal'
+            self.cur_x, self.cur_z = np.clip(ix, 0, self.nx-1), np.clip(iy, 0, self.nz-1)
 
     def _first_draw(self):
         """Initial creation of all artists."""
@@ -339,25 +357,181 @@ class MultiPlaneViewer:
         sync('sagittal', self.cur_x)
         sync('coronal', self.cur_y)
 
+        self._prefetch_neighbors()
+        self._trim_caches()
         self.fig.canvas.draw_idle()
+
+    def _overlay_cache_key(self, plane, idx, mode):
+        return (plane, int(idx), mode)
+
+    def _structure_cache_key(self, plane, idx, name):
+        return (plane, int(idx), name)
+
+    def _expected_shape(self, plane):
+        if plane == 'axial':
+            return (self.ny, self.nx)
+        if plane == 'sagittal':
+            return (self.nz, self.ny)
+        return (self.nz, self.nx)
+
+    def _slice_for_plane(self, volume, plane, idx):
+        if volume is None:
+            return None
+        if plane == 'axial':
+            return volume[idx, :, :]
+        if plane == 'sagittal':
+            return volume[:, :, idx]
+        return volume[:, idx, :]
+
+    def _slice_gpr_text(self, g2d):
+        valid = np.isfinite(g2d) & (g2d > 0)
+        if not np.any(valid):
+            return None
+        n_v, n_ok = np.sum(valid), np.sum(g2d[valid] <= 1.0)
+        sgpr = n_ok / n_v * 100.0
+        return f"Slice GPR: {sgpr:.1f}% ({n_ok}/{n_v})"
+
+    def _compute_pass_fail_entry(self, g2d):
+        pf = np.full_like(g2d, np.nan)
+        v = np.isfinite(g2d) & (g2d != 0)
+        pf[v & (g2d <= 1.0)] = 0
+        pf[v & (g2d > 1.0)] = 1
+        return {'data': pf, 'mask': ~v, 'cmap': _PASS_FAIL_CMAP, 'clim': (0, 1)}
+
+    def _compute_overlay_entry(self, plane, idx, mode):
+        g2d = self._slice_for_plane(self.gamma, plane, idx)
+        ref2d = self._slice_for_plane(self.ref_dose, plane, idx)
+        eval2d = self._slice_for_plane(self.eval_dose, plane, idx)
+        ratio2d = self._slice_for_plane(self.dose_ratio, plane, idx)
+        stats_text = self._slice_gpr_text(g2d)
+
+        if mode == 'Gamma':
+            entry = {
+                'data': g2d,
+                'mask': ~np.isfinite(g2d) | (g2d == 0),
+                'cmap': 'turbo',
+                'clim': (0, 2),
+            }
+        elif mode == 'Pass/Fail':
+            entry = self._compute_pass_fail_entry(g2d)
+        elif mode == 'Ref Dose' and ref2d is not None:
+            entry = {
+                'data': ref2d,
+                'mask': ref2d < self._dose_vmax*0.1,
+                'cmap': 'jet',
+                'clim': (0, self._dose_vmax),
+            }
+        elif mode == 'Eval Dose' and eval2d is not None:
+            entry = {
+                'data': eval2d,
+                'mask': eval2d < self._dose_vmax*0.1,
+                'cmap': 'jet',
+                'clim': (0, self._dose_vmax),
+            }
+        elif mode == 'Dose Ratio' and ratio2d is not None:
+            entry = {
+                'data': ratio2d,
+                'mask': ~np.isfinite(ratio2d),
+                'cmap': 'bwr',
+                'clim': (0.8, 1.2),
+            }
+        else:
+            entry = {'visible': False}
+
+        entry['visible'] = entry.get('visible', True)
+        entry['stats_text'] = stats_text
+        return entry
+
+    def _entry_shape_matches(self, entry, expected_shape):
+        if not entry.get('visible', True):
+            return True
+        data = entry.get('data')
+        mask = entry.get('mask')
+        if data is None or data.shape != expected_shape:
+            return False
+        return mask is None or mask.shape == expected_shape
+
+    def _get_overlay_entry(self, plane, idx, mode):
+        if self.cache_radius == 0:
+            return self._compute_overlay_entry(plane, idx, mode)
+
+        key = self._overlay_cache_key(plane, idx, mode)
+        expected_shape = self._expected_shape(plane)
+        entry = self._overlay_cache.get(key)
+        if entry is not None:
+            if self._entry_shape_matches(entry, expected_shape):
+                return entry
+            self._overlay_cache.pop(key, None)
+
+        entry = self._compute_overlay_entry(plane, idx, mode)
+        if self._entry_shape_matches(entry, expected_shape):
+            self._overlay_cache[key] = entry
+        return entry
+
+    def _apply_overlay_entry(self, im_ovl, entry, expected_shape):
+        if not entry.get('visible', True):
+            im_ovl.set_visible(False)
+            return
+
+        if not self._entry_shape_matches(entry, expected_shape):
+            im_ovl.set_visible(False)
+            return
+
+        data = entry['data']
+        mask = entry.get('mask')
+        im_ovl.set_data(np.ma.array(data, mask=mask) if mask is not None else data)
+        im_ovl.set_cmap(entry['cmap'])
+        im_ovl.set_clim(*entry['clim'])
+        im_ovl.set_visible(True)
+
+    def _invalidate_overlay_cache(self):
+        self._overlay_cache.clear()
+
+    def _invalidate_structure_cache(self):
+        self._structure_cache.clear()
+
+    def _plane_index(self, plane):
+        if plane == 'axial':
+            return int(self.cur_z)
+        if plane == 'sagittal':
+            return int(self.cur_x)
+        return int(self.cur_y)
+
+    def _prefetch_neighbors(self):
+        if self.cache_radius == 0:
+            return
+        plane = self._last_active_plane
+        idx = self._plane_index(plane)
+        max_idx = (self.nz if plane == 'axial' else (self.nx if plane == 'sagittal' else self.ny)) - 1
+        max_new = 2
+        new_count = 0
+        for nidx in (idx - 1, idx + 1):
+            if new_count >= max_new or nidx < 0 or nidx > max_idx:
+                continue
+            key = self._overlay_cache_key(plane, nidx, self.overlay_mode)
+            if key not in self._overlay_cache:
+                self._get_overlay_entry(plane, nidx, self.overlay_mode)
+                new_count += 1
+
+    def _trim_caches(self):
+        if self.cache_radius == 0:
+            self._overlay_cache.clear()
+            self._structure_cache.clear()
+            return
+
+        cur = {'axial': int(self.cur_z), 'sagittal': int(self.cur_x), 'coronal': int(self.cur_y)}
+        for key in list(self._overlay_cache):
+            plane, idx, _mode = key
+            if abs(idx - cur[plane]) > self.cache_radius:
+                self._overlay_cache.pop(key, None)
+        for key in list(self._structure_cache):
+            plane, idx, _name = key
+            if abs(idx - cur[plane]) > self.cache_radius:
+                self._structure_cache.pop(key, None)
 
     def _update_plane(self, plane, idx, v_ct, v_str, mode):
         ax = self.axes_map[plane]
-        if plane == 'axial':
-            ct2d, g2d = self.ct[idx, :, :], self.gamma[idx, :, :]
-            ref2d = self.ref_dose[idx, :, :] if self.ref_dose is not None else None
-            eval2d = self.eval_dose[idx, :, :] if self.eval_dose is not None else None
-            ratio2d = self.dose_ratio[idx, :, :] if self.dose_ratio is not None else None
-        elif plane == 'sagittal':
-            ct2d, g2d = self.ct[:, :, idx], self.gamma[:, :, idx]
-            ref2d = self.ref_dose[:, :, idx] if self.ref_dose is not None else None
-            eval2d = self.eval_dose[:, :, idx] if self.eval_dose is not None else None
-            ratio2d = self.dose_ratio[:, :, idx] if self.dose_ratio is not None else None
-        else:
-            ct2d, g2d = self.ct[:, idx, :], self.gamma[:, idx, :]
-            ref2d = self.ref_dose[:, idx, :] if self.ref_dose is not None else None
-            eval2d = self.eval_dose[:, idx, :] if self.eval_dose is not None else None
-            ratio2d = self.dose_ratio[:, idx, :] if self.dose_ratio is not None else None
+        ct2d = self._slice_for_plane(self.ct, plane, idx)
 
         # CT
         im_ct = self.ims[(plane, 'ct')]
@@ -370,45 +544,13 @@ class MultiPlaneViewer:
 
         # Overlay
         im_ovl = self.ims[(plane, 'ovl')]
-        if mode == 'Gamma':
-            m = np.ma.masked_where(~np.isfinite(g2d) | (g2d == 0), g2d)
-            im_ovl.set_data(m)
-            im_ovl.set_cmap('turbo')
-            im_ovl.set_clim(0, 2)
-            im_ovl.set_visible(True)
-        elif mode == 'Pass/Fail':
-            pf = np.full_like(g2d, np.nan); v = np.isfinite(g2d) & (g2d != 0)
-            pf[v & (g2d <= 1.0)] = 0; pf[v & (g2d > 1.0)] = 1
-            im_ovl.set_data(np.ma.masked_where(~v, pf))
-            im_ovl.set_cmap(_PASS_FAIL_CMAP)
-            im_ovl.set_clim(0, 1)
-            im_ovl.set_visible(True)
-        elif mode == 'Ref Dose' and ref2d is not None:
-            im_ovl.set_data(np.ma.masked_where(ref2d < self._dose_vmax*0.1, ref2d))
-            im_ovl.set_cmap('jet')
-            im_ovl.set_clim(0, self._dose_vmax)
-            im_ovl.set_visible(True)
-        elif mode == 'Eval Dose' and eval2d is not None:
-            im_ovl.set_data(np.ma.masked_where(eval2d < self._dose_vmax*0.1, eval2d))
-            im_ovl.set_cmap('jet')
-            im_ovl.set_clim(0, self._dose_vmax)
-            im_ovl.set_visible(True)
-        elif mode == 'Dose Ratio' and ratio2d is not None:
-            im_ovl.set_data(np.ma.masked_where(~np.isfinite(ratio2d), ratio2d))
-            im_ovl.set_cmap('bwr')
-            im_ovl.set_clim(0.8, 1.2)
-            im_ovl.set_visible(True)
-        else:
-            im_ovl.set_visible(False)
-        
+        entry = self._get_overlay_entry(plane, idx, mode)
+        self._apply_overlay_entry(im_ovl, entry, self._expected_shape(plane))
         im_ovl.set_extent(im_ct.get_extent())
 
         # Stats text
-        valid = np.isfinite(g2d) & (g2d > 0)
-        if np.any(valid):
-            n_v, n_ok = np.sum(valid), np.sum(g2d[valid] <= 1.0)
-            sgpr = n_ok / n_v * 100.0
-            self.text_artists[plane].set_text(f"Slice GPR: {sgpr:.1f}% ({n_ok}/{n_v})")
+        if entry.get('stats_text'):
+            self.text_artists[plane].set_text(entry['stats_text'])
             self.text_artists[plane].set_visible(True)
         else:
             self.text_artists[plane].set_visible(False)
@@ -422,63 +564,65 @@ class MultiPlaneViewer:
         ax.set_title(f"{plane.capitalize()} (idx {idx})", color='white', fontsize=9)
 
     def _update_structures(self, plane, idx):
-        ipp = self.dose_meta['ipp']
-        s_col, s_row = self.dose_meta['s_col'], self.dose_meta['s_row']
-        v_col, v_row, v_slice = self.dose_meta['v_col'], self.dose_meta['v_row'], self.dose_meta['v_slice']
-        
         for name in self.roi_names:
             if not self.roi_visible.get(name, True):
                 self.roi_artists[(plane, name)].set_segments([])
                 continue
-            
-            segments = []
-            if plane == 'axial':
-                # Check cache for axial
-                if idx in self._axial_contour_cache and name in self._axial_contour_cache[idx]:
-                    segments = self._axial_contour_cache[idx][name]
-                else:
-                    from rtgamma.mask import _world_xy_to_grid_rc
-                    z_w = ipp[2] + self.dose_meta['z_coords_mm'][idx] * v_slice[2]
-                    for c_pts_dict in self.roi_contours.get(name, []):
-                        if abs(c_pts_dict['z'] - z_w) < self.sz * 0.51:
-                            rc = _world_xy_to_grid_rc(c_pts_dict['points'], self.dose_meta)
-                            # Convert to list of segments for LineCollection consistency or just plot
-                            # For Axial, we use segments of (x,y)
-                            pts = rc[:, [1, 0]]
-                            for i in range(len(pts)):
-                                segments.append([pts[i], pts[(i+1)%len(pts)]])
-                    if idx not in self._axial_contour_cache: self._axial_contour_cache[idx] = {}
-                    self._axial_contour_cache[idx][name] = segments
-            
-            elif plane == 'sagittal':
-                x_w = ipp[0] + self.dose_meta['x_coords_mm'][idx] * v_col[0]
-                for c_pts_dict in self.roi_contours.get(name, []):
-                    pts = c_pts_dict['points']
-                    z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
-                    inters = []
-                    for k in range(len(pts)):
-                        p1, p2 = pts[k], pts[(k+1)%len(pts)]
-                        if (p1[0]-x_w)*(p2[0]-x_w) <= 0 and p1[0] != p2[0]:
-                            inters.append((p1[1] + (x_w-p1[0])/(p2[0]-p1[0])*(p2[1]-p1[1]) - ipp[1]) / (s_row * v_row[1]))
-                    if len(inters) >= 2:
-                        inters.sort()
-                        for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
-            
-            elif plane == 'coronal':
-                y_w = ipp[1] + self.dose_meta['y_coords_mm'][idx] * v_row[1]
-                for c_pts_dict in self.roi_contours.get(name, []):
-                    pts = c_pts_dict['points']
-                    z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
-                    inters = []
-                    for k in range(len(pts)):
-                        p1, p2 = pts[k], pts[(k+1)%len(pts)]
-                        if (p1[1]-y_w)*(p2[1]-y_w) <= 0 and p1[1] != p2[1]:
-                            inters.append((p1[0] + (y_w-p1[1])/(p2[1]-p1[1])*(p2[0]-p1[0]) - ipp[0]) / (s_col * v_col[0]))
-                    if len(inters) >= 2:
-                        inters.sort()
-                        for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
+            self.roi_artists[(plane, name)].set_segments(self._get_structure_segments(plane, idx, name))
 
-            self.roi_artists[(plane, name)].set_segments(segments)
+    def _compute_structure_segments(self, plane, idx, name):
+        ipp = self.dose_meta['ipp']
+        s_col, s_row = self.dose_meta['s_col'], self.dose_meta['s_row']
+        v_col, v_row, v_slice = self.dose_meta['v_col'], self.dose_meta['v_row'], self.dose_meta['v_slice']
+        segments = []
+        if plane == 'axial':
+            from rtgamma.mask import _world_xy_to_grid_rc
+            z_w = ipp[2] + self.dose_meta['z_coords_mm'][idx] * v_slice[2]
+            for c_pts_dict in self.roi_contours.get(name, []):
+                if abs(c_pts_dict['z'] - z_w) < self.sz * 0.51:
+                    rc = _world_xy_to_grid_rc(c_pts_dict['points'], self.dose_meta)
+                    # Convert to list of segments for LineCollection consistency or just plot
+                    # For Axial, we use segments of (x,y)
+                    pts = rc[:, [1, 0]]
+                    for i in range(len(pts)):
+                        segments.append([pts[i], pts[(i+1)%len(pts)]])
+
+        elif plane == 'sagittal':
+            x_w = ipp[0] + self.dose_meta['x_coords_mm'][idx] * v_col[0]
+            for c_pts_dict in self.roi_contours.get(name, []):
+                pts = c_pts_dict['points']
+                z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
+                inters = []
+                for k in range(len(pts)):
+                    p1, p2 = pts[k], pts[(k+1)%len(pts)]
+                    if (p1[0]-x_w)*(p2[0]-x_w) <= 0 and p1[0] != p2[0]:
+                        inters.append((p1[1] + (x_w-p1[0])/(p2[0]-p1[0])*(p2[1]-p1[1]) - ipp[1]) / (s_row * v_row[1]))
+                if len(inters) >= 2:
+                    inters.sort()
+                    for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
+
+        elif plane == 'coronal':
+            y_w = ipp[1] + self.dose_meta['y_coords_mm'][idx] * v_row[1]
+            for c_pts_dict in self.roi_contours.get(name, []):
+                pts = c_pts_dict['points']
+                z_grid = (c_pts_dict['z'] - ipp[2]) / (self.sz * v_slice[2])
+                inters = []
+                for k in range(len(pts)):
+                    p1, p2 = pts[k], pts[(k+1)%len(pts)]
+                    if (p1[1]-y_w)*(p2[1]-y_w) <= 0 and p1[1] != p2[1]:
+                        inters.append((p1[0] + (y_w-p1[1])/(p2[1]-p1[1])*(p2[0]-p1[0]) - ipp[0]) / (s_col * v_col[0]))
+                if len(inters) >= 2:
+                    inters.sort()
+                    for i in range(0, (len(inters)//2)*2, 2): segments.append([(inters[i], z_grid), (inters[i+1], z_grid)])
+        return segments
+
+    def _get_structure_segments(self, plane, idx, name):
+        if self.cache_radius == 0:
+            return self._compute_structure_segments(plane, idx, name)
+        key = self._structure_cache_key(plane, idx, name)
+        if key not in self._structure_cache:
+            self._structure_cache[key] = self._compute_structure_segments(plane, idx, name)
+        return self._structure_cache[key]
 
     def _get_state_path(self):
         return os.path.join(ROOT, 'scripts', 'viewer_settings.json')
@@ -523,6 +667,7 @@ def main():
     parser.add_argument('--cutoff', type=float, default=10.0)
     parser.add_argument('--gamma-type', choices=['global', 'local'], default='global')
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
+    parser.add_argument('--cache-radius', type=int, default=15)
     args = parser.parse_args()
 
     ct_meta = load_ct(args.ct)
@@ -563,7 +708,8 @@ def main():
 
     viewer = MultiPlaneViewer(ct_on_dose, gamma_map, dose_meta, dose_meta['dose'], eval_on_ref, rtstruct_meta, roi_names, per_structure,
                              {'dd': args.dd, 'dta': args.dta, 'cutoff': args.cutoff},
-                             os.path.basename(args.ref), os.path.basename(args.eval) if args.eval else '')
+                             os.path.basename(args.ref), os.path.basename(args.eval) if args.eval else '',
+                             cache_radius=args.cache_radius)
     plt.show()
 
 if __name__ == '__main__':
