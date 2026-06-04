@@ -588,7 +588,7 @@ class FastPlaneViewer:
     def _slice_gpr_text(self, gamma2d: np.ndarray | None) -> str:
         if gamma2d is None:
             return ""
-        valid = np.isfinite(gamma2d) & (gamma2d > 0)
+        valid = np.isfinite(gamma2d)
         if not np.any(valid):
             return ""
         ok = np.sum(gamma2d[valid] <= 1.0)
@@ -625,7 +625,7 @@ class FastPlaneViewer:
     def _pass_fail_rgba(self, gamma2d: np.ndarray | None) -> np.ndarray | None:
         if gamma2d is None or not self.overlay_visible:
             return None
-        valid = np.isfinite(gamma2d) & (gamma2d != 0)
+        valid = np.isfinite(gamma2d)
         rgba = np.zeros(gamma2d.shape + (4,), dtype=np.uint8)
         passed = valid & (gamma2d <= 1.0)
         failed = valid & (gamma2d > 1.0)
@@ -637,7 +637,7 @@ class FastPlaneViewer:
     def _overlay_rgba(self, plane: str) -> np.ndarray | None:
         gamma2d = self._slice_for_plane(self.gamma, plane)
         if self.overlay_mode == "Gamma":
-            valid = None if gamma2d is None else np.isfinite(gamma2d) & (gamma2d != 0)
+            valid = None if gamma2d is None else np.isfinite(gamma2d)
             return self._scalar_rgba(gamma2d, (0.0, 2.0), valid)
         if self.overlay_mode == "Pass/Fail":
             return self._pass_fail_rgba(gamma2d)
