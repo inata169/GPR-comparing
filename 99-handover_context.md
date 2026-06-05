@@ -1,6 +1,47 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-05 Fast Viewer最終確認前)
+# 記憶の引き継ぎ書: Handover Context (2026-06-05 Fast Viewer既定化・Fast ZIP実装後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (20) で完了したこと
+- **Fast Viewer既定化・選択式運用**:
+    - `scripts/gui_config_common.ps1` を追加し、`Read-GuiDefaults` / `Read-GuiConfig` / `Merge-GuiConfig` / `Resolve-ViewerType` を共通化。
+    - Source/Python modeは保存設定なしでFast既定、Legacy ZIPは保存設定なしでLegacy既定、Fast ZIPはFast既定。
+    - 保存済み `viewer_type=legacy|fast` は尊重。欠損・不正値では現在起動のみmode別fallbackし、警告/ログを出す。INIはSave Settings時のみ正規化値を保存。
+    - Fast起動失敗時は、失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開ける導線を追加。
+- **Fast EXE / Fast ZIP配布準備**:
+    - `gamma_viewer_fast.spec` を追加。PyInstaller onedirでFast Viewerをビルドする方針。
+    - `run_gui_fast_exe.bat` を追加し、`scripts/run_gui_exe.ps1 -DistributionMode FastZip` を起動。
+    - `scripts/build_exe.ps1 -FastViewer` でFast Viewer EXEを追加ビルド可能にした。
+    - `scripts/package_release.ps1 -DistributionMode Legacy|Fast` に分離。Fast ZIPでは `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を生成。
+    - Fast ZIP manifestで `platforms/qwindows.dll` 配置、GPL-only Qt module/plugin混入、Legacy ZIPへのPySide6/Qt混入を確認する処理を追加。
+- **Fast ZIP実ビルド・manifest確認**:
+    - `run_gui_python.bat` はユーザー手動確認でOK。
+    - `scripts/build_exe.ps1 -FastViewer` で `dist/gamma_viewer_fast` を生成済み。
+    - 初回Fast buildはsandbox権限で `build/gamma_viewer_fast` 作成に失敗したため、権限付きで再実行して成功。
+    - PyInstaller過剰収集で `QtGraphs` / `QtQuick3D` / `QtVirtualKeyboard` 系が検出されたため、`gamma_viewer_fast.spec` を絞り込み、Fast ZIP stagingから不要Qt pluginを除去する処理を追加。
+    - Windows PowerShell 5.1対応として `bundled_manifest.txt` の相対パス生成を `System.Uri.MakeRelativeUri` に変更。
+    - `scripts/build_exe.ps1` は `Invoke-Checked` で外部コマンド失敗を検出するよう修正。
+    - `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` 生成済み（約677.1MB）。
+    - `release_staging/rtgamma_v0.7.0_windows_x64.zip` 生成済み（約423.4MB）。
+    - Fast ZIP内に `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` が存在。
+    - Fast ZIP内の `qwindows.dll` は `dist/gamma_viewer_fast/_internal/PySide6/plugins/platforms/qwindows.dll` に配置。
+    - manifest review対象のGPL-only候補（`QtGraphs`, `QtHttpServer`, `QtLocation`, `QtNetworkAuth`, `QtQuick3D`, `QtVirtualKeyboard`）は0件。
+    - Legacy ZIPへのPySide6/Qt/qwindows混入は0件。
+- **ドキュメント更新**:
+    - README / OpenSpec / TEST_PLAN にSource/Python・Legacy ZIP・Fast ZIPの既定Viewer差を記録。
+    - PySide6/QtはMITではないこと、pyqtgraphはMITであること、Fast ZIPでは第三者ライセンス通知とmanifest確認が必要であることを記録。
+    - Legacy/Fast比較では、readoutを元voxel値から取得し、RTSTRUCT overlayはLegacyと同じ座標変換経路を使う方針を記録。
+- **Fast Viewer表示方向・操作性修正**:
+    - 別PCのFast ZIP確認で、Axi/Cor/Sag画像が小さく見え、クリック位置と画像が合わない事象を確認。
+    - `scripts/gamma_viewer_fast.py` にZoomボタン、`+`/`-`/`0` キー、カーソルキーslice操作、overlay/CT/Structure/overlay modeショートカットを追加。
+    - Sagittal / Coronal の上下反転と Axial の左右反転を、voxel/readout/RTSTRUCT座標変換は変更せず、PyQtGraph ViewBoxの表示変換のみで補正。
+    - 修正後の検証は `py_compile`、`ruff`、代表pytestまで完了。別PCのFast ZIP再確認は未完了。
+    - `dist/gamma_viewer_fast/gamma_viewer_fast.exe` と `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` は修正後に再生成済み。ZIP内の `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt`、`qwindows.dll` 配置、GPL-only候補0件を確認済み。
+- **README改訂と作業終了処理**:
+    - `README.md` にFast Viewer既定化、Legacy/Fast選択式運用、Source/Python・Legacy ZIP・Fast ZIPの違いを追記。
+    - Fast Viewer操作（クリック、ホイール、slider、Zoom、キーボードショートカット）と表示方向補正の方針をREADMEへ反映。
+    - Fast ZIPのPyInstaller onedir配布、第三者ライセンス通知、PySide6/QtはMITではないことをREADMEへ明記。
+    - 作業終了ルールに従い、TODO、日次サマリ、引き継ぎ、OpenSpec関連記録を更新してコミットする。
 
 ### 本セッション (19) で完了したこと
 - **3D Viewer軽量高速化PRの完了**:
@@ -107,26 +148,27 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 
 | 優先度 | タスク | Tier | 備考 |
 |---|---|---|---|
-| 1 | **Fast Viewerの実運用前最終確認** | 2 | PR #11 / #12 修正後にPROSTATEデータで再起動し、`gamma=0` overlayと古い/別grid `gamma3d.npz` + RTSTRUCT起動を確認。 |
-| 2 | **GUI経由の運用確認** | 2 | `run_gui_python.bat` からViewerを `Fast` にして3D Viewerを起動し、Legacy / Fast切替を確認。 |
-| 3 | **Fast Viewer運用方針の最終判断** | 2 | 既定Viewer化するか、Legacy/Fast選択式のまま運用するか判断。 |
-| 4 | **Fast ViewerのEXE同梱方針決定** | 2 | PySide6/pyqtgraphをPyInstallerへ含める場合はサイズが大きくなるため、配布方法を決める。 |
-| 5 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
-| 6 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 7 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
+| 1 | **Python未インストールWindows環境でのFast ZIP確認** | 2 | `run_gui_fast_exe.bat` からFast Viewerが起動し、Qt platform plugin errorがないことを確認。 |
+| 2 | **Fast Viewerの実運用前最終確認** | 2 | PROSTATEデータで再起動し、`gamma=0` overlayと古い/別grid `gamma3d.npz` + RTSTRUCT起動を確認。 |
+| 3 | **GUI経由の運用確認** | 2 | `run_gui_python.bat` からViewer既定Fast、Legacy / Fast切替、Fast失敗時のLegacy導線を確認。 |
+| 4 | **クリーンWindows確認** | 2 | Python未インストール環境でFast ZIPの `run_gui_fast_exe.bat` からFast Viewerが起動することを確認。 |
+| 5 | **修正後Fast ZIPの再確認** | 2 | 別PCでAxi左右、Sag/Cor上下、クリック位置、Zoom、キーボード操作、PROSTATE比較を確認。 |
+| 6 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
+| 7 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
+| 8 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
 
 ## 3. 次のセッションで実行すべきこと
-1. **Fast Viewerの最終確認**:
+1. **Python未インストールWindows環境でのFast ZIP確認**:
+    - `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` を展開する。
+    - `run_gui_fast_exe.bat` からFast Viewerが起動し、Qt platform plugin errorが出ないことを確認する。
+2. **Fast Viewerの最終確認**:
     - PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する。
     - Gamma overlayで `gamma=0` 領域が消えないことを確認する。
     - 古い/別gridの `gamma3d.npz` でもRTSTRUCT付き起動で落ちないことを確認する。
-2. **GUI経由の運用確認**:
+3. **GUI経由の運用確認**:
     - `run_gui_python.bat` でGUIを起動する。
     - Viewerを `Fast` にして3D Viewerを起動する。
     - Legacy / Fast の切替が期待通り動くか確認する。
-3. **次の判断**:
-    - Fast Viewerを既定Viewerにするか、Legacy/Fast選択式のまま運用するか判断する。
-    - EXE化する場合はPySide6込みでサイズが大きくなるため、配布方法を決める。
 4. **検証コマンド**:
     - `python -m ruff check rtgamma/ tests/ scripts/`
     - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
@@ -135,5 +177,7 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 ## 4. 補足情報
 - Fast Viewer PoCは「めちゃくちゃ速い」「普段臨床で扱っているものと同様」「文句なし」と目視評価済み。Axi/Cor/Sag のスクロールも問題なし。旧Viewer相当のサイドバー表示と5 overlay modeもFast Viewer側へ追加済み。
 - `.venv` は `.gitignore` に追加済み。Fast Viewerの依存関係は `setup_fast_viewer_venv.bat` で導入可能。
-- 引き継ぎ受領時の作業ツリーは `main...origin/main` で未コミット差分なし。`config/gui_config.ini` のローカル差分は戻し済み。
+- Fast Viewer既定化の方針は、Source/PythonとFast ZIPはFast既定、Legacy ZIPはLegacy既定。Legacy/Fast選択式は維持。
+- Fast ZIPはPySide6/Qt/pyqtgraph同梱の大容量配布。アプリ本体はMITだが、同梱第三者コンポーネントは各ライセンスに従う。
+- READMEは2026-06-05終了時点のFast Viewer運用方針と配布方針へ更新済み。
 - `C:\Users\...\ .config\git\ignore` の Permission denied 警告はリポジトリ差分ではない。

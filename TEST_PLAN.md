@@ -3,6 +3,27 @@
 ## Scope
 Covers core gamma workflows: DICOM I/O, resampling, shift optimization, gamma computation, and reporting.
 
+## Fast Viewer Default / Distribution Checks
+- Source/Python mode: no `config/gui_config.ini` selects `Fast`; saved `viewer_type=legacy` selects Legacy; saved `viewer_type=fast` selects Fast.
+- Missing/invalid `viewer_type`: use the mode fallback for the current launch, show a warning/log, and do not rewrite INI until Save Settings is clicked.
+- Legacy ZIP: no saved config selects Legacy, PySide6/Qt components are absent, and Fast selection gives a clear dependency/distribution error with a Legacy launch path.
+- Fast ZIP: no saved config selects Fast, starts without Python installed, includes `NOTICE.txt`, `THIRD_PARTY_LICENSES/`, and a relative-path `bundled_manifest.txt`.
+- Fast ZIP manifest: confirm `qwindows.dll` is under a Qt `platforms/` plugin path, GPL-only Qt modules/plugins are not unintentionally included, and PySide6/Qt components are not present in Legacy ZIP.
+
+## Legacy / Fast Viewer Consistency Checks
+- PROSTATE data: open Legacy and Fast with the same inputs and output folder.
+- Axial / Sagittal / Coronal open the same CT slice index.
+- Same cursor voxel reports matching HU / Ref Dose / Eval Dose / Gamma after display rounding.
+- Cursor readout uses original voxel values, not interpolated display values.
+- Gamma overlay threshold/mask behavior is equivalent, and `gamma=0` regions are not incorrectly hidden.
+- RTSTRUCT overlay appears at the same anatomical location as Legacy.
+- Old or mismatched `gamma3d.npz` with RTSTRUCT does not crash the viewer.
+
+## Fast Viewer Performance Smoke
+- Open the representative PROSTATE dataset in Fast Viewer.
+- Scroll at least 50 slices in each plane.
+- Confirm no obvious UI freeze and no continuously increasing memory usage during repeated scrolling.
+
 ## Test Matrix
 1) Self-compare (sanity)
 - Command: `python -m rtgamma.main --ref dicom/RTDOSE_...7605.1.dcm --eval dicom/RTDOSE_...7605.1.dcm --mode 3d --report phits-linac-validation/output/rtgamma/self_check`
