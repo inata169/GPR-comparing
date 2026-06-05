@@ -88,7 +88,8 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
     - 範囲は3断面、CT grayscale、5 overlay mode（Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio）、共有voxel cursor、`HU / Ref / Eval` ラベル、Ref/Evalファイル名、RTSTRUCT輪郭、ROI別GPR表示。
     - 内部カーソルは voxel index `(z, y, x)` とし、Axial / Sagittal / Coronal の3断面で共有する。HU / Ref Dose / Eval Dose / Gamma のreadoutは補間後の表示値ではなく元voxel値を使用し、Legacyと表示丸め後に一致することを確認する。
     - RTSTRUCT overlayはLegacyと同じ voxel index / patient coordinate変換経路を使用する。Fast描画でtranspose、origin shift、axis inversionが必要な場合は理由を文書化し、Legacy/Fast比較で固定する。
-    - 操作は、クリックで共有cursor移動、ホイールで操作中断面のslice移動、各断面sliderでslice移動とする。すべての経路でcrosshairと値ラベルを同期更新する。
+    - Fast Viewerの表示方向補正はPyQtGraph ViewBoxの表示変換で行い、voxel/readout/RTSTRUCT座標変換は変更しない。Axial左右、Sagittal/Coronal上下はLegacy/Fast比較の目視確認対象とする。
+    - 操作は、クリックで共有cursor移動、ホイールで操作中断面のslice移動、各断面sliderでslice移動、Zoomボタンで拡大縮小/resetとする。キーボードはカーソルキーでactive planeのslice移動、`+`/`-`で拡大縮小、`0`/`Home`でreset、`O`でoverlay表示、`C`でCT、`S`でStructure、`G/P/R/E/D`でoverlay mode切替とする。すべての経路でcrosshairと値ラベルを同期更新する。
     - OverlayはCTとは別ImageItemとし、NaN/inf/未計算領域を透明扱い、alpha sliderは選択中のoverlayに作用する。
     - `--gamma-npz` は既存Viewerと同じ `gamma` キーを基本とし、キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化する。
     - HU / Ref / Eval は個別に欠損・shape不一致・範囲外・非finiteを確認し、取得できない値だけ `N/A` と表示する。Dose単位は表示上 `Gy` とする。
@@ -191,7 +192,7 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - Fast ZIPはPyInstaller onedirで作成し、Qt/PySide6バイナリは改変しない。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱し、`qwindows.dll` がQt platform plugin pathにあること、GPL-only Qt modules/pluginsが意図せず同梱されていないこと、PySide6/Qt componentsがLegacy ZIPに入っていないことをmanifestで確認する。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (Axial/Sagittal/Coronal同期2x2マルチプレーン, 3Dカーソル, Slice GPR表示, 設定永続化, 5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, 物理アスペクト比対応, Axial医療慣習表示)
-- Fast 3D Viewer: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/overlay表示, 共有voxel cursor, HU/Ref/Eval/Gamma readout, Ref/Evalファイル名表示, RTSTRUCT輪郭, ROI別GPR, 5 overlay mode, GUIからLegacy/Fast選択式で起動)
+- Fast 3D Viewer: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/overlay表示, 共有voxel cursor, HU/Ref/Eval/Gamma readout, Ref/Evalファイル名表示, RTSTRUCT輪郭, ROI別GPR, 5 overlay mode, Zoom/keyboard操作, GUIからLegacy/Fast選択式で起動)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
 
 ## 14. Commercial Roadmap (商用化ロードマップ)

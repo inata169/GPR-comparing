@@ -15,10 +15,16 @@ High priority
   - [x] `scripts/package_release.ps1 -DistributionMode Fast` でFast ZIPを生成する
   - [x] `bundled_manifest.txt` で `platforms/qwindows.dll` 配置とGPL-only Qt module非同梱を確認する
   - [ ] Python未インストールWindows環境でFast EXE起動を確認する
+- [x] **Fast Viewer表示方向・操作性修正**
+  - [x] PyQtGraph表示でAxi/Cor/Sag画像が小さく見え、クリック位置と画像がずれる問題を補正する
+  - [x] Sagittal / Coronal の上下反転を補正する
+  - [x] Axial の左右反転を補正する
+  - [x] Axi/Cor/Sag の拡大縮小ボタン、`+`/`-`/`0` キー、カーソルキーslice操作、overlay/CT/Structure/overlay modeショートカットを追加する
 - [ ] **Fast Viewerの実運用前最終確認**
   - [ ] PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する
   - [ ] Gamma overlayで `gamma=0` 領域が消えないことを確認する
   - [ ] 古い/別gridの `gamma3d.npz` でもRTSTRUCT付き起動で落ちないことを確認する
+  - [ ] 修正後Fast ZIPでAxi左右、Sag/Cor上下、クリック位置、ズーム、キーボード操作を別PCで再確認する
 - [ ] **GUI経由の運用確認**
   - [ ] `run_gui_python.bat` でGUIを起動する
   - [ ] Viewerを `Fast` にして3D Viewerを起動する

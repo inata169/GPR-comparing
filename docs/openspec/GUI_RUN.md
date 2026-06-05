@@ -18,6 +18,9 @@
   - マウスクリック: クリック断面上のvoxelへ共有cursorを移動。
   - マウスホイール: 操作中断面のslice indexを移動。
   - slice slider: Axial / Sagittal / Coronal を個別に移動。
+  - Zoomボタン: `+` で拡大、`-` で縮小、`0` で現在断面の表示範囲をreset。
+  - キーボード: カーソルキーでactive planeのslice移動、`+`/`-`で拡大縮小、`0`/`Home`でreset。
+  - キーボード: `O`でoverlay表示切替、`C`でCT表示切替、`S`でStructure表示切替、`G/P/R/E/D`でGamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratioへ切替。
   - いずれの操作でも3断面のcrosshairと `HU / Ref / Eval` ラベルを同期更新。
   - Overlay alpha sliderは現在選択中のoverlay表示に作用。
   - CT / Structure / ROI checkboxで表示を切り替え。
@@ -27,6 +30,7 @@
   - HU / Ref / Eval は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
   - Cursor readoutは補間後の表示値ではなく、元voxel値を使用します。
   - RTSTRUCT overlayはLegacy Viewerと同じvoxel index / patient coordinate変換経路を使用し、Fast側の描画都合によるtransposeやaxis inversionは比較確認対象とします。
+  - Fast Viewerの表示方向補正はPyQtGraph ViewBoxの表示変換で行い、voxel/readout/RTSTRUCT座標変換は変更しません。Axial左右、Sagittal/Coronal上下はLegacy/Fast比較の目視確認対象です。
 
 ## 手順
 - ファイル選択

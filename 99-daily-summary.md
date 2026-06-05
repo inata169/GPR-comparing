@@ -39,6 +39,22 @@
 - Python未インストールWindows環境でのFast EXE起動確認。
 - PROSTATEデータでのLegacy/Fast視覚・数値・RTSTRUCT整合性と性能smoke確認。
 
+## 追加修正（同日・Fast Viewer表示方向/操作性）
+
+- 別PCのFast ZIP確認で、Fast ViewerのAxi/Cor/Sag表示が小さく見え、クリック位置と画像が合わない事象を確認。
+- `scripts/gamma_viewer_fast.py` で表示範囲の自動resetを抑制し、各断面のZoomボタン（`+` / `-` / `0`）とキーボード操作を追加。
+- キーボード操作は、カーソルキーでactive planeのslice移動、`+`/`-`で拡大縮小、`0`/`Home`でreset、`O`でoverlay表示、`C`でCT、`S`でStructure、`G/P/R/E/D`でoverlay mode切替。
+- Sagittal / Coronal の上下反転と Axial の左右反転を、voxel/readout/RTSTRUCT座標変換は変更せず、PyQtGraph ViewBoxの表示変換で補正。
+- クリック範囲外を無視し、overlay alpha変更時もImageItemの表示rectを維持するよう補強。
+- 検証:
+  - `PYTHONPYCACHEPREFIX=temp` 指定で `python -m py_compile scripts/gamma_viewer_fast.py`
+  - `python -m ruff check rtgamma/ tests/ scripts/`
+  - `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
+- 修正後Fast EXE/ZIP:
+  - `python -m PyInstaller -y --clean gamma_viewer_fast.spec` を権限付きで実行し、`dist/gamma_viewer_fast/gamma_viewer_fast.exe` を更新（2026-06-05 11:59）。
+  - `scripts/package_release.ps1 -DistributionMode Fast` を権限付きで実行し、`release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` を再生成（約671MB）。
+  - ZIP内の `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt`、`dist/gamma_viewer_fast/_internal/PySide6/plugins/platforms/qwindows.dll` を確認。GPL-only候補は0件。
+
 ## 追加検証（同日）
 
 - `run_gui_python.bat` はユーザー手動確認でOK。

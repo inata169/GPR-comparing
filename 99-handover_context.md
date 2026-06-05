@@ -31,6 +31,12 @@
     - README / OpenSpec / TEST_PLAN にSource/Python・Legacy ZIP・Fast ZIPの既定Viewer差を記録。
     - PySide6/QtはMITではないこと、pyqtgraphはMITであること、Fast ZIPでは第三者ライセンス通知とmanifest確認が必要であることを記録。
     - Legacy/Fast比較では、readoutを元voxel値から取得し、RTSTRUCT overlayはLegacyと同じ座標変換経路を使う方針を記録。
+- **Fast Viewer表示方向・操作性修正**:
+    - 別PCのFast ZIP確認で、Axi/Cor/Sag画像が小さく見え、クリック位置と画像が合わない事象を確認。
+    - `scripts/gamma_viewer_fast.py` にZoomボタン、`+`/`-`/`0` キー、カーソルキーslice操作、overlay/CT/Structure/overlay modeショートカットを追加。
+    - Sagittal / Coronal の上下反転と Axial の左右反転を、voxel/readout/RTSTRUCT座標変換は変更せず、PyQtGraph ViewBoxの表示変換のみで補正。
+    - 修正後の検証は `py_compile`、`ruff`、代表pytestまで完了。別PCのFast ZIP再確認は未完了。
+    - `dist/gamma_viewer_fast/gamma_viewer_fast.exe` と `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` は修正後に再生成済み。ZIP内の `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt`、`qwindows.dll` 配置、GPL-only候補0件を確認済み。
 
 ### 本セッション (19) で完了したこと
 - **3D Viewer軽量高速化PRの完了**:
@@ -141,9 +147,10 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 | 2 | **Fast Viewerの実運用前最終確認** | 2 | PROSTATEデータで再起動し、`gamma=0` overlayと古い/別grid `gamma3d.npz` + RTSTRUCT起動を確認。 |
 | 3 | **GUI経由の運用確認** | 2 | `run_gui_python.bat` からViewer既定Fast、Legacy / Fast切替、Fast失敗時のLegacy導線を確認。 |
 | 4 | **クリーンWindows確認** | 2 | Python未インストール環境でFast ZIPの `run_gui_fast_exe.bat` からFast Viewerが起動することを確認。 |
-| 5 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
-| 6 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
-| 7 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
+| 5 | **修正後Fast ZIPの再確認** | 2 | 別PCでAxi左右、Sag/Cor上下、クリック位置、Zoom、キーボード操作、PROSTATE比較を確認。 |
+| 6 | **EXE容量の削減** | 4 | クリーンな venv 構築スクリプトと PyInstaller exclude 設定の精査。 |
+| 7 | **不確かさの推定** | 3 | 公称値だけなく、ブートストラップ法などによる解析精度の提示。 |
+| 8 | **Webベース GUI 試作** | 2 | ブラウザベースのインターフェース検討。 |
 
 ## 3. 次のセッションで実行すべきこと
 1. **Python未インストールWindows環境でのFast ZIP確認**:
