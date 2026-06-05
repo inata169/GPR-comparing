@@ -55,6 +55,13 @@
   - `scripts/package_release.ps1 -DistributionMode Fast` を権限付きで実行し、`release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` を再生成（約671MB）。
   - ZIP内の `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt`、`dist/gamma_viewer_fast/_internal/PySide6/plugins/platforms/qwindows.dll` を確認。GPL-only候補は0件。
 
+## 作業終了前のREADME改訂（同日）
+
+- `README.md` にFast Viewer既定化、Legacy/Fast選択式運用、Source/Python・Legacy ZIP・Fast ZIPの違いを反映。
+- Fast Viewerの操作（クリック、ホイール、slider、Zoom、キーボードショートカット）と表示方向補正の考え方を追記。
+- Fast ZIPのPyInstaller onedir配布、`NOTICE.txt` / `THIRD_PARTY_LICENSES/` / `bundled_manifest.txt` 同梱、PySide6/QtはMITではないことを明記。
+- 本日の開発終了処理として、TODO、日次サマリ、引き継ぎ文書、OpenSpec関連記録を更新し、コミット対象にする。
+
 ## 追加検証（同日）
 
 - `run_gui_python.bat` はユーザー手動確認でOK。

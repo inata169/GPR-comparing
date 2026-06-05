@@ -9,6 +9,7 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 - **2D/3Dガンマ解析**: 高速な3Dカーネル (Numba) および特定スライスのみを計算する軽量な2D経路。
 - **Sub-voxel Interpolation**: 金標準 (SunNuclear 3DVH等) に匹敵する精度を実現する、trilinear内挿ベースの Expanding shell サブボクセル探索アルゴリズム (`--interp-fraction` 対応)。
 - **3D ガンマビューア**: CT、線量分布、ガンママップ、Structure輪郭線を重ねて1つのインターフェースで確認できるインタラクティブビューア。Pass/Fail表示やDose Ratio表示にも対応。
+- **Fast 3D Viewer**: PyQtGraph + PySide6 による高速ビューア。Legacy/Fast選択式を維持しつつ、Source/Python と Fast ZIP ではFastを既定Viewerとして使用します。
 - **RTPLAN 統合ヘッダ比較**: RTDOSE に加え、RTPLAN から Isocenter 座標や SAD/SSD を読み取り、プラン間のズレを客観的に出力可能。
 - **シフト最適化**: 計算領域を粗密2段階で自動走査し、最適な空間シフト（位置ズレ）を探索。
 - **ROI 限定解析**: RTSTRUCT ファイルと ROI 名を指定することで、特定構造（PTV, GTV など）内のガンマパス率（GPR）や統計値を算出可能。
@@ -20,6 +21,10 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 - 依存ライブラリ:
   ```bash
   pip install pydicom numpy scipy matplotlib numba
+  ```
+- Fast 3D Viewer をSource/Python環境で使う場合:
+  ```bash
+  pip install -r requirements-fast-viewer.txt
   ```
 
 ## クイックスタート (CLI)
@@ -46,7 +51,10 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 - **3D 配列**: NPZ形式での生データ出力（オプション）
 
 ## GUI (グラフィカル・ユーザー・インターフェース)
-- **起動**: `run_gui.bat` をダブルクリック（または PowerShell から `scripts/run_gui.ps1` を実行）
+- **起動**: `run_gui_python.bat` をダブルクリック（または PowerShell から `scripts/run_gui.ps1` を実行）
+- Source/Python mode と Fast ZIP では、保存済み設定がなければ 3D Viewer は `Fast` が既定です。
+- Legacy ZIP では、PySide6/Qtを同梱しない軽量配布のため、保存済み設定がなければ `Legacy` が既定です。
+- 保存済みの `viewer_type=legacy|fast` は配布modeに関係なく尊重します。欠損・不正値は現在起動のみmode別fallbackし、INIは「Save Settings」実行時のみ正規化値を保存します。
 
 ### 基本的な使い方
 1. **必須項目の選択**
@@ -57,6 +65,7 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - **ROI Name**: 評価対象の ROI 名を入力します（例: `PTV` や `GTV,Rectum` のようにカンマ区切りで複数指定が可能。空欄の場合は含まれる全ROIが抽出されます）。
 3. **解析設定の選択**
    - **Action**: 全体の3D解析、特定の2D断面解析、3Dガンマビューアの起動、またはヘッダ情報の比較から実行モードを選択します。
+   - **Viewer**: 3D Viewer起動時に `Legacy` または `Fast` を選択できます。
    - **Clinical Preset (旧)**: 現在は DTA (mm), DD (%), Cutoff (%) の各評価基準を直接テキストボックスに入力する方式です。
 4. **オプション設定**
    - **Optimize shift**: チェックを入れると、位置ズレを補正して最も合格率が高くなる「シフト量」を自動探索します。
@@ -66,6 +75,25 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - 「Run」ボタンをクリックすると計算が始まり、プログレスバーとリアルタイムログで進捗が確認できます。
    - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
    - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
+
+### 3D Viewer の種類
+- **Legacy Viewer**: Matplotlib/TkAgg版。軽量EXE配布で使う安全な既定Viewerです。
+- **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio overlay、ROI別GPR、HU/Ref/Eval readoutに対応します。
+- Fast Viewerの基本操作:
+  - クリック: 共有cursorをクリック位置のvoxelへ移動
+  - ホイール / slice slider: 各断面のslice移動
+  - `+` / `-` / `0`: 拡大 / 縮小 / 表示範囲reset
+  - カーソルキー: active planeのslice移動
+  - `O`: overlay表示切替、`C`: CT表示切替、`S`: Structure表示切替
+  - `G/P/R/E/D`: Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratioへ切替
+- Fast Viewerの表示方向補正は表示変換で行い、voxel readoutやRTSTRUCT座標変換は変更しません。Axial左右、Sagittal/Coronal上下、クリック位置はLegacy/Fast比較で確認対象です。
+
+## 配布パッケージ
+- **Source/Python**: `run_gui_python.bat` で起動。Fast依存がある場合はFast既定、Legacyも選択可能です。
+- **Legacy ZIP**: `run_gui_exe.bat` で起動する軽量EXE配布。PySide6/Qtを同梱せず、Legacy既定です。
+- **Fast ZIP**: `run_gui_fast_exe.bat` で起動する大容量EXE配布。`gamma_viewer_fast`、PySide6/Qt、pyqtgraphを同梱し、Fast既定です。
+- Fast ZIPはPyInstaller `onedir` で作成し、Qt/PySide6バイナリは改変しません。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱します。
+- アプリケーションソースコードはMITライセンスですが、同梱第三者コンポーネントは各ライセンスに従います。PySide6/QtはMITではありません。
 
 ## 🛠 外部ツールとの連携
 本ツールの GUI は起動時に `config/gui_config.ini` を読み込みます。外部スクリプト（`dicom-phits_inp` など）からこの INI ファイルを事前に書き換えることで、特定の DICOM ファイルや解析結果を選択した状態でシームレスにビュアーを起動することが可能です。

@@ -20,6 +20,9 @@ High priority
   - [x] Sagittal / Coronal の上下反転を補正する
   - [x] Axial の左右反転を補正する
   - [x] Axi/Cor/Sag の拡大縮小ボタン、`+`/`-`/`0` キー、カーソルキーslice操作、overlay/CT/Structure/overlay modeショートカットを追加する
+- [x] **README改訂と作業終了処理**
+  - [x] READMEにFast Viewer既定化、Legacy/Fast ZIP、Fast Viewer操作、第三者ライセンス注意を反映する
+  - [x] `99-daily-summary.md` / `99-handover_context.md` / OpenSpec関連文書の終了時更新を行う
 - [ ] **Fast Viewerの実運用前最終確認**
   - [ ] PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する
   - [ ] Gamma overlayで `gamma=0` 領域が消えないことを確認する

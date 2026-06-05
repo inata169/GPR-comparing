@@ -37,6 +37,11 @@
     - Sagittal / Coronal の上下反転と Axial の左右反転を、voxel/readout/RTSTRUCT座標変換は変更せず、PyQtGraph ViewBoxの表示変換のみで補正。
     - 修正後の検証は `py_compile`、`ruff`、代表pytestまで完了。別PCのFast ZIP再確認は未完了。
     - `dist/gamma_viewer_fast/gamma_viewer_fast.exe` と `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` は修正後に再生成済み。ZIP内の `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt`、`qwindows.dll` 配置、GPL-only候補0件を確認済み。
+- **README改訂と作業終了処理**:
+    - `README.md` にFast Viewer既定化、Legacy/Fast選択式運用、Source/Python・Legacy ZIP・Fast ZIPの違いを追記。
+    - Fast Viewer操作（クリック、ホイール、slider、Zoom、キーボードショートカット）と表示方向補正の方針をREADMEへ反映。
+    - Fast ZIPのPyInstaller onedir配布、第三者ライセンス通知、PySide6/QtはMITではないことをREADMEへ明記。
+    - 作業終了ルールに従い、TODO、日次サマリ、引き継ぎ、OpenSpec関連記録を更新してコミットする。
 
 ### 本セッション (19) で完了したこと
 - **3D Viewer軽量高速化PRの完了**:
@@ -174,4 +179,5 @@ $env:PYTHONUTF8=1; python temp/benchmark_gamma.py
 - `.venv` は `.gitignore` に追加済み。Fast Viewerの依存関係は `setup_fast_viewer_venv.bat` で導入可能。
 - Fast Viewer既定化の方針は、Source/PythonとFast ZIPはFast既定、Legacy ZIPはLegacy既定。Legacy/Fast選択式は維持。
 - Fast ZIPはPySide6/Qt/pyqtgraph同梱の大容量配布。アプリ本体はMITだが、同梱第三者コンポーネントは各ライセンスに従う。
+- READMEは2026-06-05終了時点のFast Viewer運用方針と配布方針へ更新済み。
 - `C:\Users\...\ .config\git\ignore` の Permission denied 警告はリポジトリ差分ではない。
