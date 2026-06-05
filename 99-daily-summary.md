@@ -1,3 +1,62 @@
+# Daily Summary: 2026-06-05 (セッション20 Fast Viewer既定化・配布計画実装)
+
+## 作業内容サマリ
+
+1. **Fast Viewer既定化・選択式運用の実装**
+   - `scripts/gui_config_common.ps1` を追加し、`gui_config.ini` / `gui_defaults.json` / mode別fallbackの設定解決を共通化。
+   - Source/Python modeは保存設定なしでFast既定、Legacy ZIPは保存設定なしでLegacy既定、Fast ZIPはFast既定とする方針を実装。
+   - `viewer_type` 欠損・不正値では現在起動のみfallbackし、INIはSave Settings時のみ正規化値を保存する。
+   - Fast起動失敗時は失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開ける導線を追加。
+
+2. **Fast EXE / Fast ZIP配布の準備**
+   - `gamma_viewer_fast.spec` と `run_gui_fast_exe.bat` を追加。
+   - `scripts/build_exe.ps1 -FastViewer` でFast Viewer EXEをonedirビルドできるよう拡張。
+   - `scripts/package_release.ps1 -DistributionMode Legacy|Fast` に分離し、Fast ZIPでは `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を生成。
+   - Fast ZIP manifestで `platforms/qwindows.dll` 配置、GPL-only Qt module/pluginの混入、Legacy ZIPへのPySide6/Qt混入を確認する処理を追加。
+
+3. **ドキュメント・検証計画の更新**
+   - README / OpenSpec / TEST_PLAN に、Source/Python・Legacy ZIP・Fast ZIPの既定Viewer差、LGPL/第三者ライセンス同梱、Legacy/Fast数値・RTSTRUCT整合性確認を追記。
+   - Fast Viewerのreadoutは元voxel値、RTSTRUCT overlayはLegacyと同じ変換経路を使う方針を明記。
+
+## 検証
+
+- PowerShell AST parse:
+  - `scripts/run_gui.ps1`
+  - `scripts/run_gui_exe.ps1`
+  - `scripts/gui_config_common.ps1`
+  - `scripts/build_exe.ps1`
+  - `scripts/package_release.ps1`
+- 設定resolver確認:
+  - 現在のsource mode: `fast`
+  - 現在のLegacyZip mode: `legacy`
+  - invalid `viewer_type`: `fast` fallback + warning message
+- `python -m ruff check rtgamma/ tests/ scripts/`
+- `python -m pytest tests/test_gamma_3d_quick.py tests/test_coord_roundtrip.py tests/test_io_monotonic.py`
+- `PYTHONPYCACHEPREFIX=temp` 指定で `python -m py_compile scripts/gamma_viewer_fast.py`
+
+## 未実施
+
+- Python未インストールWindows環境でのFast EXE起動確認。
+- PROSTATEデータでのLegacy/Fast視覚・数値・RTSTRUCT整合性と性能smoke確認。
+
+## 追加検証（同日）
+
+- `run_gui_python.bat` はユーザー手動確認でOK。
+- `scripts/build_exe.ps1 -FastViewer` を実行し、`dist/gamma_viewer_fast` を生成。
+- 初回Fast buildはsandbox権限で `build/gamma_viewer_fast` 作成に失敗したため、権限付きで再実行して成功。
+- PyInstallerの過剰収集により `QtGraphs` / `QtQuick3D` / `QtVirtualKeyboard` 系がFast ZIP manifest reviewで検出されたため、`gamma_viewer_fast.spec` と `scripts/package_release.ps1` を調整。
+- Windows PowerShell 5.1非対応の `[System.IO.Path]::GetRelativePath` を `System.Uri.MakeRelativeUri` に置換。
+- `scripts/build_exe.ps1` は外部コマンドのexit codeを `Invoke-Checked` で検出するよう修正。
+- `scripts/package_release.ps1 -DistributionMode Fast` で `release_staging/rtgamma_v0.7.0_fast_windows_x64.zip` を生成（約677.1MB）。
+- `scripts/package_release.ps1 -DistributionMode Legacy` で `release_staging/rtgamma_v0.7.0_windows_x64.zip` を生成（約423.4MB）。
+- ZIP検査結果:
+  - Fast ZIP: `NOTICE.txt` あり、`THIRD_PARTY_LICENSES/` あり、`bundled_manifest.txt` あり。
+  - Fast ZIP: `dist/gamma_viewer_fast/_internal/PySide6/plugins/platforms/qwindows.dll` あり。
+  - Fast ZIP: manifest review対象のGPL-only候補（`QtGraphs`, `QtHttpServer`, `QtLocation`, `QtNetworkAuth`, `QtQuick3D`, `QtVirtualKeyboard`）は0件。
+  - Legacy ZIP: PySide6/Qt/qwindows混入は0件。
+
+---
+
 # Daily Summary: 2026-06-05 (セッション20 引き継ぎ)
 
 ## 作業内容サマリ

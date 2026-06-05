@@ -11,60 +11,13 @@ Set-Location $ROOT
 $env:PYTHONPATH = $ROOT
 
 # =============================================
-#  INI Config Parser
+#  Config loading
 # =============================================
 $iniPath = Join-Path $ROOT 'config/gui_config.ini'
-
-function Read-Ini([string]$path) {
-  $result = [ordered]@{}
-  $section = '_root'
-  if (-not (Test-Path $path)) { return $result }
-  foreach ($line in (Get-Content -Path $path -Encoding UTF8)) {
-    $l = $line.Trim()
-    if ($l -eq '' -or $l.StartsWith('#') -or $l.StartsWith(';')) { continue }
-    if ($l -match '^\[(.+)\]$') {
-      $section = $Matches[1].Trim()
-      if (-not $result.Contains($section)) { $result[$section] = [ordered]@{} }
-    } elseif ($l -match '^([^=]+)=(.*)$') {
-      $key = $Matches[1].Trim()
-      $val = $Matches[2].Trim()
-      if (-not $result.Contains($section)) { $result[$section] = [ordered]@{} }
-      $result[$section][$key] = $val
-    }
-  }
-  return $result
-}
-
-function Write-Ini([string]$path, [System.Collections.Specialized.OrderedDictionary]$data) {
-  $lines = @()
-  foreach ($sec in $data.Keys) {
-    $lines += "[$sec]"
-    foreach ($k in $data[$sec].Keys) {
-      $lines += "$k = $($data[$sec][$k])"
-    }
-    $lines += ''
-  }
-  $lines | Out-File -FilePath $path -Encoding utf8
-}
-
-# Load INI config (fall back to JSON for backward compat)
-$ini = Read-Ini $iniPath
-$cfg = @{}
-if ($ini.Count -gt 0) {
-  # Flatten INI sections into a single hashtable for easy access
-  foreach ($sec in $ini.Keys) {
-    foreach ($k in $ini[$sec].Keys) { $cfg[$k] = $ini[$sec][$k] }
-  }
-} else {
-  # Fallback: try old JSON
-  $jsonPath = Join-Path $ROOT 'config/gui_defaults.json'
-  if (Test-Path $jsonPath) {
-    try {
-      $jsonObj = Get-Content -Raw -Path $jsonPath | ConvertFrom-Json
-      foreach ($p in $jsonObj.PSObject.Properties) { $cfg[$p.Name] = $p.Value }
-    } catch {}
-  }
-}
+. (Join-Path $ROOT 'scripts/gui_config_common.ps1')
+$cfg = Merge-GuiConfig (Read-GuiDefaults $ROOT) (Read-GuiConfig $ROOT)
+$viewerResolution = Resolve-ViewerType $cfg 'fast'
+$cfg['viewer_type'] = $viewerResolution.Value
 
 # =============================================
 #  Dark Theme Color Palette
@@ -452,6 +405,49 @@ $script:proc = $null
 #  Events
 # =============================================
 function Append-Log($text){ $tbLog.AppendText("$text`r`n") }
+if ($viewerResolution.IsFallback -and $viewerResolution.Message) {
+  Append-Log("[WARN] " + $viewerResolution.Message)
+}
+
+function Save-CurrentGuiLog {
+  if (-not [string]::IsNullOrWhiteSpace($tbOut.Text)) {
+    try {
+      if (-not (Test-Path $tbOut.Text)) { New-Item -ItemType Directory -Path $tbOut.Text -Force | Out-Null }
+      $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+      $logPath = Join-Path $tbOut.Text ("viewer_launch_log_" + $stamp + ".txt")
+      $tbLog.Text | Out-File -FilePath $logPath -Encoding utf8
+      return $logPath
+    } catch {}
+  }
+  return $null
+}
+
+function Show-FastViewerFailure([string]$summary) {
+  $logPath = Save-CurrentGuiLog
+  $logText = if ($logPath) { "`r`nLog: $logPath" } else { "`r`nLog: not available" }
+  Append-Log("[ERROR] Fast viewer launch failed: $summary")
+  $answer = [System.Windows.Forms.MessageBox]::Show(
+    "Failed viewer type: Fast`r`nSummary: $summary$logText`r`n`r`nOpen with Legacy viewer?",
+    "Fast Viewer launch failed",
+    "YesNo",
+    "Error"
+  )
+  return ($answer -eq [System.Windows.Forms.DialogResult]::Yes)
+}
+
+function Test-FastViewerDependencies([string]$pythonExe) {
+  try {
+    $probe = & $pythonExe -c "import PySide6, pyqtgraph" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      $summary = (($probe | Out-String).Trim())
+      if ([string]::IsNullOrWhiteSpace($summary)) { $summary = "PySide6/pyqtgraph import failed." }
+      return [pscustomobject]@{ Ok = $false; Summary = $summary }
+    }
+    return [pscustomobject]@{ Ok = $true; Summary = $null }
+  } catch {
+    return [pscustomobject]@{ Ok = $false; Summary = $_.Exception.Message }
+  }
+}
 
 function Browse-File([ref]$tb){
   $dlg = New-Object System.Windows.Forms.OpenFileDialog
@@ -607,6 +603,7 @@ function Build-Command(){
     3 { # 3D Viewer
       $ct = $tbCT.Text
       $viewerType = [string]$cbViewerType.SelectedItem
+      $script:lastViewerType = $viewerType
       if ($viewerType -eq 'Fast') {
         $fastPython = Join-Path $ROOT '.venv\Scripts\python.exe'
         if (Test-Path $fastPython) {
@@ -614,7 +611,19 @@ function Build-Command(){
         } elseif (Get-Command python -ErrorAction SilentlyContinue) {
           $baseCmdName = 'python'
         } else {
+          if (Show-FastViewerFailure "Python was not found. Fast Viewer requires Python with PySide6 and pyqtgraph. Run setup_fast_viewer_venv.bat first.") {
+            $cbViewerType.SelectedIndex = 0
+            return Build-Command
+          }
           [System.Windows.Forms.MessageBox]::Show("Fast Viewer requires Python with pyqtgraph/PySide6. Run setup_fast_viewer_venv.bat first.","Error","OK","Error")
+          return $null
+        }
+        $dep = Test-FastViewerDependencies $baseCmdName
+        if (-not $dep.Ok) {
+          if (Show-FastViewerFailure $dep.Summary) {
+            $cbViewerType.SelectedIndex = 0
+            return Build-Command
+          }
           return $null
         }
         $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
@@ -794,7 +803,13 @@ function Run-Viewer([string[]]$cmd){
     Append-Log('Viewer process started (PID=' + $p.Id + '). Window should appear shortly.')
   } catch {
     $lblStatus.Text = 'Status: Error launching viewer'; $lblStatus.ForeColor = $clrRed
-    Append-Log('CRITICAL ERROR launching viewer: ' + $_.Exception.Message)
+    $summary = $_.Exception.Message
+    Append-Log('CRITICAL ERROR launching viewer: ' + $summary)
+    if ($script:lastViewerType -eq 'Fast' -and (Show-FastViewerFailure $summary)) {
+      $cbViewerType.SelectedIndex = 0
+      $legacyCmd = Build-Command
+      if ($null -ne $legacyCmd) { Run-Viewer $legacyCmd }
+    }
   }
 }
 
@@ -914,7 +929,7 @@ $btnSave.Add_Click({
       open_on_finish   = $cbOpen.Checked.ToString().ToLower()
     }
   }
-  try { Write-Ini $iniPath $data; [System.Windows.Forms.MessageBox]::Show('Settings saved to gui_config.ini','rtgamma','OK','Information') } catch {}
+  try { Write-GuiIni $iniPath $data; [System.Windows.Forms.MessageBox]::Show('Settings saved to gui_config.ini','rtgamma','OK','Information') } catch {}
 })
 
 $btnRun.Add_Click({

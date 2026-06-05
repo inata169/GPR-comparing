@@ -3,6 +3,18 @@
 Date: 2026-06-05 (Fast Viewer final operational check)
 
 High priority
+- [x] **Fast Viewer既定化・選択式運用・Fast EXE別配布の実装**
+  - [x] Source/Python mode は保存設定なしでFast既定にする
+  - [x] Legacy ZIP は保存設定なしでLegacy既定にする
+  - [x] Fast ZIP用 `run_gui_fast_exe.bat` と `gamma_viewer_fast.spec` を追加する
+  - [x] `scripts/gui_config_common.ps1` で設定読み込み・merge・viewer_type解決を共通化する
+  - [x] Fast起動失敗時に明示エラーとLegacy起動導線を出す
+  - [x] Fast ZIPに `NOTICE.txt` / `THIRD_PARTY_LICENSES/` / `bundled_manifest.txt` を生成するパッケージ処理を追加する
+- [x] **Fast ZIPの実ビルド・配布検証**
+  - [x] `scripts/build_exe.ps1 -FastViewer` で `dist/gamma_viewer_fast` を生成する
+  - [x] `scripts/package_release.ps1 -DistributionMode Fast` でFast ZIPを生成する
+  - [x] `bundled_manifest.txt` で `platforms/qwindows.dll` 配置とGPL-only Qt module非同梱を確認する
+  - [ ] Python未インストールWindows環境でFast EXE起動を確認する
 - [ ] **Fast Viewerの実運用前最終確認**
   - [ ] PR #11 / #12 の修正後に、PROSTATEデータでFast Viewerを再起動する
   - [ ] Gamma overlayで `gamma=0` 領域が消えないことを確認する
@@ -11,10 +23,10 @@ High priority
   - [ ] `run_gui_python.bat` でGUIを起動する
   - [ ] Viewerを `Fast` にして3D Viewerを起動する
   - [ ] Legacy / Fast の切替が期待通り動くことを確認する
-- [ ] **Fast Viewer運用方針の最終判断**
-  - [ ] Fast Viewerを既定Viewerにするか判断する
-  - [ ] Legacy/Fast選択式のまま運用するか判断する
-  - [ ] EXE化する場合はPySide6込みでサイズが大きくなるため、配布方法を決める
+- [x] **Fast Viewer運用方針の最終判断**
+  - [x] Source/Python と Fast ZIP はFast既定にする
+  - [x] Legacy/Fast選択式のまま運用する
+  - [x] EXE化はPySide6/Qt込みのFast ZIPを通常Legacy ZIPと分けて配布する
 - [x] **3D Viewer軽量キャッシュ高速化PRの完了**（PR #6 merged）
 - [x] **3D Viewerクロスポイント値表示の完了**（PR #7 merged）
 - [x] **PyQtGraph版 Fast 3D Viewer PoC の追加**（PR #8 merged）

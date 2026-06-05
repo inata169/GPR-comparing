@@ -8,12 +8,12 @@
 - ダブルクリック: `run_gui.bat`
 - または: `scripts/run_gui.ps1`
 
-## Fast 3D Viewer PoC（任意）
+## Fast 3D Viewer
 - 目的: Matplotlib/TkAgg 版3D Viewerの描画限界を超えられるか、PyQtGraph + PySide6 で検証します。
 - 起動: `run_viewer_fast_test.bat`
 - 依存関係: `pip install -r requirements-fast-viewer.txt`
 - 範囲: Axial / Sagittal / Coronal の3断面、CT表示、5 overlay mode（Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio）、共有voxel cursor、`HU / Ref / Eval` ラベル表示、Ref/Evalファイル名表示、RTSTRUCT輪郭表示、ROI別GPR表示。
-- 非範囲: 画像保存、スクリーンショット保存、設定保存、EXE同梱、既存GUI統合。
+- 非範囲: 画像保存、スクリーンショット保存。
 - 操作:
   - マウスクリック: クリック断面上のvoxelへ共有cursorを移動。
   - マウスホイール: 操作中断面のslice indexを移動。
@@ -25,6 +25,8 @@
 - 安全動作:
   - `--gamma-npz` は既存Viewerと同じく `gamma` キーを基本とします。キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化します。
   - HU / Ref / Eval は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
+  - Cursor readoutは補間後の表示値ではなく、元voxel値を使用します。
+  - RTSTRUCT overlayはLegacy Viewerと同じvoxel index / patient coordinate変換経路を使用し、Fast側の描画都合によるtransposeやaxis inversionは比較確認対象とします。
 
 ## 手順
 - ファイル選択
@@ -32,8 +34,11 @@
   - `Output Folder` に保存先ディレクトリ（例: `phits-linac-validation/output/rtgamma/Test05_gui`）を指定。
 - アクション選択
   - Action: `3D (clinical preset)` または `2D (clinical preset)`（2D は Plane/Index 指定あり）。
-  - 3D Viewer起動時は Viewer: `Legacy` / `Fast` を選択可能。既定は `Legacy`。
-  - `Fast` は `.venv\Scripts\python.exe` を優先して `scripts/gamma_viewer_fast.py` を起動します。未セットアップの場合は `setup_fast_viewer_venv.bat` を実行してください。
+  - 3D Viewer起動時は Viewer: `Legacy` / `Fast` を選択可能。
+  - Source/Python modeとFast ZIPでは、保存済み設定がなければ既定は `Fast` です。
+  - Legacy ZIPはPySide6/Qtを同梱しない軽量配布のため、保存済み設定がなければ既定は `Legacy` です。
+  - `Fast` はSource/Python modeでは `.venv\Scripts\python.exe` を優先して `scripts/gamma_viewer_fast.py` を起動します。未セットアップの場合は `setup_fast_viewer_venv.bat` を実行してください。
+  - Fast起動に失敗した場合は、失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開けます。黙ってLegacyへfallbackしません。
   - Clinical Preset: 既定は `clinical_rel`（3%/2mm/10%、norm=global_max、opt-shift=off）。
   - Optimize shift: 既定は OFF（必要時のみ ON）。
   - Threads: CPU コア数を目安（0=auto）。
@@ -55,6 +60,12 @@
 - Reports: `.../run3d.{csv,json,md}` または `<plane>.{csv,json,md}`
 - 2D Images: `<plane>_gamma.png`, `<plane>_diff.png`
 - 3D NPZ: `gamma3d.npz`, `dose_diff3d.npz`（指定時）
+
+## 配布モード
+- Source/Python: Fast依存があればFast既定、Legacy選択可。
+- Legacy ZIP: `run_gui_exe.bat` で起動。PySide6/Qtなし、Legacy既定。
+- Fast ZIP: `run_gui_fast_exe.bat` で起動。`gamma_viewer_fast`、PySide6/Qt/pyqtgraphを同梱し、Fast既定。
+- Fast ZIPには `NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱します。`qwindows.dll` はQt platform pluginとして解決可能な `platforms/qwindows.dll` 相当のパスに配置されていることをmanifestで確認します。
 
 ## 文字コード（Windows）
 - Markdown/ログは UTF-8（BOMなし）推奨。文字化け回避のためエディタ設定を確認してください。

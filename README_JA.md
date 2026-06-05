@@ -15,9 +15,14 @@
 ### 方法 A: 実行ファイル (Windows EXE)
 Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X.X.zip` をダウンロード・展開し、同梱の `run_gui.bat` または `scripts/run_gui.ps1` を実行してください。（内部的に `.exe` ファイルが自動的に呼び出されます。）
 
+- Legacy ZIP: 軽量配布です。PySide6/Qt は同梱せず、3D Viewer の既定は Legacy です。Fast を選んだ場合は、Fast ZIP または Python/source mode のセットアップが必要です。
+- Fast ZIP: PySide6/Qt/pyqtgraph を同梱した大容量配布です。3D Viewer の既定は Fast です。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱し、第三者コンポーネントは各ライセンスに従います。
+
 ### 方法 B: Python ソースからの実行
 - Python 3.9+
 - 依存関係: `pip install pydicom numpy scipy matplotlib numba`
+- Fast Viewer を使う場合: `pip install -r requirements-fast-viewer.txt` または `setup_fast_viewer_venv.bat`
+- Python/source mode では、保存済み設定がなければ3D Viewerの既定は Fast です。Legacy は引き続き選択できます。
 - パッケージ化（開発者向け）: `scripts/build_exe.ps1` を実行することで PyInstaller による `.exe` 生成が可能です。
 
 ## クイックスタート（CLI）
@@ -48,6 +53,7 @@ Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X
 - 起動: `run_gui.bat` または `scripts/run_gui.ps1`
 - 入力: Ref/Eval の RTDOSE、出力フォルダを指定
 - モード: Header Compare / 3D / 2D、プリセット、平面、Threads を設定
+- 3D Viewer: `Legacy` / `Fast` を選択可能。Fast起動に失敗した場合は、失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開けます。
 - 快適機能: 進捗表示、ログ保存、サマリ自動オープン、Local gamma トグル
 - 詳細: `docs/openspec/GUI_RUN.md`
 

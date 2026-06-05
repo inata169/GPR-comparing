@@ -5,7 +5,7 @@
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
-- Status (2026-06-04): Fast 3D Viewer PoC は PR #8 で main にマージ済み。Issue #9で旧Viewerとの断面方向比較を完了し、Fast Viewer側に旧Viewer相当のサイドバー表示（ファイル名、Structure/ROI表示、5 overlay mode、Criteria/Cutoff、ROI GPR）を追加済み。既存GUIには Legacy/Fast の選択式で統合済み。
+- Status (2026-06-05): Fast 3D Viewer は既存GUIに Legacy/Fast 選択式で統合済み。Source/Python modeとFast ZIPではFast既定、Legacy ZIPではPySide6/Qtを同梱しないためLegacy既定とする。Legacyは安全弁として残す。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
@@ -84,14 +84,15 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - 3D: Numba JIT + `--threads` で並列。初回は JIT によりウォームアップが必要。
   - **高速化方針（2026-03-12 完了）**: ノン補間・補間両モードにおいて「距離順探索（中心から外側へ螺旋状に探索）」と「Early Exit（ガンマ1以下で即時終了）」を実装。ノン補間モードで約2.6倍、補間モードで約1.1倍の高速化を達成。GPR並列計算のメモリバス負荷を低減。
   - **描画性能**: Structure が多い場合の `plt.plot()` ループは遅いため `LineCollection` で一括描画し高速化。さらに `viewer_settings.json` による座標や可視性の永続化をサポート。
-  - **Fast 3D Viewer PoC**: `scripts/gamma_viewer_fast.py` はPyQtGraph + PySide6による描画高速化検証用の独立PoCであり、既存 `scripts/gamma_viewer.py` の挙動を変更しない。
+  - **Fast 3D Viewer**: `scripts/gamma_viewer_fast.py` はPyQtGraph + PySide6による描画高速化Viewerであり、既存 `scripts/gamma_viewer.py` はLegacy Viewerとして残す。
     - 範囲は3断面、CT grayscale、5 overlay mode（Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio）、共有voxel cursor、`HU / Ref / Eval` ラベル、Ref/Evalファイル名、RTSTRUCT輪郭、ROI別GPR表示。
-    - 内部カーソルは voxel index `(z, y, x)` とし、Axial / Sagittal / Coronal の3断面で共有する。物理座標やDICOM patient coordinateの厳密対応はPoC範囲外。
+    - 内部カーソルは voxel index `(z, y, x)` とし、Axial / Sagittal / Coronal の3断面で共有する。HU / Ref Dose / Eval Dose / Gamma のreadoutは補間後の表示値ではなく元voxel値を使用し、Legacyと表示丸め後に一致することを確認する。
+    - RTSTRUCT overlayはLegacyと同じ voxel index / patient coordinate変換経路を使用する。Fast描画でtranspose、origin shift、axis inversionが必要な場合は理由を文書化し、Legacy/Fast比較で固定する。
     - 操作は、クリックで共有cursor移動、ホイールで操作中断面のslice移動、各断面sliderでslice移動とする。すべての経路でcrosshairと値ラベルを同期更新する。
     - OverlayはCTとは別ImageItemとし、NaN/inf/未計算領域を透明扱い、alpha sliderは選択中のoverlayに作用する。
     - `--gamma-npz` は既存Viewerと同じ `gamma` キーを基本とし、キー欠損やshape不一致ではViewer全体を落とさずGamma overlayのみ無効化する。
     - HU / Ref / Eval は個別に欠損・shape不一致・範囲外・非finiteを確認し、取得できない値だけ `N/A` と表示する。Dose単位は表示上 `Gy` とする。
-    - 非範囲: 画像保存、スクリーンショット保存、設定保存、EXE同梱、既存GUI統合。
+    - 非範囲: 画像保存、スクリーンショット保存。
 - 精度受け入れ
   - Self-compare ≈ 100%。
   - 2D（fast path）と 3D 同一スライスの GPR 差は ≲ 0.5pp を目安。
@@ -183,11 +184,14 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
 - DICOM I/O・幾何: rtgamma/io_dicom.py
 - レポート出力: rtgamma/report.py, scripts/pdf_report.py
 - GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px、PDF出力設定、マウスオーバーツールチップ)
-  - 3D Viewer起動は `Viewer: Legacy / Fast` 選択式。`Analysis/viewer_type` に `legacy|fast` を保存し、Fast選択時は `.venv\Scripts\python.exe` 優先で `scripts/gamma_viewer_fast.py` を起動する。
-  - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と、最適化済み `.spec` ファイルによるビルド。MKL などの巨大依存を排除し、バイナリサイズを大幅に削減（単体 **約500MB前後**）。Python 環境非依存の実行を実現。さらに、Python未インストール環境向けにEXEを強制使用するポータブルランチャー (`run_gui_exe.bat`) を同梱。
+  - 設定読み込みは `scripts/gui_config_common.ps1` で共通化する。優先順位は `config/gui_config.ini` の保存済み設定、`config/gui_defaults.json`、mode別fallback。`viewer_type` が欠損・不正値の場合は現在起動のみfallbackし、警告/ログを出す。INIはSave Settings時のみ正規化値を保存する。
+  - 3D Viewer起動は `Viewer: Legacy / Fast` 選択式。`Analysis/viewer_type` に `legacy|fast` を保存する。Source/Python modeとFast ZIPでは保存済み設定がなければFast既定。Legacy ZIPではPySide6/Qtを同梱しないためLegacy既定。
+  - Fast起動失敗時は、失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開ける。黙ってLegacyへfallbackしない。
+  - EXE運用: PyInstaller ビルドスクリプト `scripts/build_exe.ps1` と `.spec` ファイルによるビルド。Legacy ZIPは軽量配布、Fast ZIPは `gamma_viewer_fast` とPySide6/Qt/pyqtgraphを同梱する大容量配布として分離する。
+  - Fast ZIPはPyInstaller onedirで作成し、Qt/PySide6バイナリは改変しない。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱し、`qwindows.dll` がQt platform plugin pathにあること、GPL-only Qt modules/pluginsが意図せず同梱されていないこと、PySide6/Qt componentsがLegacy ZIPに入っていないことをmanifestで確認する。
 - 運用: AGENTS.md, TEST_PLAN.md, TROUBLESHOOTING.md, CHANGELOG.md, DECISIONS.md
 - 3Dビューア: scripts/gamma_viewer.py (Axial/Sagittal/Coronal同期2x2マルチプレーン, 3Dカーソル, Slice GPR表示, 設定永続化, 5モード: Gamma/Pass-Fail/Ref Dose/Eval Dose/Dose Ratio, CT+Structure重畳, カラーバー, ファイル名表示, 物理アスペクト比対応, Axial医療慣習表示)
-- Fast 3D Viewer PoC: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/overlay表示, 共有voxel cursor, HU/Ref/Evalラベル, Ref/Evalファイル名表示, RTSTRUCT輪郭, ROI別GPR, 5 overlay mode, 保存・設定は非対応)
+- Fast 3D Viewer: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/overlay表示, 共有voxel cursor, HU/Ref/Eval/Gamma readout, Ref/Evalファイル名表示, RTSTRUCT輪郭, ROI別GPR, 5 overlay mode, GUIからLegacy/Fast選択式で起動)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
 
 ## 14. Commercial Roadmap (商用化ロードマップ)

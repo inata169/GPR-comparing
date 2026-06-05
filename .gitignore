@@ -33,6 +33,7 @@ scripts/viewer_settings.json
 dist/
 build/
 *.spec
+!gamma_viewer_fast.spec
 temp/
 release_staging/
 _local_commits_files.txt
