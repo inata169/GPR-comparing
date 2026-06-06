@@ -3,21 +3,24 @@
 ## Scope
 Covers core gamma workflows: DICOM I/O, resampling, shift optimization, gamma computation, and reporting.
 
-## Fast Viewer Default / Distribution Checks
-- Source/Python mode: no `config/gui_config.ini` selects `Fast`; saved `viewer_type=legacy` selects Legacy; saved `viewer_type=fast` selects Fast.
-- Missing/invalid `viewer_type`: use the mode fallback for the current launch, show a warning/log, and do not rewrite INI until Save Settings is clicked.
-- Legacy ZIP: no saved config selects Legacy, PySide6/Qt components are absent, and Fast selection gives a clear dependency/distribution error with a Legacy launch path.
-- Fast ZIP: no saved config selects Fast, starts without Python installed, includes `NOTICE.txt`, `THIRD_PARTY_LICENSES/`, and a relative-path `bundled_manifest.txt`.
-- Fast ZIP manifest: confirm `qwindows.dll` is under a Qt `platforms/` plugin path, GPL-only Qt modules/plugins are not unintentionally included, and PySide6/Qt components are not present in Legacy ZIP.
+## Fast Viewer Fixed Launch Checks
+- Source/Python mode: 3D Viewer launches Fast even when `config/gui_config.ini` contains `viewer_type=legacy`.
+- EXE GUI mode: 3D Viewer attempts `gamma_viewer_fast.exe` only. Legacy fallback is not offered.
+- Fast dependency/build failure shows a clear diagnostic message and keeps the GUI usable.
+- Empty Output Folder does not crash command construction; `gamma3d.npz` is used only when Output Folder is valid and the file exists.
+- Paths containing spaces are passed as separate process arguments and do not break CT/RTDOSE/RTSTRUCT/output paths.
+- Legacy ZIP / Fast ZIP / separate-PC / Python-not-installed distribution checks are tracked as separate packaging issues, not this Phase 1 viewer acceptance.
 
-## Legacy / Fast Viewer Consistency Checks
-- PROSTATE data: open Legacy and Fast with the same inputs and output folder.
-- Axial / Sagittal / Coronal open the same CT slice index.
-- Same cursor voxel reports matching HU / Ref Dose / Eval Dose / Gamma after display rounding.
-- Cursor readout uses original voxel values, not interpolated display values.
-- Gamma overlay threshold/mask behavior is equivalent, and `gamma=0` regions are not incorrectly hidden.
-- RTSTRUCT overlay appears at the same anatomical location as Legacy.
-- Old or mismatched `gamma3d.npz` with RTSTRUCT does not crash the viewer.
+## Fast Viewer Interaction / Readout Checks
+- PROSTATE data: open Fast Viewer with CT, Ref RTDOSE, Eval RTDOSE, and RTSTRUCT.
+- Axial / Sagittal / Coronal show synchronized crosshair and slice controls.
+- Mouse wheel scrolls slices; Shift+wheel fast-scrolls; Ctrl+wheel zooms; middle drag pans.
+- `+`, `-`, `0`, `F`, `H` / `?` keyboard controls work as documented.
+- Current point reports voxel index, physical coordinate or `N/A`, HU, Ref Dose, Eval Dose, Dose Diff, Gamma, and Pass/Fail.
+- Cursor readout uses original source voxel arrays, not interpolated display values.
+- Dose Diff is `Eval Dose - Ref Dose`.
+- Pass/Fail is defined only for finite gamma values; `gamma=0.0` is valid and passes.
+- Missing, nonfinite, old, or mismatched `gamma3d.npz` displays `N/A` where appropriate and does not crash with RTSTRUCT loaded.
 
 ## Fast Viewer Performance Smoke
 - Open the representative PROSTATE dataset in Fast Viewer.

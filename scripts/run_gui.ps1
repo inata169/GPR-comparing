@@ -17,7 +17,7 @@ $iniPath = Join-Path $ROOT 'config/gui_config.ini'
 . (Join-Path $ROOT 'scripts/gui_config_common.ps1')
 $cfg = Merge-GuiConfig (Read-GuiDefaults $ROOT) (Read-GuiConfig $ROOT)
 $viewerResolution = Resolve-ViewerType $cfg 'fast'
-$cfg['viewer_type'] = $viewerResolution.Value
+$cfg['viewer_type'] = 'fast'
 
 # =============================================
 #  Dark Theme Color Palette
@@ -252,9 +252,9 @@ $form.Controls.Add($cbAction)
 
 # Viewer Type
 $form.Controls.Add((New-DarkLabel 'Viewer' 340 $yf))
-$cbViewerType = New-DarkCombo 410 ($yf - 2) 110 @('Legacy','Fast')
+$cbViewerType = New-DarkCombo 410 ($yf - 2) 110 @('Fast')
 $cbViewerType.SelectedIndex = 0
-$tooltip.SetToolTip($cbViewerType, "3D Viewer起動時のみ有効です。Legacyは従来Matplotlib版、FastはPyQtGraph版を起動します。")
+$tooltip.SetToolTip($cbViewerType, "3D ViewerはFast Viewer固定で起動します。")
 $form.Controls.Add($cbViewerType)
 
 # Norm
@@ -426,13 +426,12 @@ function Show-FastViewerFailure([string]$summary) {
   $logPath = Save-CurrentGuiLog
   $logText = if ($logPath) { "`r`nLog: $logPath" } else { "`r`nLog: not available" }
   Append-Log("[ERROR] Fast viewer launch failed: $summary")
-  $answer = [System.Windows.Forms.MessageBox]::Show(
-    "Failed viewer type: Fast`r`nSummary: $summary$logText`r`n`r`nOpen with Legacy viewer?",
+  [System.Windows.Forms.MessageBox]::Show(
+    "Fast Viewer launch failed.`r`nSummary: $summary$logText`r`n`r`nCheck PySide6/pyqtgraph dependencies or Fast Viewer EXE packaging, then try again.",
     "Fast Viewer launch failed",
-    "YesNo",
+    "OK",
     "Error"
-  )
-  return ($answer -eq [System.Windows.Forms.DialogResult]::Yes)
+  ) | Out-Null
 }
 
 function Test-FastViewerDependencies([string]$pythonExe) {
@@ -470,6 +469,21 @@ function Browse-Folder([ref]$tb){
   }
   if($dlg.ShowDialog() -eq 'OK'){
     $tb.Value.Text = [System.IO.Path]::GetDirectoryName($dlg.FileName)
+  }
+}
+
+function Quote-ProcessArgument([string]$arg) {
+  if ($null -eq $arg -or $arg -eq '') { return '""' }
+  if ($arg -notmatch '[\s"]') { return $arg }
+  return '"' + $arg.Replace('"', '\"') + '"'
+}
+
+function Set-ProcessArguments([System.Diagnostics.ProcessStartInfo]$psi, [string[]]$args) {
+  if ($null -eq $args -or $args.Count -eq 0) { return }
+  if ($null -ne $psi.GetType().GetProperty('ArgumentList')) {
+    foreach ($arg in $args) { [void]$psi.ArgumentList.Add($arg) }
+  } else {
+    $psi.Arguments = (($args | ForEach-Object { Quote-ProcessArgument $_ }) -join ' ')
   }
 }
 
@@ -602,39 +616,23 @@ function Build-Command(){
     }
     3 { # 3D Viewer
       $ct = $tbCT.Text
-      $viewerType = [string]$cbViewerType.SelectedItem
+      $viewerType = 'Fast'
       $script:lastViewerType = $viewerType
-      if ($viewerType -eq 'Fast') {
-        $fastPython = Join-Path $ROOT '.venv\Scripts\python.exe'
-        if (Test-Path $fastPython) {
-          $baseCmdName = $fastPython
-        } elseif (Get-Command python -ErrorAction SilentlyContinue) {
-          $baseCmdName = 'python'
-        } else {
-          if (Show-FastViewerFailure "Python was not found. Fast Viewer requires Python with PySide6 and pyqtgraph. Run setup_fast_viewer_venv.bat first.") {
-            $cbViewerType.SelectedIndex = 0
-            return Build-Command
-          }
-          [System.Windows.Forms.MessageBox]::Show("Fast Viewer requires Python with pyqtgraph/PySide6. Run setup_fast_viewer_venv.bat first.","Error","OK","Error")
-          return $null
-        }
-        $dep = Test-FastViewerDependencies $baseCmdName
-        if (-not $dep.Ok) {
-          if (Show-FastViewerFailure $dep.Summary) {
-            $cbViewerType.SelectedIndex = 0
-            return Build-Command
-          }
-          return $null
-        }
-        $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
-      } else {
+      $fastPython = Join-Path $ROOT '.venv\Scripts\python.exe'
+      if (Test-Path $fastPython) {
+        $baseCmdName = $fastPython
+      } elseif (Get-Command python -ErrorAction SilentlyContinue) {
         $baseCmdName = 'python'
-        $baseArgs = @('-u', 'scripts/gamma_viewer.py')
-        if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\gamma_viewer\gamma_viewer.exe")) {
-          $baseCmdName = "$ROOT\dist\gamma_viewer\gamma_viewer.exe"
-          $baseArgs = @()
-        }
+      } else {
+        Show-FastViewerFailure "Python was not found. Fast Viewer requires Python with PySide6 and pyqtgraph. Run setup_fast_viewer_venv.bat first."
+        return $null
       }
+      $dep = Test-FastViewerDependencies $baseCmdName
+      if (-not $dep.Ok) {
+        Show-FastViewerFailure $dep.Summary
+        return $null
+      }
+      $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
@@ -642,9 +640,11 @@ function Build-Command(){
         $viewerCmd += @('--roi', $tbRoi.Text.Trim())
       }
       # If a pre-computed NPZ exists in output folder, use it
-      $npzPath = Join-Path $out 'gamma3d.npz'
-      if (Test-Path $npzPath) {
-        $viewerCmd += @('--gamma-npz', $npzPath)
+      if (-not [string]::IsNullOrWhiteSpace($out) -and (Test-Path $out -PathType Container)) {
+        $npzPath = Join-Path $out 'gamma3d.npz'
+        if (Test-Path $npzPath) {
+          $viewerCmd += @('--gamma-npz', $npzPath)
+        }
       }
       return $viewerCmd
     }
@@ -685,7 +685,7 @@ function Run-Cmd([string[]]$cmd){
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
-  $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
+  Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.UseShellExecute = $false
@@ -790,7 +790,7 @@ function Run-Viewer([string[]]$cmd){
 
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
-  $psi.Arguments = ($cmd[1..($cmd.Length-1)] -join ' ')
+  Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
   $psi.UseShellExecute = $false
   $psi.CreateNoWindow = $false
   $psi.WorkingDirectory = $ROOT
@@ -805,11 +805,7 @@ function Run-Viewer([string[]]$cmd){
     $lblStatus.Text = 'Status: Error launching viewer'; $lblStatus.ForeColor = $clrRed
     $summary = $_.Exception.Message
     Append-Log('CRITICAL ERROR launching viewer: ' + $summary)
-    if ($script:lastViewerType -eq 'Fast' -and (Show-FastViewerFailure $summary)) {
-      $cbViewerType.SelectedIndex = 0
-      $legacyCmd = Build-Command
-      if ($null -ne $legacyCmd) { Run-Viewer $legacyCmd }
-    }
+    if ($script:lastViewerType -eq 'Fast') { Show-FastViewerFailure $summary }
   }
 }
 
@@ -859,12 +855,7 @@ try {
       'viewer' { $cbAction.SelectedIndex = 3 }
     }
   }
-  if ($cfg['viewer_type']) {
-    switch ([string]$cfg['viewer_type']) {
-      'legacy' { $cbViewerType.SelectedIndex = 0 }
-      'fast'   { $cbViewerType.SelectedIndex = 1 }
-    }
-  }
+  $cbViewerType.SelectedIndex = 0
   if ($cfg['plane']) {
     $plIdx = $cbPlane.Items.IndexOf([string]$cfg['plane'])
     if ($plIdx -ge 0) { $cbPlane.SelectedIndex = $plIdx }
@@ -893,8 +884,7 @@ $btnSave.Add_Click({
   if (-not $presetVal) { $presetVal = 'Custom' }
   $normVal = $cbNorm.SelectedItem
   if (-not $normVal) { $normVal = 'global_max' }
-  $viewerTypeVal = ([string]$cbViewerType.SelectedItem).ToLower()
-  if (-not $viewerTypeVal) { $viewerTypeVal = 'legacy' }
+  $viewerTypeVal = 'fast'
   $data = [ordered]@{
     'Paths' = [ordered]@{
       ref_dose   = $tbRef.Text
