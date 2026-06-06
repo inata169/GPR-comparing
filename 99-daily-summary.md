@@ -1,3 +1,72 @@
+# Daily Summary: 2026-06-06 (セッション21 Fast Viewer一本化・v0.9.0リリース)
+
+## 作業内容サマリ
+
+1. **Fast Viewer一本化とGUI起動経路の整理**
+   - GUIの3D Viewer起動経路をFast Viewer固定に変更。
+   - 保存済み `viewer_type=legacy` が残っていてもFast Viewerを起動するようにした。
+   - Legacy Viewer実装と既存配布スクリプトは削除せず、互換資産として残した。
+   - Fast Viewer起動失敗時はLegacy fallbackを提示せず、依存関係・失敗理由・ログパスを示してGUIへ戻れるようにした。
+   - Output Folder空欄時に `gamma3d.npz` 探索で落ちないようにし、空白を含むWindows pathも `ProcessStartInfo` の引数要素として扱うようにした。
+
+2. **Fast Viewer Phase 1 UI/操作改善**
+   - Info表示をcheckboxと `I` キーでON/OFF可能にした。
+   - 右下パネルをData / Display / ROI visibility / Overlay / Zoomに整理し、文字サイズと配置を見直した。
+   - `File` / `View` / `Help` メニューを追加し、読み込み情報・表示切替・Controlsを確認できるようにした。
+   - `Ctrl + wheel` zoom、middle-drag pan、`F` fit、`H` / `?` help、`0` resetを整理した。
+   - Sagittal / Coronalを物理mmスケール1:1で表示し、HFS前提のorientation labelを表示した。
+   - Axial / CoronalのRL表示向きをユーザー確認に合わせて反転修正した。
+
+3. **現在点情報・Gamma表示の堅牢化**
+   - 現在点に voxel index、physical coordinate、HU、Ref Dose、Eval Dose、Dose Diff、Gamma、Pass/Failを表示。
+   - readoutは表示補間値ではなくsource voxel arraysから `(z, y, x)` で取得する方針を維持。
+   - `gamma=0.0` を有限な有効値として扱い、Pass/Failは有限gammaのみで判定。
+   - missing / nonfinite / shape mismatch は `N/A` として表示し、クラッシュしないようにした。
+   - `Dose Diff = Eval Dose - Ref Dose` overlayを追加した。
+
+4. **手動検証用データとREADME画像**
+   - 検証用公開DICOM取得の代替として、完全ダミー患者情報の合成DICOM-RTデータ生成スクリプトを追加。
+   - `test_data_local/` をgitignore対象にし、生成物をコミットしない運用にした。
+   - 合成CT / Ref RTDOSE / Eval RTDOSE / RTSTRUCTでFast Viewerを起動してユーザー手動確認。
+   - ユーザー撮影のFast Viewer画像を `docs/openspec/images/Gui-screenshot.png` としてREADMEに反映した。
+
+5. **Release v0.9.0とブランチ整理**
+   - PR #15 `feat(viewer): finalize Fast Viewer phase 1` を作成・マージ。
+   - CIのRuff import ordering失敗を `fix(ci): satisfy ruff for synthetic data script` で修正。
+   - `v0.9.0` tagを修正後のmain commitへ付け直し、GitHub Releaseを公開。
+   - 不要になった作業ブランチを削除:
+     - `fast-viewer-v0.9.0`
+     - `codex/fast-viewer-gui-integration`
+     - `codex/fast-viewer-poc`
+     - `codex/fix-fast-viewer-roi-gamma-shape`
+     - `codex/fix-fast-viewer-zero-gamma-overlay`
+
+## 検証
+
+- `.\.venv\Scripts\python.exe -m py_compile scripts\gamma_viewer_fast.py scripts\create_synthetic_dicom_rt_dataset.py`
+- PowerShell parser check:
+  - `scripts/run_gui.ps1`
+  - `scripts/run_gui_exe.ps1`
+- `.\.venv\Scripts\python.exe -m ruff check rtgamma tests scripts`
+  - `All checks passed!`
+- `.\.venv\Scripts\python.exe -m pytest -q`
+  - `29 passed, 7 skipped, 6 warnings`
+- 合成DICOM-RTデータでFast Viewerを手動確認。
+- README画像を目視確認。
+
+## 現在の状態
+
+- main: `2bd0688` (`fix(ci): satisfy ruff for synthetic data script`)
+- Release: `v0.9.0`
+- GitHub Release: `https://github.com/inata169/GPR-comparing/releases/tag/v0.9.0`
+- remote branchは `main` のみ。
+
+## 次回以降
+
+- Fast ZIP / Python未インストールWindows確認は別イシュー扱い。
+- EXE容量削減はpending。
+- 次の実装対象は、Fast Viewerの操作改善・表示調整の追加フィードバック、または配布パッケージ検証。
+
 # Daily Summary: 2026-06-05 (セッション20 Fast Viewer既定化・配布計画実装)
 
 ## 作業内容サマリ

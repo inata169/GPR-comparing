@@ -1,6 +1,48 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-05 Fast Viewer既定化・Fast ZIP実装後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-06 Fast Viewer一本化・v0.9.0リリース後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (21) で完了したこと
+- **Fast Viewer一本化**:
+    - GUIの3D Viewer起動経路はFast Viewer固定になった。
+    - 保存済み `viewer_type=legacy` が残っていてもFast Viewerを起動する。
+    - Legacy Viewer実装と既存packaging scriptsは削除していない。
+    - Fast Viewer起動失敗時はLegacy fallbackを提示せず、依存関係・失敗理由・ログパスを表示してGUIへ戻れる。
+    - Output Folder空欄時の `gamma3d.npz` 探索をskipし、空白を含むWindows pathは `ProcessStartInfo` の引数要素として扱う。
+- **Fast Viewer Phase 1 UI改善**:
+    - Info表示はcheckboxと `I` キーでON/OFF可能。
+    - 右下パネルをData / Display / ROI visibility / Overlay / Zoomに整理。
+    - `File` / `View` / `Help` メニューを追加。Fileは読み込み情報確認のみで、新規DICOM読み込みは未実装。
+    - `Ctrl + wheel` zoom、middle-drag pan、`F` fit、`H` / `?` help、`0` resetを整理。
+    - Sagittal / Coronalは物理mmスケール1:1表示。HFS前提のorientation labelを各planeに表示。
+    - ユーザー手動確認後、Axial / CoronalのRL表示向きを反転修正してOK確認済み。
+- **現在点readout / overlay改善**:
+    - 表示項目は voxel index、physical coordinate、HU、Ref Dose、Eval Dose、Dose Diff、Gamma、Pass/Fail。
+    - readoutはsource voxel arraysから `(z, y, x)` で取得し、display-interpolated image値は使わない。
+    - `gamma=0.0` は有限な有効値として扱う。
+    - Pass/Failは有限gammaのみ対象。missing / nonfinite / shape mismatchは `N/A`。
+    - `Dose Diff = Eval Dose - Ref Dose` overlayを追加。
+- **合成DICOM-RT検証データ**:
+    - `scripts/create_synthetic_dicom_rt_dataset.py` を追加。
+    - synthetic CT series、Ref RTDOSE、Eval RTDOSE、optional RTSTRUCTを `test_data_local/` に生成する。
+    - patient情報は完全ダミー。生成物はgitignore対象でコミットしない。
+- **Docs / Release / Branch cleanup**:
+    - READMEにFast Viewerスクリーンショットと現行操作説明を反映。
+    - TEST_PLAN / OpenSpec / handover / daily summaryをFast固定方針へ更新。
+    - PR #15を作成・マージし、CIのRuff import orderingを追加修正。
+    - Release `v0.9.0` を公開済み。
+    - 不要なremote branchを削除し、remote branchは `main` のみ。
+
+### 現在の正本
+- main: `2bd0688` (`fix(ci): satisfy ruff for synthetic data script`)
+- tag/release: `v0.9.0`
+- GitHub Release: `https://github.com/inata169/GPR-comparing/releases/tag/v0.9.0`
+- 今日のFast Viewer実装が正。昨日までのPoC/選択式/個別fix branchは不要として整理済み。
+
+### 次回の注意点
+- Fast ZIPの別PC確認、Python未インストールWindows確認、EXE容量削減は別イシュー扱い。
+- DICOM座標変換、gamma calculation、dose resampling、RTSTRUCT loadingは今回触っていない。
+- Fast Viewerの表示座標改善とsource voxel readoutは分離している。内部cursor stateは `(z, y, x)` のarray indexを正とする。
 
 ### 本セッション (20) で完了したこと
 - **Fast Viewer既定化・選択式運用**:

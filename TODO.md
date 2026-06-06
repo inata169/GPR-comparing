@@ -1,6 +1,52 @@
 # TODO (Next Actions)
 
-Date: 2026-06-05 (Fast Viewer final operational check)
+Date: 2026-06-06 (Fast Viewer v0.9.0 released)
+
+High priority
+- [x] **Fast Viewer一本化とPhase 1操作改善**
+  - [x] GUIの3D Viewer起動経路をFast固定にする
+  - [x] 保存済み `viewer_type=legacy` が残っていてもFast Viewerを起動する
+  - [x] Fast起動失敗時にLegacy fallbackを提示せず、診断メッセージを表示する
+  - [x] Output Folder空欄時に `gamma3d.npz` 探索で落ちないようにする
+  - [x] 空白を含むWindows pathを `ProcessStartInfo` の引数要素として扱う
+  - [x] Info checkbox / `I` キーで現在点情報をON/OFFする
+  - [x] 右下パネル、File/View/Helpメニュー、Help表示を整理する
+  - [x] `Ctrl + wheel` zoom、Pan、`F` fit、`H` / `?` help、`0` resetを実装する
+  - [x] Sagittal / Coronalを物理mmスケール1:1で表示する
+  - [x] HFS前提のorientation labelを各planeに表示する
+  - [x] Axial / CoronalのRL向きをユーザー確認に合わせて修正する
+- [x] **現在点readout / Gamma edge case**
+  - [x] voxel index、physical coordinate、HU、Ref、Eval、Dose Diff、Gamma、Pass/Failを表示する
+  - [x] readoutはsource voxel arraysから `(z, y, x)` で取得する
+  - [x] `gamma=0.0` を有限な有効値として扱う
+  - [x] missing / nonfinite / shape mismatchは `N/A` として表示する
+  - [x] `Dose Diff = Eval Dose - Ref Dose` overlayを追加する
+- [x] **手動検証用合成DICOM-RTデータ**
+  - [x] synthetic CT seriesを生成する
+  - [x] synthetic RTDOSE Ref / Evalを同一geometryで生成する
+  - [x] optional synthetic RTSTRUCTを生成する
+  - [x] 生成物は `test_data_local/` に保存し、コミットしない
+- [x] **Docs / Release / Branch cleanup**
+  - [x] READMEにFast Viewer screenshotと現行操作説明を反映する
+  - [x] TEST_PLAN / OpenSpec / daily summary / handoverを更新する
+  - [x] PR #15を作成・マージする
+  - [x] Release `v0.9.0` を公開する
+  - [x] 不要な作業ブランチを削除する
+
+Next pending
+- [ ] **Fast ZIP / 別PC確認**
+  - [ ] Fast ZIPを別PCで起動確認する
+  - [ ] Python未インストールWindows環境でFast EXE起動を確認する
+  - [ ] `NOTICE.txt` / `THIRD_PARTY_LICENSES/` / `bundled_manifest.txt` を配布物で再確認する
+- [ ] **EXE容量削減**
+  - [ ] 時間がかかるためpending。次回以降の別イシュー扱い。
+- [ ] **Fast Viewer追加フィードバック**
+  - [ ] 実データでorientation label、physical coordinate表示、ROI contour表示を再確認する
+  - [ ] 必要に応じて右下パネルの密度・文字サイズ・ショートカットを追加調整する
+
+---
+
+## Historical TODO (before v0.9.0)
 
 High priority
 - [x] **Fast Viewer既定化・選択式運用・Fast EXE別配布の実装**
