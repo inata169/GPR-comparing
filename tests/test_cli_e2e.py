@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 
 import pytest
 from jsonschema import validate
@@ -51,7 +52,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     
     # Execute CLI
     cmd = [
-        "python", "-m", "rtgamma.main",
+        sys.executable, "-m", "rtgamma.main",
         "--ref", ref_path,
         "--eval", eval_path,
         "--report", report_base,
