@@ -35,6 +35,7 @@ build/
 *.spec
 !gamma_viewer_fast.spec
 temp/
+test_data_local/
 release_staging/
 _local_commits_files.txt
 _git_status_after_reset.txt

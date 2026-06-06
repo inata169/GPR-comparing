@@ -66,6 +66,107 @@ def _strict_voxel_value(volume: np.ndarray | None, ct: np.ndarray, z: int, y: in
     return _safe_voxel_value(volume, z, y, x)
 
 
+def _pass_fail_text(gamma_value: float | None) -> str:
+    if gamma_value is None:
+        return "N/A"
+    return "Pass" if gamma_value <= 1.0 else "Fail"
+
+
+def _dose_diff_value(eval_value: float | None, ref_value: float | None) -> float | None:
+    if eval_value is None or ref_value is None:
+        return None
+    return eval_value - ref_value
+
+
+def _coord_edges(coords: np.ndarray) -> tuple[float, float]:
+    coords = np.asarray(coords, dtype=float)
+    if coords.size == 0:
+        return 0.0, 1.0
+    if coords.size == 1:
+        step = 1.0
+    else:
+        step = float(np.nanmedian(np.diff(coords)))
+        if not np.isfinite(step) or step == 0.0:
+            step = 1.0
+    return float(coords[0] - step / 2.0), float(coords[-1] + step / 2.0)
+
+
+def _nearest_index(coords: np.ndarray, value: float) -> int:
+    coords = np.asarray(coords, dtype=float)
+    if coords.size == 0:
+        return 0
+    idx = int(np.nanargmin(np.abs(coords - float(value))))
+    return int(np.clip(idx, 0, coords.size - 1))
+
+
+def _index_to_coord(coords: np.ndarray, index_value: float) -> float:
+    coords = np.asarray(coords, dtype=float)
+    if coords.size == 0:
+        return float(index_value)
+    return float(np.interp(float(index_value), np.arange(coords.size, dtype=float), coords))
+
+
+def display_point_for_cursor(
+    plane: str,
+    cursor: tuple[int, int, int],
+    x_coords: np.ndarray,
+    y_coords: np.ndarray,
+    z_coords: np.ndarray,
+) -> tuple[float, float]:
+    z, y, x = cursor
+    if plane == "axial":
+        return float(x_coords[x]), float(y_coords[y])
+    if plane == "sagittal":
+        return float(y_coords[y]), float(z_coords[z])
+    if plane == "coronal":
+        return float(x_coords[x]), float(z_coords[z])
+    raise ValueError(f"Unknown plane: {plane}")
+
+
+def cursor_from_display_point(
+    plane: str,
+    display_x: float,
+    display_y: float,
+    cursor: tuple[int, int, int],
+    x_coords: np.ndarray,
+    y_coords: np.ndarray,
+    z_coords: np.ndarray,
+) -> tuple[int, int, int]:
+    z, y, x = cursor
+    if plane == "axial":
+        x = _nearest_index(x_coords, display_x)
+        y = _nearest_index(y_coords, display_y)
+    elif plane == "sagittal":
+        y = _nearest_index(y_coords, display_x)
+        z = _nearest_index(z_coords, display_y)
+    elif plane == "coronal":
+        x = _nearest_index(x_coords, display_x)
+        z = _nearest_index(z_coords, display_y)
+    else:
+        raise ValueError(f"Unknown plane: {plane}")
+    return int(z), int(y), int(x)
+
+
+def plane_display_extent(
+    plane: str,
+    x_coords: np.ndarray,
+    y_coords: np.ndarray,
+    z_coords: np.ndarray,
+) -> tuple[float, float, float, float]:
+    if plane == "axial":
+        x0, x1 = _coord_edges(x_coords)
+        y0, y1 = _coord_edges(y_coords)
+    elif plane == "sagittal":
+        x0, x1 = _coord_edges(y_coords)
+        y0, y1 = _coord_edges(z_coords)
+    elif plane == "coronal":
+        x0, x1 = _coord_edges(x_coords)
+        y0, y1 = _coord_edges(z_coords)
+    else:
+        raise ValueError(f"Unknown plane: {plane}")
+    return x0, x1, y0, y1
+
+
 def _load_gamma_npz(path: str | None) -> np.ndarray | None:
     if not path:
         return None
@@ -140,6 +241,7 @@ class PlaneState:
     slider: object
     slider_label: object
     structure_items: dict[str, object]
+    orientation_items: list[object]
 
 
 class FastPlaneViewer:
@@ -186,13 +288,16 @@ class FastPlaneViewer:
         self.pg = pg
 
         self.nz, self.ny, self.nx = self.ct.shape
+        self.x_coords_mm = np.asarray(dose_meta["x_coords_mm"], dtype=float)
+        self.y_coords_mm = np.asarray(dose_meta["y_coords_mm"], dtype=float)
+        self.z_coords_mm = np.asarray(dose_meta["z_coords_mm"], dtype=float)
         self.cur_z = self.nz // 2
         self.cur_y = self.ny // 2
         self.cur_x = self.nx // 2
         self.overlay_alpha = 128
         self.overlay_visible = self.gamma is not None
         self.overlay_mode = "Gamma"
-        self.visible = {"CT": True, "Structure": True}
+        self.visible = {"CT": True, "Structure": True, "Info": True}
         self.roi_visible = {name: True for name in self.roi_names}
         self.ct_levels = self._ct_levels()
         z_mm = dose_meta["z_coords_mm"]
@@ -209,12 +314,15 @@ class FastPlaneViewer:
 
         self.window = QtWidgets.QMainWindow()
         self.window.setWindowTitle("rtgamma Fast 3D Viewer PoC")
-        self.window.installEventFilter(self)
+        self._key_event_filter = self._make_key_event_filter()
+        self.window.installEventFilter(self._key_event_filter)
         app = QtWidgets.QApplication.instance()
         if app is not None:
-            app.installEventFilter(self)
+            app.installEventFilter(self._key_event_filter)
         self.plane_states: dict[str, PlaneState] = {}
         self._viewport_click_filters = []
+        self._view_actions = {}
+        self._overlay_actions = {}
         self._build_ui()
         self._update_all_images()
         self._sync_crosshair_labels_sliders()
@@ -226,6 +334,7 @@ class FastPlaneViewer:
     def _build_ui(self):
         QtCore, QtWidgets, pg = self.QtCore, self.QtWidgets, self.pg
         pg.setConfigOptions(imageAxisOrder="row-major")
+        self._build_menus()
         central = QtWidgets.QWidget()
         root = QtWidgets.QVBoxLayout(central)
         grid = QtWidgets.QGridLayout()
@@ -238,8 +347,13 @@ class FastPlaneViewer:
         self.alpha_slider.setValue(50)
         self.alpha_slider.valueChanged.connect(self._on_alpha_changed)
         controls.addWidget(self.alpha_slider, stretch=1)
+        self.alpha_value_label = QtWidgets.QLabel("50%")
+        controls.addWidget(self.alpha_value_label)
 
-        self.status_label = QtWidgets.QLabel(self.gamma_warning)
+        status_text = "Pass/Fail: gamma <= 1.0"
+        if self.gamma_warning:
+            status_text += f" | {self.gamma_warning}"
+        self.status_label = QtWidgets.QLabel(status_text)
         controls.addWidget(self.status_label, stretch=2)
         root.addLayout(controls)
 
@@ -249,6 +363,51 @@ class FastPlaneViewer:
         grid.addWidget(self._make_sidebar(), 1, 1)
         self.window.setCentralWidget(central)
 
+    def _build_menus(self):
+        QtWidgets = self.QtWidgets
+        menu = self.window.menuBar()
+
+        file_menu = menu.addMenu("&File")
+        for label, value in [
+            ("CT", "CT series loaded from command line"),
+            ("Ref Dose", self.ref_label),
+            ("Eval Dose", self.eval_label or "N/A"),
+            ("Structure", "Loaded" if self.rtstruct_meta else "N/A"),
+        ]:
+            action = file_menu.addAction(label)
+            action.triggered.connect(lambda checked=False, l=label, v=value: self._show_loaded_data(l, v))
+        file_menu.addSeparator()
+        file_menu.addAction("E&xit", self.window.close)
+
+        view_menu = menu.addMenu("&View")
+        self._view_actions["Info"] = view_menu.addAction("Show &Info")
+        self._view_actions["Info"].setCheckable(True)
+        self._view_actions["Info"].setChecked(True)
+        self._view_actions["Info"].triggered.connect(lambda checked: self._on_visibility_changed("Info", checked))
+        self._view_actions["CT"] = view_menu.addAction("Show &CT")
+        self._view_actions["CT"].setCheckable(True)
+        self._view_actions["CT"].setChecked(True)
+        self._view_actions["CT"].triggered.connect(lambda checked: self.ct_check.setChecked(checked))
+        self._view_actions["Structure"] = view_menu.addAction("Show &Structure")
+        self._view_actions["Structure"].setCheckable(True)
+        self._view_actions["Structure"].setChecked(bool(self.roi_names))
+        self._view_actions["Structure"].triggered.connect(lambda checked: self.structure_check.setChecked(checked))
+        overlay_menu = view_menu.addMenu("&Overlay")
+        for mode in ["Gamma", "Pass/Fail", "Ref Dose", "Eval Dose", "Dose Diff", "Dose Ratio"]:
+            action = overlay_menu.addAction(mode)
+            action.setCheckable(True)
+            action.setChecked(mode == self.overlay_mode)
+            action.triggered.connect(lambda checked=False, m=mode: self._set_overlay_mode(m))
+            self._overlay_actions[mode] = action
+        view_menu.addSeparator()
+        view_menu.addAction("&Fit All Views", self._reset_all_views)
+
+        help_menu = menu.addMenu("&Help")
+        help_menu.addAction("&Controls", self._show_help)
+
+    def _show_loaded_data(self, label: str, value: str):
+        self.QtWidgets.QMessageBox.information(self.window, label, str(value))
+
     def _make_sidebar(self):
         QtWidgets = self.QtWidgets
         side = QtWidgets.QWidget()
@@ -256,11 +415,11 @@ class FastPlaneViewer:
             """
             QWidget {
                 background: #222222; color: #DDDDDD;
-                font-family: Consolas, monospace; font-size: 10px;
+                font-family: Consolas, monospace; font-size: 11px;
             }
             QCheckBox, QRadioButton { spacing: 5px; padding: 1px; }
             QCheckBox::indicator, QRadioButton::indicator {
-                width: 10px; height: 10px; border: 1px solid #AAAAAA; background: #111111;
+                width: 11px; height: 11px; border: 1px solid #AAAAAA; background: #111111;
             }
             QCheckBox::indicator:checked {
                 background: #2ECC71; border: 1px solid #2ECC71;
@@ -270,69 +429,105 @@ class FastPlaneViewer:
                 background: #2D7DFF; border: 1px solid #BFD6FF;
             }
             QGroupBox {
-                border: 1px solid #555555; margin-top: 6px; padding-top: 6px;
-                font-family: Consolas, monospace; font-size: 10px;
+                border: 1px solid #555555; margin-top: 5px; padding-top: 7px;
+                font-family: Consolas, monospace; font-size: 11px;
             }
             QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }
+            QPushButton { min-height: 20px; padding: 2px 6px; }
             """
         )
         layout = QtWidgets.QVBoxLayout(side)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
 
-        note = QtWidgets.QLabel("Fast Viewer: click=cursor, wheel=slice, +/-=zoom, arrows=slice, 0=reset.")
-        note.setStyleSheet("color: #DDEEFF; font-family: Consolas, monospace; font-size: 10px;")
+        note = QtWidgets.QLabel("Help: H/?   Info: I")
+        note.setStyleSheet("color: #DDEEFF; font-family: Consolas, monospace; font-size: 11px;")
         layout.addWidget(note)
 
-        files = QtWidgets.QLabel(f"Ref : {self.ref_label}\nEval: {self.eval_label}")
-        files.setStyleSheet("font-family: Consolas, monospace; color: #AAAAAA; font-size: 10px;")
-        files.setWordWrap(True)
-        layout.addWidget(files)
+        data_box = QtWidgets.QGroupBox("Data")
+        data_layout = QtWidgets.QGridLayout(data_box)
+        data_layout.setContentsMargins(6, 10, 6, 6)
+        data_layout.setHorizontalSpacing(8)
+        data_layout.setVerticalSpacing(2)
+        for row, (label, value) in enumerate(
+            [
+                ("CT", f"{self.ct.shape[0]} slices"),
+                ("Ref", self.ref_label),
+                ("Eval", self.eval_label or "N/A"),
+                ("Struct", "yes" if self.rtstruct_meta else "no"),
+            ]
+        ):
+            data_layout.addWidget(QtWidgets.QLabel(label), row, 0)
+            text = QtWidgets.QLabel(value)
+            text.setWordWrap(True)
+            text.setStyleSheet("color: #AAAAAA;")
+            data_layout.addWidget(text, row, 1)
+        layout.addWidget(data_box)
 
         self.ct_check = QtWidgets.QCheckBox("CT")
         self.ct_check.setChecked(True)
         self.ct_check.toggled.connect(lambda checked: self._on_visibility_changed("CT", checked))
-        layout.addWidget(self.ct_check)
-
+        self.info_check = QtWidgets.QCheckBox("Info")
+        self.info_check.setChecked(True)
+        self.info_check.toggled.connect(lambda checked: self._on_visibility_changed("Info", checked))
         self.structure_check = QtWidgets.QCheckBox("Structure")
         self.structure_check.setChecked(bool(self.roi_names))
         self.structure_check.setEnabled(bool(self.roi_names))
         self.structure_check.toggled.connect(lambda checked: self._on_visibility_changed("Structure", checked))
-        layout.addWidget(self.structure_check)
 
+        display_box = QtWidgets.QGroupBox("Display")
+        display_layout = QtWidgets.QGridLayout(display_box)
+        display_layout.setContentsMargins(6, 10, 6, 6)
+        display_layout.addWidget(self.ct_check, 0, 0)
+        display_layout.addWidget(self.structure_check, 0, 1)
+        display_layout.addWidget(self.info_check, 1, 0)
+        layout.addWidget(display_box)
+
+        roi_box = QtWidgets.QGroupBox("ROI visibility")
+        roi_layout = QtWidgets.QVBoxLayout(roi_box)
+        roi_layout.setContentsMargins(6, 10, 6, 6)
+        roi_layout.setSpacing(2)
         self.roi_checks = {}
         for name in self.roi_names:
-            check = QtWidgets.QCheckBox(name)
+            check = QtWidgets.QCheckBox(f"Show ROI: {name}")
             check.setChecked(True)
             check.toggled.connect(lambda checked, roi=name: self._on_roi_visibility_changed(roi, checked))
             self.roi_checks[name] = check
-            layout.addWidget(check)
+            roi_layout.addWidget(check)
+        if not self.roi_names:
+            roi_layout.addWidget(QtWidgets.QLabel("No ROI loaded"))
+        layout.addWidget(roi_box)
 
         mode_box = QtWidgets.QGroupBox("Overlay")
-        mode_layout = QtWidgets.QVBoxLayout(mode_box)
+        mode_layout = QtWidgets.QGridLayout(mode_box)
+        mode_layout.setContentsMargins(6, 10, 6, 6)
+        mode_layout.setHorizontalSpacing(10)
+        mode_layout.setVerticalSpacing(2)
         self.mode_group = QtWidgets.QButtonGroup(mode_box)
-        for i, mode in enumerate(["Gamma", "Pass/Fail", "Ref Dose", "Eval Dose", "Dose Ratio"]):
+        for i, mode in enumerate(["Gamma", "Pass/Fail", "Ref Dose", "Eval Dose", "Dose Diff", "Dose Ratio"]):
             button = QtWidgets.QRadioButton(mode)
             button.setChecked(mode == self.overlay_mode)
             self.mode_group.addButton(button, i)
-            mode_layout.addWidget(button)
+            mode_layout.addWidget(button, i // 2, i % 2)
         self.mode_group.buttonClicked.connect(self._on_mode_changed)
         layout.addWidget(mode_box)
 
         zoom_box = QtWidgets.QGroupBox("Zoom")
         zoom_layout = QtWidgets.QHBoxLayout(zoom_box)
-        btn_zoom_in = QtWidgets.QPushButton("+")
-        btn_zoom_out = QtWidgets.QPushButton("-")
-        btn_zoom_reset = QtWidgets.QPushButton("0")
+        zoom_layout.setContentsMargins(6, 10, 6, 6)
+        btn_zoom_in = QtWidgets.QPushButton("Zoom +")
+        btn_zoom_out = QtWidgets.QPushButton("Zoom -")
+        btn_zoom_reset = QtWidgets.QPushButton("Fit")
         btn_zoom_in.clicked.connect(lambda: self._zoom_plane(self.active_plane, 0.8))
         btn_zoom_out.clicked.connect(lambda: self._zoom_plane(self.active_plane, 1.25))
-        btn_zoom_reset.clicked.connect(lambda: self._reset_zoom(self.active_plane))
+        btn_zoom_reset.clicked.connect(self._reset_all_views)
         zoom_layout.addWidget(btn_zoom_in)
         zoom_layout.addWidget(btn_zoom_out)
         zoom_layout.addWidget(btn_zoom_reset)
         layout.addWidget(zoom_box)
 
         stats = QtWidgets.QLabel(self._stats_text())
-        stats.setStyleSheet("font-family: Consolas, monospace; color: #00FF00; font-size: 10px;")
+        stats.setStyleSheet("font-family: Consolas, monospace; color: #00FF00; font-size: 11px;")
         layout.addWidget(stats)
         layout.addStretch(1)
 
@@ -352,14 +547,12 @@ class FastPlaneViewer:
 
         graph = pg.GraphicsLayoutWidget()
         graph.setFocusPolicy(self.QtCore.Qt.FocusPolicy.StrongFocus)
-        graph.installEventFilter(self)
+        graph.installEventFilter(self._key_event_filter)
         view = self._make_viewbox(plane)
         view.setAspectLocked(True)
         # Keep voxel/readout coordinates unchanged and match the Legacy viewer's
         # clinical display orientation through view transforms only.
         view.invertY(True)
-        if plane == "axial":
-            view.invertX(True)
         graph.ci.addItem(view, row=0, col=0)
         click_filter = self._make_viewport_click_filter(plane, view, graph)
         graph.viewport().installEventFilter(click_filter)
@@ -386,6 +579,7 @@ class FastPlaneViewer:
         view.addItem(vline)
         label = pg.TextItem(color="w", anchor=(0, 1), fill=pg.mkBrush(0, 0, 0, 160))
         view.addItem(label)
+        orientation_items = self._make_orientation_items(plane, view)
 
         layout.addWidget(graph, stretch=1)
 
@@ -412,8 +606,59 @@ class FastPlaneViewer:
             slider=slider,
             slider_label=slider_label,
             structure_items=structure_items,
+            orientation_items=orientation_items,
         )
         return wrap
+
+    def _make_orientation_items(self, plane: str, view) -> list[object]:
+        labels = self._orientation_labels(plane)
+        items = []
+        for text, pos, anchor in labels:
+            item = self.pg.TextItem(text=text, color="#FFD966", anchor=anchor, fill=self.pg.mkBrush(0, 0, 0, 120))
+            item.setPos(*pos)
+            view.addItem(item)
+            items.append(item)
+        return items
+
+    def _orientation_labels(self, plane: str) -> list[tuple[str, tuple[float, float], tuple[float, float]]]:
+        x0, x1, y0, y1 = self._plane_extent(plane)
+        xm = (x0 + x1) / 2.0
+        ym = (y0 + y1) / 2.0
+        if plane == "axial":
+            return [
+                ("L", (x0, ym), (0, 0.5)),
+                ("R", (x1, ym), (1, 0.5)),
+                ("A", (xm, y0), (0.5, 0)),
+                ("P", (xm, y1), (0.5, 1)),
+            ]
+        if plane == "sagittal":
+            return [
+                ("A", (x0, ym), (0, 0.5)),
+                ("P", (x1, ym), (1, 0.5)),
+                ("S", (xm, y0), (0.5, 0)),
+                ("I", (xm, y1), (0.5, 1)),
+            ]
+        return [
+            ("L", (x0, ym), (0, 0.5)),
+            ("R", (x1, ym), (1, 0.5)),
+            ("S", (xm, y0), (0.5, 0)),
+            ("I", (xm, y1), (0.5, 1)),
+        ]
+
+    def _make_key_event_filter(self):
+        QtCore = self.QtCore
+
+        class KeyEventFilter(QtCore.QObject):
+            def __init__(self, parent):
+                super().__init__()
+                self.parent = parent
+
+            def eventFilter(self, obj, event):
+                if event.type() == QtCore.QEvent.Type.KeyPress:
+                    return self.parent._on_key_press(event)
+                return False
+
+        return KeyEventFilter(self)
 
     def _make_viewport_click_filter(self, plane: str, view, graph):
         QtCore = self.QtCore
@@ -494,26 +739,45 @@ class FastPlaneViewer:
                     return
                 super().mousePressEvent(ev)
 
+            def mouseDragEvent(self, ev, axis=None):
+                if ev.button() == self.parent.QtCore.Qt.MouseButton.MiddleButton:
+                    current = self.mapSceneToView(ev.scenePos())
+                    previous = self.mapSceneToView(ev.lastScenePos())
+                    self.translateBy(x=previous.x() - current.x(), y=previous.y() - current.y())
+                    self.parent.active_plane = self.plane_name
+                    self.parent.user_zoomed[self.plane_name] = True
+                    ev.accept()
+                    return
+                super().mouseDragEvent(ev, axis=axis)
+
             def wheelEvent(self, ev, axis=None):
                 delta = ev.delta() if hasattr(ev, "delta") else ev.angleDelta().y()
-                self.parent._on_plane_wheel(self.plane_name, self.parent._wheel_step(self.plane_name, delta))
+                modifiers = self.parent.QtWidgets.QApplication.keyboardModifiers()
+                if modifiers & self.parent.QtCore.Qt.KeyboardModifier.ControlModifier:
+                    self.parent._zoom_plane(self.plane_name, 0.8 if delta > 0 else 1.25)
+                else:
+                    step = self.parent._wheel_step(self.plane_name, delta)
+                    if modifiers & self.parent.QtCore.Qt.KeyboardModifier.ShiftModifier:
+                        step *= 5
+                    self.parent._on_plane_wheel(self.plane_name, step)
                 ev.accept()
 
         return BoundViewBox(self, plane)
 
-    def eventFilter(self, obj, event):
-        if event.type() == self.QtCore.QEvent.Type.KeyPress:
-            return self._on_key_press(event)
-        return False
-
     def _on_key_press(self, event) -> bool:
         key = event.key()
         QtCore = self.QtCore
-        if key in (QtCore.Qt.Key.Key_Left, QtCore.Qt.Key.Key_Down):
-            self._on_plane_wheel(self.active_plane, -1)
+        if key == QtCore.Qt.Key.Key_Left:
+            self._move_cursor_in_active_plane(-1, 0)
             return True
-        if key in (QtCore.Qt.Key.Key_Right, QtCore.Qt.Key.Key_Up):
-            self._on_plane_wheel(self.active_plane, 1)
+        if key == QtCore.Qt.Key.Key_Right:
+            self._move_cursor_in_active_plane(1, 0)
+            return True
+        if key == QtCore.Qt.Key.Key_Up:
+            self._move_cursor_in_active_plane(0, -1)
+            return True
+        if key == QtCore.Qt.Key.Key_Down:
+            self._move_cursor_in_active_plane(0, 1)
             return True
         if key in (QtCore.Qt.Key.Key_Plus, QtCore.Qt.Key.Key_Equal):
             self._zoom_plane(self.active_plane, 0.8)
@@ -522,11 +786,20 @@ class FastPlaneViewer:
             self._zoom_plane(self.active_plane, 1.25)
             return True
         if key in (QtCore.Qt.Key.Key_0, QtCore.Qt.Key.Key_Home):
-            self._reset_zoom(self.active_plane)
+            self._reset_all_views()
+            return True
+        if key == QtCore.Qt.Key.Key_F:
+            self._reset_all_views()
+            return True
+        if key in (QtCore.Qt.Key.Key_H, QtCore.Qt.Key.Key_Question):
+            self._show_help()
             return True
         if key == QtCore.Qt.Key.Key_O:
             self.overlay_visible = not self.overlay_visible
             self._update_all_images()
+            return True
+        if key == QtCore.Qt.Key.Key_I:
+            self.info_check.setChecked(not self.info_check.isChecked())
             return True
         if key == QtCore.Qt.Key.Key_C:
             self.ct_check.setChecked(not self.ct_check.isChecked())
@@ -541,6 +814,7 @@ class FastPlaneViewer:
             QtCore.Qt.Key.Key_P: "Pass/Fail",
             QtCore.Qt.Key.Key_R: "Ref Dose",
             QtCore.Qt.Key.Key_E: "Eval Dose",
+            QtCore.Qt.Key.Key_X: "Dose Diff",
             QtCore.Qt.Key.Key_D: "Dose Ratio",
         }
         if key in mode_keys:
@@ -603,12 +877,61 @@ class FastPlaneViewer:
             return self.ny, self.nz
         return self.nx, self.nz
 
+    def _plane_extent(self, plane: str) -> tuple[float, float, float, float]:
+        return plane_display_extent(plane, self.x_coords_mm, self.y_coords_mm, self.z_coords_mm)
+
+    def _plane_rect(self, plane: str):
+        x0, x1, y0, y1 = self._plane_extent(plane)
+        return self.QtCore.QRectF(x0, y0, x1 - x0, y1 - y0)
+
     def _cursor_xy_for_plane(self, plane: str) -> tuple[int, int]:
         if plane == "axial":
             return int(self.cur_x), int(self.cur_y)
         if plane == "sagittal":
             return int(self.cur_y), int(self.cur_z)
         return int(self.cur_x), int(self.cur_z)
+
+    def _cursor_display_xy_for_plane(self, plane: str) -> tuple[float, float]:
+        return display_point_for_cursor(
+            plane,
+            (int(self.cur_z), int(self.cur_y), int(self.cur_x)),
+            self.x_coords_mm,
+            self.y_coords_mm,
+            self.z_coords_mm,
+        )
+
+    def _set_cursor_from_display_xy(self, plane: str, display_x: float, display_y: float):
+        self.cur_z, self.cur_y, self.cur_x = cursor_from_display_point(
+            plane,
+            display_x,
+            display_y,
+            (int(self.cur_z), int(self.cur_y), int(self.cur_x)),
+            self.x_coords_mm,
+            self.y_coords_mm,
+            self.z_coords_mm,
+        )
+
+    def _move_cursor_in_active_plane(self, dx: int, dy: int):
+        old = {"z": self.cur_z, "y": self.cur_y, "x": self.cur_x}
+        if self.active_plane == "axial":
+            self.cur_x = int(np.clip(self.cur_x + dx, 0, self.nx - 1))
+            self.cur_y = int(np.clip(self.cur_y + dy, 0, self.ny - 1))
+        elif self.active_plane == "sagittal":
+            self.cur_y = int(np.clip(self.cur_y + dx, 0, self.ny - 1))
+            self.cur_z = int(np.clip(self.cur_z + dy, 0, self.nz - 1))
+        else:
+            self.cur_x = int(np.clip(self.cur_x + dx, 0, self.nx - 1))
+            self.cur_z = int(np.clip(self.cur_z + dy, 0, self.nz - 1))
+        self._update_planes_for_cursor_change(old)
+
+    def _update_planes_for_cursor_change(self, old: dict[str, int]):
+        if old["z"] != self.cur_z:
+            self._update_plane_image("axial")
+        if old["x"] != self.cur_x:
+            self._update_plane_image("sagittal")
+        if old["y"] != self.cur_y:
+            self._update_plane_image("coronal")
+        self._sync_crosshair_labels_sliders()
 
     def _ct_levels(self) -> tuple[float, float]:
         finite = self.ct[np.isfinite(self.ct)]
@@ -720,6 +1043,15 @@ class FastPlaneViewer:
             eval2d = self._slice_for_plane(self.eval_dose, plane)
             valid = None if eval2d is None else eval2d >= self._dose_vmax * 0.1
             return self._scalar_rgba(eval2d, (0.0, self._dose_vmax), valid)
+        if self.overlay_mode == "Dose Diff":
+            ref2d = self._slice_for_plane(self.ref_dose, plane)
+            eval2d = self._slice_for_plane(self.eval_dose, plane)
+            if ref2d is None or eval2d is None:
+                return None
+            diff = eval2d - ref2d
+            max_abs = max(float(np.nanmax(np.abs(diff[np.isfinite(diff)]))) if np.any(np.isfinite(diff)) else 1.0, 1.0)
+            valid = np.isfinite(diff)
+            return self._scalar_rgba(diff, (-max_abs, max_abs), valid, palette="blue_red")
         if self.overlay_mode == "Dose Ratio":
             ref2d = self._slice_for_plane(self.ref_dose, plane)
             eval2d = self._slice_for_plane(self.eval_dose, plane)
@@ -732,12 +1064,10 @@ class FastPlaneViewer:
         return None
 
     def _update_plane_image(self, plane: str):
-        QtCore = self.QtCore
         state = self.plane_states[plane]
         ct2d = self._slice_for_plane(self.ct, plane)
-        width, height = self._plane_size(plane)
         state.ct_item.setImage(ct2d, autoLevels=False, levels=self.ct_levels)
-        state.ct_item.setRect(QtCore.QRectF(0, 0, width, height))
+        state.ct_item.setRect(self._plane_rect(plane))
         state.ct_item.setVisible(self.visible["CT"])
 
         rgba = self._overlay_rgba(plane)
@@ -745,7 +1075,7 @@ class FastPlaneViewer:
             state.gamma_item.clear()
         else:
             state.gamma_item.setImage(rgba, autoLevels=False)
-            state.gamma_item.setRect(QtCore.QRectF(0, 0, width, height))
+            state.gamma_item.setRect(self._plane_rect(plane))
         self._update_structure_items(plane)
         state.title.setText(f"{plane.capitalize()} (idx {self._plane_index(plane)}) {self._slice_gpr_text(self._slice_for_plane(self.gamma, plane))}")
         if not self.user_zoomed.get(plane, False):
@@ -760,19 +1090,50 @@ class FastPlaneViewer:
         hu = _strict_voxel_value(self.ct, self.ct, z, y, x)
         ref = _strict_voxel_value(self.ref_dose, self.ct, z, y, x)
         eval_value = _strict_voxel_value(self.eval_dose, self.ct, z, y, x)
+        gamma_value = _strict_voxel_value(self.gamma, self.ct, z, y, x)
+        diff_value = _dose_diff_value(eval_value, ref)
         hu_text = f"{int(round(hu))}" if hu is not None else "N/A"
         ref_text = f"{ref:.3f} {self.ref_unit}" if ref is not None else "N/A"
         eval_text = f"{eval_value:.3f} {self.eval_unit}" if eval_value is not None else "N/A"
-        return f"HU: {hu_text}\nRef: {ref_text}\nEval: {eval_text}"
+        diff_text = f"{diff_value:.3f} {self.eval_unit}" if diff_value is not None else "N/A"
+        gamma_text = f"{gamma_value:.3f}" if gamma_value is not None else "N/A"
+        coord_text = self._format_physical_coordinate(z, y, x)
+        return (
+            f"Idx: ({z}, {y}, {x})\n"
+            f"Coord: {coord_text}\n"
+            f"HU: {hu_text}\n"
+            f"Ref: {ref_text}\n"
+            f"Eval: {eval_text}\n"
+            f"Diff: {diff_text}\n"
+            f"Gamma: {gamma_text}\n"
+            f"Pass/Fail: {_pass_fail_text(gamma_value)}"
+        )
+
+    def _format_physical_coordinate(self, z: int, y: int, x: int) -> str:
+        try:
+            x_mm = float(self.dose_meta["x_coords_mm"][x])
+            y_mm = float(self.dose_meta["y_coords_mm"][y])
+            z_mm = float(self.dose_meta["z_coords_mm"][z])
+            ipp = np.asarray(self.dose_meta["ipp"], dtype=float)
+            v_col = np.asarray(self.dose_meta["v_col"], dtype=float)
+            v_row = np.asarray(self.dose_meta["v_row"], dtype=float)
+            v_slice = np.asarray(self.dose_meta["v_slice"], dtype=float)
+            point = ipp + x_mm * v_col + y_mm * v_row + z_mm * v_slice
+            if not np.all(np.isfinite(point)):
+                return "N/A"
+            return f"({point[0]:.1f}, {point[1]:.1f}, {point[2]:.1f}) mm"
+        except Exception:
+            return "N/A"
 
     def _sync_crosshair_labels_sliders(self):
         text = self._format_cursor_text()
         for plane, state in self.plane_states.items():
-            x, y = self._cursor_xy_for_plane(plane)
+            x, y = self._cursor_display_xy_for_plane(plane)
             state.hline.setPos(y)
             state.vline.setPos(x)
             state.label.setText(text)
             state.label.setPos(x, y)
+            state.label.setVisible(self.visible["Info"])
             self._syncing = True
             try:
                 state.slider.setValue(self._plane_index(plane))
@@ -797,44 +1158,36 @@ class FastPlaneViewer:
         self._sync_crosshair_labels_sliders()
 
     def _on_plane_click(self, plane: str, view_x: float, view_y: float):
-        width, height = self._plane_size(plane)
-        if view_x < 0 or view_y < 0 or view_x >= width or view_y >= height:
-            return
         self.active_plane = plane
-        old = {"axial": self.cur_z, "sagittal": self.cur_x, "coronal": self.cur_y}
-        ix = int(round(view_x))
-        iy = int(round(view_y))
-        if plane == "axial":
-            self.cur_x = int(np.clip(ix, 0, self.nx - 1))
-            self.cur_y = int(np.clip(iy, 0, self.ny - 1))
-        elif plane == "sagittal":
-            self.cur_y = int(np.clip(ix, 0, self.ny - 1))
-            self.cur_z = int(np.clip(iy, 0, self.nz - 1))
-        else:
-            self.cur_x = int(np.clip(ix, 0, self.nx - 1))
-            self.cur_z = int(np.clip(iy, 0, self.nz - 1))
-
-        if old["axial"] != self.cur_z:
-            self._update_plane_image("axial")
-        if old["sagittal"] != self.cur_x:
-            self._update_plane_image("sagittal")
-        if old["coronal"] != self.cur_y:
-            self._update_plane_image("coronal")
-        self._sync_crosshair_labels_sliders()
+        old = {"z": self.cur_z, "y": self.cur_y, "x": self.cur_x}
+        self._set_cursor_from_display_xy(plane, view_x, view_y)
+        self._update_planes_for_cursor_change(old)
 
     def _on_alpha_changed(self, value: int):
         self.overlay_alpha = int(np.clip(round(value / 100 * 255), 0, 255))
+        self.alpha_value_label.setText(f"{int(value)}%")
         for plane in ("axial", "sagittal", "coronal"):
             rgba = self._overlay_rgba(plane)
-            width, height = self._plane_size(plane)
             if rgba is not None:
                 self.plane_states[plane].gamma_item.setImage(rgba, autoLevels=False)
-                self.plane_states[plane].gamma_item.setRect(self.QtCore.QRectF(0, 0, width, height))
+                self.plane_states[plane].gamma_item.setRect(self._plane_rect(plane))
             else:
                 self.plane_states[plane].gamma_item.clear()
 
     def _on_visibility_changed(self, label: str, checked: bool):
         self.visible[label] = bool(checked)
+        if label == "Info":
+            for state in self.plane_states.values():
+                state.label.setVisible(bool(checked))
+            if hasattr(self, "info_check") and self.info_check.isChecked() != bool(checked):
+                self.info_check.setChecked(bool(checked))
+            if "Info" in self._view_actions and self._view_actions["Info"].isChecked() != bool(checked):
+                self._view_actions["Info"].setChecked(bool(checked))
+            return
+        if label == "CT" and "CT" in self._view_actions and self._view_actions["CT"].isChecked() != bool(checked):
+            self._view_actions["CT"].setChecked(bool(checked))
+        if label == "Structure" and "Structure" in self._view_actions and self._view_actions["Structure"].isChecked() != bool(checked):
+            self._view_actions["Structure"].setChecked(bool(checked))
         self._update_all_images()
 
     def _on_roi_visibility_changed(self, roi: str, checked: bool):
@@ -850,29 +1203,65 @@ class FastPlaneViewer:
             if button.text() == mode:
                 button.setChecked(True)
                 break
-        self.overlay_visible = self.gamma is not None or self.overlay_mode in {"Ref Dose", "Eval Dose", "Dose Ratio"}
+        for name, action in self._overlay_actions.items():
+            action.setChecked(name == mode)
+        self.overlay_visible = self.gamma is not None or self.overlay_mode in {"Ref Dose", "Eval Dose", "Dose Diff", "Dose Ratio"}
         self._update_all_images()
 
     def _reset_zoom(self, plane: str):
-        QtCore = self.QtCore
-        width, height = self._plane_size(plane)
         self.user_zoomed[plane] = False
-        self.plane_states[plane].view.setRange(QtCore.QRectF(0, 0, width, height), padding=0.02)
+        self.plane_states[plane].view.setRange(self._plane_rect(plane), padding=0.02)
+
+    def _reset_all_views(self):
+        for plane in ("axial", "sagittal", "coronal"):
+            self._reset_zoom(plane)
 
     def _zoom_plane(self, plane: str, scale_factor: float):
         state = self.plane_states[plane]
         view_range = state.view.viewRange()
         (xmin, xmax), (ymin, ymax) = view_range
-        cx, cy = self._cursor_xy_for_plane(plane)
-        width, height = self._plane_size(plane)
+        cx, cy = self._cursor_display_xy_for_plane(plane)
+        x0_extent, x1_extent, y0_extent, y1_extent = self._plane_extent(plane)
+        width = x1_extent - x0_extent
+        height = y1_extent - y0_extent
         cur_w = max(float(xmax - xmin), 1.0)
         cur_h = max(float(ymax - ymin), 1.0)
         new_w = float(np.clip(cur_w * scale_factor, 8.0, width * 1.5))
         new_h = float(np.clip(cur_h * scale_factor, 8.0, height * 1.5))
-        x0 = float(np.clip(cx - new_w / 2.0, -width * 0.25, width * 1.25 - new_w))
-        y0 = float(np.clip(cy - new_h / 2.0, -height * 0.25, height * 1.25 - new_h))
+        x0 = float(np.clip(cx - new_w / 2.0, x0_extent - width * 0.25, x1_extent + width * 0.25 - new_w))
+        y0 = float(np.clip(cy - new_h / 2.0, y0_extent - height * 0.25, y1_extent + height * 0.25 - new_h))
         state.view.setRange(xRange=(x0, x0 + new_w), yRange=(y0, y0 + new_h), padding=0)
         self.user_zoomed[plane] = True
+
+    def _show_help(self):
+        self.QtWidgets.QMessageBox.information(
+            self.window,
+            "Fast Viewer Controls",
+            "\n".join(
+                [
+                    "Mouse:",
+                    "  Left click: move crosshair",
+                    "  Wheel: scroll slice",
+                    "  Shift + wheel: fast slice scroll",
+                    "  Ctrl + wheel: zoom",
+                    "  Middle drag: pan",
+                    "",
+                    "Keyboard:",
+                    "  Arrow keys: move cursor in active plane",
+                    "  + / -: zoom active plane",
+                    "  0 or F: fit/reset all views",
+                    "  I: toggle current point info",
+                    "  O: toggle overlay",
+                    "  C: toggle CT",
+                    "  S: toggle structures",
+                    "  G/P/R/E/X/D: Gamma, Pass/Fail, Ref, Eval, Diff, Ratio",
+                    "  H or ?: show this help",
+                    "",
+                    "Current point values are read from source voxel arrays.",
+                    "Coordinates are derived from existing dose-grid DICOM metadata.",
+                ]
+            ),
+        )
 
     def _structure_segments(self, plane: str, idx: int, name: str) -> list[list[tuple[float, float]]]:
         ipp = self.dose_meta["ipp"]
@@ -890,7 +1279,12 @@ class FastPlaneViewer:
                     rc = _world_xy_to_grid_rc(contour["points"], self.dose_meta)
                     pts = rc[:, [1, 0]]
                     for i in range(len(pts)):
-                        segments.append([tuple(pts[i]), tuple(pts[(i + 1) % len(pts)])])
+                        p0 = pts[i]
+                        p1 = pts[(i + 1) % len(pts)]
+                        segments.append([
+                            (_index_to_coord(self.x_coords_mm, p0[0]), _index_to_coord(self.y_coords_mm, p0[1])),
+                            (_index_to_coord(self.x_coords_mm, p1[0]), _index_to_coord(self.y_coords_mm, p1[1])),
+                        ])
         elif plane == "sagittal":
             x_w = ipp[0] + self.dose_meta["x_coords_mm"][idx] * v_col[0]
             for contour in self.roi_contours.get(name, []):
@@ -903,8 +1297,12 @@ class FastPlaneViewer:
                         inters.append((p1[1] + (x_w - p1[0]) / (p2[0] - p1[0]) * (p2[1] - p1[1]) - ipp[1]) / (s_row * v_row[1]))
                 if len(inters) >= 2:
                     inters.sort()
+                    z_mm = _index_to_coord(self.z_coords_mm, z_grid)
                     for i in range(0, (len(inters) // 2) * 2, 2):
-                        segments.append([(inters[i], z_grid), (inters[i + 1], z_grid)])
+                        segments.append([
+                            (_index_to_coord(self.y_coords_mm, inters[i]), z_mm),
+                            (_index_to_coord(self.y_coords_mm, inters[i + 1]), z_mm),
+                        ])
         elif plane == "coronal":
             y_w = ipp[1] + self.dose_meta["y_coords_mm"][idx] * v_row[1]
             for contour in self.roi_contours.get(name, []):
@@ -917,8 +1315,12 @@ class FastPlaneViewer:
                         inters.append((p1[0] + (y_w - p1[1]) / (p2[1] - p1[1]) * (p2[0] - p1[0]) - ipp[0]) / (s_col * v_col[0]))
                 if len(inters) >= 2:
                     inters.sort()
+                    z_mm = _index_to_coord(self.z_coords_mm, z_grid)
                     for i in range(0, (len(inters) // 2) * 2, 2):
-                        segments.append([(inters[i], z_grid), (inters[i + 1], z_grid)])
+                        segments.append([
+                            (_index_to_coord(self.x_coords_mm, inters[i]), z_mm),
+                            (_index_to_coord(self.x_coords_mm, inters[i + 1]), z_mm),
+                        ])
         return segments
 
     def _segments_to_plot_data(self, segments: list[list[tuple[float, float]]]) -> tuple[np.ndarray, np.ndarray]:

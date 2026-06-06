@@ -9,7 +9,7 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 - **2D/3Dガンマ解析**: 高速な3Dカーネル (Numba) および特定スライスのみを計算する軽量な2D経路。
 - **Sub-voxel Interpolation**: 金標準 (SunNuclear 3DVH等) に匹敵する精度を実現する、trilinear内挿ベースの Expanding shell サブボクセル探索アルゴリズム (`--interp-fraction` 対応)。
 - **3D ガンマビューア**: CT、線量分布、ガンママップ、Structure輪郭線を重ねて1つのインターフェースで確認できるインタラクティブビューア。Pass/Fail表示やDose Ratio表示にも対応。
-- **Fast 3D Viewer**: PyQtGraph + PySide6 による高速ビューア。Legacy/Fast選択式を維持しつつ、Source/Python と Fast ZIP ではFastを既定Viewerとして使用します。
+- **Fast 3D Viewer**: PyQtGraph + PySide6 による高速ビューア。GUIの3D Viewer起動経路はFast固定です。
 - **RTPLAN 統合ヘッダ比較**: RTDOSE に加え、RTPLAN から Isocenter 座標や SAD/SSD を読み取り、プラン間のズレを客観的に出力可能。
 - **シフト最適化**: 計算領域を粗密2段階で自動走査し、最適な空間シフト（位置ズレ）を探索。
 - **ROI 限定解析**: RTSTRUCT ファイルと ROI 名を指定することで、特定構造（PTV, GTV など）内のガンマパス率（GPR）や統計値を算出可能。
@@ -52,9 +52,8 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 
 ## GUI (グラフィカル・ユーザー・インターフェース)
 - **起動**: `run_gui_python.bat` をダブルクリック（または PowerShell から `scripts/run_gui.ps1` を実行）
-- Source/Python mode と Fast ZIP では、保存済み設定がなければ 3D Viewer は `Fast` が既定です。
-- Legacy ZIP では、PySide6/Qtを同梱しない軽量配布のため、保存済み設定がなければ `Legacy` が既定です。
-- 保存済みの `viewer_type=legacy|fast` は配布modeに関係なく尊重します。欠損・不正値は現在起動のみmode別fallbackし、INIは「Save Settings」実行時のみ正規化値を保存します。
+- 3D Viewer は `Fast` 固定で起動します。保存済み設定に `viewer_type=legacy` が残っていてもFast Viewerを起動します。
+- Fast Viewer起動に失敗した場合は、依存関係やログパスを含む診断メッセージを表示します。Legacy fallbackは提示しません。
 
 ### 基本的な使い方
 1. **必須項目の選択**
@@ -65,7 +64,7 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - **ROI Name**: 評価対象の ROI 名を入力します（例: `PTV` や `GTV,Rectum` のようにカンマ区切りで複数指定が可能。空欄の場合は含まれる全ROIが抽出されます）。
 3. **解析設定の選択**
    - **Action**: 全体の3D解析、特定の2D断面解析、3Dガンマビューアの起動、またはヘッダ情報の比較から実行モードを選択します。
-   - **Viewer**: 3D Viewer起動時に `Legacy` または `Fast` を選択できます。
+   - **Viewer**: 3D ViewerはFast Viewer固定で起動します。
    - **Clinical Preset (旧)**: 現在は DTA (mm), DD (%), Cutoff (%) の各評価基準を直接テキストボックスに入力する方式です。
 4. **オプション設定**
    - **Optimize shift**: チェックを入れると、位置ズレを補正して最も合格率が高くなる「シフト量」を自動探索します。
@@ -76,22 +75,31 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
    - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
 
-### 3D Viewer の種類
-- **Legacy Viewer**: Matplotlib/TkAgg版。軽量EXE配布で使う安全な既定Viewerです。
-- **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratio overlay、ROI別GPR、HU/Ref/Eval readoutに対応します。
+### 3D Viewer
+
+![Fast 3D Viewer screenshot](docs/openspec/images/Gui-screenshot.png)
+
+- **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratio overlay、ROI別GPR、現在点のHU/Ref/Eval/Diff/Gamma/Pass-Fail readoutに対応します。
+- Legacy Viewer実装と配布スクリプトは互換性維持のため残っていますが、GUIの3D Viewer起動経路では使用しません。
+- 3断面は共通のcursor stateを共有します。Sagittal / Coronalも物理mmスケールで表示し、HFS前提の orientation label (`L/R`, `A/P`, `S/I`) を各断面に表示します。
+- 右下パネルでは、読み込みデータ、CT/Structure/Info表示、ROI visibility、overlay mode、zoom操作をコンパクトに確認・変更できます。`File` / `View` / `Help` メニューから読み込み情報、表示切替、操作Helpも確認できます。
 - Fast Viewerの基本操作:
   - クリック: 共有cursorをクリック位置のvoxelへ移動
-  - ホイール / slice slider: 各断面のslice移動
-  - `+` / `-` / `0`: 拡大 / 縮小 / 表示範囲reset
-  - カーソルキー: active planeのslice移動
+  - ホイール / slice slider: 各断面のslice移動、`Shift + ホイール`: 高速slice移動
+  - `Ctrl + ホイール` / `+` / `-`: 拡大 / 縮小
+  - 中ボタンドラッグ: Pan
+  - `0` / `F`: 全断面の表示範囲reset / fit
+  - `H` / `?`: 操作Help表示
+  - `I`: 現在点情報の表示/非表示
+  - カーソルキー: active plane上でcursorを移動
   - `O`: overlay表示切替、`C`: CT表示切替、`S`: Structure表示切替
-  - `G/P/R/E/D`: Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Ratioへ切替
-- Fast Viewerの表示方向補正は表示変換で行い、voxel readoutやRTSTRUCT座標変換は変更しません。Axial左右、Sagittal/Coronal上下、クリック位置はLegacy/Fast比較で確認対象です。
+  - `G/P/R/E/X/D`: Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratioへ切替
+- Fast Viewerの表示方向補正は表示変換で行い、voxel readoutやRTSTRUCT座標変換は変更しません。現在点の値は表示補間ではなくsource voxel arraysから取得します。
 
 ## 配布パッケージ
-- **Source/Python**: `run_gui_python.bat` で起動。Fast依存がある場合はFast既定、Legacyも選択可能です。
-- **Legacy ZIP**: `run_gui_exe.bat` で起動する軽量EXE配布。PySide6/Qtを同梱せず、Legacy既定です。
-- **Fast ZIP**: `run_gui_fast_exe.bat` で起動する大容量EXE配布。`gamma_viewer_fast`、PySide6/Qt、pyqtgraphを同梱し、Fast既定です。
+- **Source/Python**: `run_gui_python.bat` で起動。3D ViewerはFast固定です。
+- **Fast ZIP**: `run_gui_fast_exe.bat` で起動する大容量EXE配布。`gamma_viewer_fast`、PySide6/Qt、pyqtgraphを同梱します。
+- **Legacy ZIP / Legacy Viewer**: 既存資産として残っていますが、今後のGUI 3D Viewer運用では主対象外です。
 - Fast ZIPはPyInstaller `onedir` で作成し、Qt/PySide6バイナリは改変しません。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱します。
 - アプリケーションソースコードはMITライセンスですが、同梱第三者コンポーネントは各ライセンスに従います。PySide6/QtはMITではありません。
 
