@@ -12,11 +12,14 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import pydicom
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.sequence import Sequence
-from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, RTDoseStorage, RTStructureSetStorage
-
+from pydicom.uid import (
+    CTImageStorage,
+    ExplicitVRLittleEndian,
+    RTDoseStorage,
+    RTStructureSetStorage,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / "test_data_local" / "synthetic_rt_fast_viewer"
