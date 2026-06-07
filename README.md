@@ -83,6 +83,10 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
 
 ### 3D Viewer
 
+![Fast 3D Viewer showing synchronized axial, sagittal, and coronal gamma views](docs/openspec/images/Fast-3d-viewer-screenshot.png)
+
+Fast 3D Viewerでは、Axial / Sagittal / Coronalの3断面、共有cursor、ROI別GPR、Gamma overlay、現在点readoutを1画面で確認できます。
+
 - **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratio overlay、ROI別GPR、現在点のHU/Ref/Eval/Diff/Gamma/Pass-Fail readoutに対応します。
 - Legacy Viewer実装と配布スクリプトは互換性維持のため残っていますが、GUIの3D Viewer起動経路では使用しません。
 - 3断面は共通のcursor stateを共有します。Sagittal / Coronalも物理mmスケールで表示し、HFS前提の orientation label (`L/R`, `A/P`, `S/I`) を各断面に表示します。
