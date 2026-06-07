@@ -3,6 +3,11 @@
 Date: 2026-06-07 (GUI launch fix v0.9.1)
 
 High priority
+- [x] **作業終了処理（2026-06-07）**
+  - [x] Release `v0.9.1` を公開する
+  - [x] READMEにGUI実行完了画像とFast 3D Viewer画像を表示する
+  - [x] PR #16 `docs: add Fast 3D Viewer screenshot` を作成・squash mergeする
+  - [x] `99-daily-summary.md` / `99-handover_context.md` / OpenSpecを更新する
 - [x] **GUI解析プロセス起動バグ修正**
   - [x] PowerShell自動変数 `$args` との衝突を避ける
   - [x] Source/Python modeで `.venv\Scripts\python.exe` を優先する

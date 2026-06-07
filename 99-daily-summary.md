@@ -1,3 +1,41 @@
+# Daily Summary: 2026-06-07 (セッション22 GUI起動修正・v0.9.1リリース)
+
+## 作業内容サマリ
+
+1. **GUI解析プロセス起動バグ修正**
+   - GUIログには `python.exe -u -m rtgamma.main ...` と表示されるが、実際には無引数Python REPLが起動して `>>>` 待ちになり、Elapsedが止まらない問題を調査。
+   - 原因はPowerShell関数 `Set-ProcessArguments(..., [string[]]$args)` の `$args` が自動変数と衝突し、子プロセスへ引数が渡らないこと。
+   - `scripts/run_gui.ps1` / `scripts/run_gui_exe.ps1` で引数名を `$procArgs` に変更し、`ProcessStartInfo.Arguments` に文字列として確実に渡すよう修正。
+   - Source/Python modeでは `.venv\Scripts\python.exe` を優先して `rtgamma.main` を起動するようにした。
+   - GUIログに実際の `Launching FileName` / `Launching Arguments` を表示する診断ログを追加。
+
+2. **検証**
+   - `ProcessStartInfo` 経由で `.venv\Scripts\python.exe -u -m rtgamma.main --help` がPython REPLではなくCLI helpとしてExit 0で終了することを確認。
+   - 合成DICOM-RTデータで3D Gammaを実行し、`run3d.md` / `run3d.pdf` / `gamma3d.npz` / `diff3d.npz` / `rtgamma.db` の生成を確認。
+   - Header compareと2D axial解析もExit 0で確認。
+   - `pytest -q`: `29 passed, 7 skipped, 6 warnings`。
+
+3. **Docs / README / Release**
+   - `README.md` にGUI実行完了画像を表示し、3D Gamma完走状態が分かるようにした。
+   - 追加でFast 3D Viewer画像を `docs/openspec/images/Fast-3d-viewer-screenshot.png` として追加し、READMEの「3D Viewer」節に表示。
+   - `README_JA.md` / `docs/openspec/GUI_RUN.md` / `docs/openspec/rtgamma_openspec.md` / `CHANGELOG.md` / `TODO.md` をv0.9.1の内容へ更新。
+   - `v0.9.1` tagをpushし、ユーザーがGitHub Releaseを手動公開。
+   - PR #16 `docs: add Fast 3D Viewer screenshot` を作成し、squash merge済み。
+
+## 現在の状態
+
+- main: `9baa8b9` (`docs: add Fast 3D Viewer screenshot`)
+- tag/release: `v0.9.1`
+- GitHub Release: `https://github.com/inata169/GPR-comparing/releases/tag/v0.9.1`
+- PR #16: `https://github.com/inata169/GPR-comparing/pull/16` merged
+- 作業ツリーにはGUI操作由来の `config/gui_config.ini` 変更が残っている。これはユーザー状態なので未コミットのまま維持。
+
+## 次回以降
+
+- Fast ZIP / Python未インストールWindows環境での配布確認。
+- EXE容量削減は別Issue扱い。
+- 実データでFast Viewerのorientation label、physical coordinate表示、ROI contour表示を追加確認。
+
 # Daily Summary: 2026-06-06 (セッション21 Fast Viewer一本化・v0.9.0リリース)
 
 ## 作業内容サマリ

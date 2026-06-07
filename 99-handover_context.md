@@ -1,6 +1,35 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-06 Fast Viewer一本化・v0.9.0リリース後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-07 GUI起動修正・v0.9.1リリース後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (22) で完了したこと
+- **GUI解析プロセス起動修正**:
+    - GUIから3D/2D/Header解析を起動すると、表示ログ上は `python.exe -u -m rtgamma.main ...` だが実際には無引数Python REPLが起動し、`>>>` 待ちでタスクが終わらない問題を修正した。
+    - 原因はPowerShellの自動変数 `$args` と `Set-ProcessArguments` の仮引数名衝突。
+    - `scripts/run_gui.ps1` / `scripts/run_gui_exe.ps1` で仮引数を `$procArgs` に変更し、`ProcessStartInfo.Arguments` へ明示設定するようにした。
+    - Source/Python modeでは `.venv\Scripts\python.exe` を優先して `rtgamma.main` を起動する。
+    - GUIログへ `Launching FileName` / `Launching Arguments` を出すようにした。
+- **検証**:
+    - `ProcessStartInfo` 経由の `rtgamma.main --help` がCLIとしてExit 0で終了することを確認。
+    - 合成DICOM-RTデータで3D Gamma / 2D axial / Header compareを確認。
+    - `pytest -q`: `29 passed, 7 skipped, 6 warnings`。
+- **Docs / Release / PR**:
+    - READMEにGUI実行完了画像とFast 3D Viewer画像を追加。
+    - `CHANGELOG.md` / `README_JA.md` / `TODO.md` / `docs/openspec/GUI_RUN.md` / `docs/openspec/rtgamma_openspec.md` をv0.9.1内容へ更新。
+    - `v0.9.1` tagをpushし、ユーザーがGitHub Releaseを手動公開。
+    - PR #16 `docs: add Fast 3D Viewer screenshot` を作成し、squash merge済み。
+
+### 現在の正本
+- main: `9baa8b9` (`docs: add Fast 3D Viewer screenshot`)
+- tag/release: `v0.9.1`
+- GitHub Release: `https://github.com/inata169/GPR-comparing/releases/tag/v0.9.1`
+- PR #16: `https://github.com/inata169/GPR-comparing/pull/16` merged
+- 未コミット変更: `config/gui_config.ini` のみ。GUI操作由来のユーザー状態なので触らない。
+
+### 次回の注意点
+- Fast ZIP / Python未インストールWindows環境での配布確認は未完了。
+- EXE容量削減は別Issueとして扱う。
+- 実データでFast Viewerのorientation label、physical coordinate表示、ROI contour表示を追加確認する。
 
 ### 本セッション (21) で完了したこと
 - **Fast Viewer一本化**:

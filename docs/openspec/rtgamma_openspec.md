@@ -5,7 +5,7 @@
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
-- Status (2026-06-07): v0.9.1でGUI解析プロセスの引数渡しを修正した。PowerShellの自動変数 `$args` との衝突を避け、Source/Python modeでは `.venv\Scripts\python.exe` を優先する。v0.9.0以降、GUIの3D Viewer起動経路はFast Viewer固定。
+- Status (2026-06-07): v0.9.1でGUI解析プロセスの引数渡しを修正した。PowerShellの自動変数 `$args` との衝突を避け、Source/Python modeでは `.venv\Scripts\python.exe` を優先する。READMEにはGUI実行完了画像とFast 3D Viewer画像を掲載済み。v0.9.0以降、GUIの3D Viewer起動経路はFast Viewer固定。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
