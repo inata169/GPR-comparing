@@ -478,13 +478,50 @@ function Quote-ProcessArgument([string]$arg) {
   return '"' + $arg.Replace('"', '\"') + '"'
 }
 
-function Set-ProcessArguments([System.Diagnostics.ProcessStartInfo]$psi, [string[]]$args) {
-  if ($null -eq $args -or $args.Count -eq 0) { return }
-  if ($null -ne $psi.GetType().GetProperty('ArgumentList')) {
-    foreach ($arg in $args) { [void]$psi.ArgumentList.Add($arg) }
-  } else {
-    $psi.Arguments = (($args | ForEach-Object { Quote-ProcessArgument $_ }) -join ' ')
+function Set-ProcessArguments([System.Diagnostics.ProcessStartInfo]$psi, [string[]]$procArgs) {
+  if ($null -eq $procArgs -or $procArgs.Count -eq 0) { return }
+  $psi.Arguments = (($procArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join ' ')
+}
+
+function Resolve-PythonCommandPrefix() {
+  $venvPython = Join-Path $ROOT '.venv\Scripts\python.exe'
+  if (Test-Path $venvPython -PathType Leaf) {
+    return @($venvPython)
   }
+
+  $pyApp = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($pyApp) {
+    $pyPath = $pyApp.Source
+    if ([string]::IsNullOrWhiteSpace($pyPath)) { $pyPath = $pyApp.Definition }
+    if (-not [string]::IsNullOrWhiteSpace($pyPath) -and (Test-Path $pyPath -PathType Leaf)) {
+      return @($pyPath)
+    }
+  }
+
+  $pyLauncher = Get-Command py -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($pyLauncher) {
+    $pyLauncherPath = $pyLauncher.Source
+    if ([string]::IsNullOrWhiteSpace($pyLauncherPath)) { $pyLauncherPath = $pyLauncher.Definition }
+    if (-not [string]::IsNullOrWhiteSpace($pyLauncherPath) -and (Test-Path $pyLauncherPath -PathType Leaf)) {
+      return @($pyLauncherPath, '-3')
+    }
+  }
+
+  return $null
+}
+
+function Resolve-RtGammaCommandPrefix() {
+  $pythonPrefix = Resolve-PythonCommandPrefix
+  if ($pythonPrefix) {
+    return @($pythonPrefix) + @('-u', '-m', 'rtgamma.main')
+  }
+
+  $cliExe = Join-Path $ROOT 'dist\rtgamma_cli\rtgamma_cli.exe'
+  if (Test-Path $cliExe -PathType Leaf) {
+    return @($cliExe)
+  }
+
+  return $null
 }
 
 $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
@@ -578,22 +615,20 @@ function Build-Command(){
 
   switch ($cbAction.SelectedIndex){
     0 { # Header compare
-      $baseCmdName = 'python'
-      $baseArgs = @('-u', '-m', 'rtgamma.main')
-      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
-        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
-        $baseArgs = @()
+      $cmdPrefix = Resolve-RtGammaCommandPrefix
+      if (-not $cmdPrefix) {
+        [System.Windows.Forms.MessageBox]::Show('Python was not found. Install Python or create .venv before running analysis.','Python Not Found','OK','Warning')
+        return $null
       }
-      return @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','header','--report',(Join-Path $out 'header_compare.md'))
+      return @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','header','--report',(Join-Path $out 'header_compare.md'))
     }
     1 { # 3D
-      $baseCmdName = 'python'
-      $baseArgs = @('-u', '-m', 'rtgamma.main')
-      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
-        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
-        $baseArgs = @()
+      $cmdPrefix = Resolve-RtGammaCommandPrefix
+      if (-not $cmdPrefix) {
+        [System.Windows.Forms.MessageBox]::Show('Python was not found. Install Python or create .venv before running analysis.','Python Not Found','OK','Warning')
+        return $null
       }
-      $baseCmd = @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
+      $baseCmd = @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
       if ($cbNPZ.Checked) {
         $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
       }
@@ -603,13 +638,12 @@ function Build-Command(){
       $plane = $cbPlane.SelectedItem
       $pindex = 'auto'
       if (-not [string]::IsNullOrWhiteSpace($tbPlaneIdx.Text)) { $pindex = $tbPlaneIdx.Text.Trim() }
-      $baseCmdName = 'python'
-      $baseArgs = @('-u', '-m', 'rtgamma.main')
-      if ((-not (Get-Command python -ErrorAction SilentlyContinue)) -and (Test-Path "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe")) {
-        $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
-        $baseArgs = @()
+      $cmdPrefix = Resolve-RtGammaCommandPrefix
+      if (-not $cmdPrefix) {
+        [System.Windows.Forms.MessageBox]::Show('Python was not found. Install Python or create .venv before running analysis.','Python Not Found','OK','Warning')
+        return $null
       }
-      return @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
+      return @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
         '--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),
         '--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),
         '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg
@@ -686,6 +720,8 @@ function Run-Cmd([string[]]$cmd){
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
+  Append-Log ("Launching FileName: " + $psi.FileName)
+  Append-Log ("Launching Arguments: " + $psi.Arguments)
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.UseShellExecute = $false
@@ -791,6 +827,8 @@ function Run-Viewer([string[]]$cmd){
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
+  Append-Log ("Launching FileName: " + $psi.FileName)
+  Append-Log ("Launching Arguments: " + $psi.Arguments)
   $psi.UseShellExecute = $false
   $psi.CreateNoWindow = $false
   $psi.WorkingDirectory = $ROOT

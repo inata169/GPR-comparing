@@ -1,8 +1,14 @@
 # TODO (Next Actions)
 
-Date: 2026-06-06 (Fast Viewer v0.9.0 released)
+Date: 2026-06-07 (GUI launch fix v0.9.1)
 
 High priority
+- [x] **GUI解析プロセス起動バグ修正**
+  - [x] PowerShell自動変数 `$args` との衝突を避ける
+  - [x] Source/Python modeで `.venv\Scripts\python.exe` を優先する
+  - [x] 実際の `FileName` / `Arguments` をGUIログへ出す
+  - [x] 3D / 2D / Header の解析完了を確認する
+  - [x] READMEに解析完了GUIスクリーンショットを反映する
 - [x] **Fast Viewer一本化とPhase 1操作改善**
   - [x] GUIの3D Viewer起動経路をFast固定にする
   - [x] 保存済み `viewer_type=legacy` が残っていてもFast Viewerを起動する

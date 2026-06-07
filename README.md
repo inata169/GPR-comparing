@@ -75,9 +75,13 @@ DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツー�
    - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
    - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
 
-### 3D Viewer
+### GUI 実行例
 
-![Fast 3D Viewer screenshot](docs/openspec/images/Gui-screenshot.png)
+![rtgamma GUI after successful 3D gamma analysis](docs/openspec/images/Gui-screenshot.png)
+
+上の例では、合成RTDOSE/RTSTRUCTデータで3D Gammaを実行し、PDF/NPZ/SQLite DBの保存まで完了しています。
+
+### 3D Viewer
 
 - **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratio overlay、ROI別GPR、現在点のHU/Ref/Eval/Diff/Gamma/Pass-Fail readoutに対応します。
 - Legacy Viewer実装と配布スクリプトは互換性維持のため残っていますが、GUIの3D Viewer起動経路では使用しません。

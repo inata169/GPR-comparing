@@ -1,8 +1,9 @@
 Screenshots (small, optional)
 
 Recommended files to place here (PNG, small size):
+- Gui-screenshot.png — README screenshot showing a successful GUI analysis run
 - gui_main.png — GUI main window
-- gui_after_run3d.png — After a 3D run with summary open
+- gui_after_run3d.png — After a 3D run
 - gui_after_run2d_axial.png — After a 2D axial run with summary open
 
 Tips

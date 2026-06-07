@@ -13,7 +13,7 @@
 
 ## インストールと実行
 ### 方法 A: 実行ファイル (Windows EXE)
-Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X.X.zip` をダウンロード・展開し、同梱の `run_gui.bat` または `scripts/run_gui.ps1` を実行してください。（内部的に `.exe` ファイルが自動的に呼び出されます。）
+Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X.X.zip` をダウンロード・展開し、同梱のランチャーを実行してください。（内部的に `.exe` ファイルが自動的に呼び出されます。）
 
 - Legacy ZIP: 軽量配布です。PySide6/Qt は同梱せず、3D Viewer の既定は Legacy です。Fast を選んだ場合は、Fast ZIP または Python/source mode のセットアップが必要です。
 - Fast ZIP: PySide6/Qt/pyqtgraph を同梱した大容量配布です。3D Viewer の既定は Fast です。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱し、第三者コンポーネントは各ライセンスに従います。
@@ -50,10 +50,10 @@ Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X
 - レポート: CSV/JSON/MD（幾何サニティ項目を含む）
 
 ## GUI の使い方
-- 起動: `run_gui.bat` または `scripts/run_gui.ps1`
+- 起動: Source/Python mode は `run_gui_python.bat`、配布ZIPは同梱のGUIランチャー
 - 入力: Ref/Eval の RTDOSE、出力フォルダを指定
 - モード: Header Compare / 3D / 2D、プリセット、平面、Threads を設定
-- 3D Viewer: `Legacy` / `Fast` を選択可能。Fast起動に失敗した場合は、失敗したviewer type、例外要約、ログパスを表示し、確認後にLegacyで開けます。
+- 3D Viewer: Fast Viewer固定。Fast起動に失敗した場合は、例外要約、依存関係、ログパスを表示します。
 - 快適機能: 進捗表示、ログ保存、サマリ自動オープン、Local gamma トグル
 - 詳細: `docs/openspec/GUI_RUN.md`
 
@@ -67,10 +67,10 @@ Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X
 - `output_dir`: 解析結果（`gamma_map.npz` 等）が含まれるディレクトリのパス
 
 
-### スクリーンショット（任意・小さめ推奨）
+### スクリーンショット
 - `docs/openspec/images/Gui-screenshot.png`
 
-![Gui-screenshot.png 704x551](docs/openspec/images/Gui-screenshot.png)
+![rtgamma GUI after successful 3D gamma analysis](docs/openspec/images/Gui-screenshot.png)
 
 ## OpenSpec と検証
 - 仕様: `docs/openspec/`（README, TEMPLATE, `report.schema.json`, `rtgamma_openspec.md` ほか）

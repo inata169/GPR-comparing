@@ -5,8 +5,9 @@
 - 実行ログ（`run_log_*.txt`）の保存とサマリ自動オープンを確認。
 
 ## 起動
-- ダブルクリック: `run_gui.bat`
-- または: `scripts/run_gui.ps1`
+- Source/Python mode: `run_gui_python.bat`
+- PowerShellから直接起動する場合: `scripts/run_gui.ps1`
+- 配布ZIP: 同梱のGUIランチャーを使用します。
 
 ## Fast 3D Viewer
 - 目的: PyQtGraph + PySide6 による高速な臨床QA向け3断面ビューアとして、GUIの3D Viewer起動経路で使用します。
@@ -59,6 +60,7 @@
   - `Local gamma`: OFF=Global（既定）/ ON=Local（厳格）。
 - 実行
   - `Run` をクリック。進捗バーとログに実行状況が表示されます。
+  - v0.9.1以降は、ログに実際の `Launching FileName` と `Launching Arguments` が表示され、GUI表示コマンドと子プロセス引数のズレを確認できます。
 
 ## 自動オープンの優先順位
 - 3D: `run3d.md`
@@ -83,12 +85,13 @@
 
 ## スクリーンショット（任意）
 - `docs/openspec/images/` に小さめの画像で保存してください。
+  - `Gui-screenshot.png`（README掲載用のGUI実行完了例）
   - `gui_main.png`（UI メインウィンドウ）
-  - `gui_after_run3d.png`（3D 実行後、run3d.md 表示）
+  - `gui_after_run3d.png`（3D 実行後）
   - `gui_after_run2d_axial.png`（2D axial 実行後、axial.md 表示）
   - 画像は大きすぎないよう、圧縮・縮小して追加してください。
 
 ## 参照
 - GUI スクリプト: `scripts/run_gui.ps1`
-- バッチランチャ: `run_gui.bat`
+- Source/Pythonランチャ: `run_gui_python.bat`
 - 設定: `config/gui_defaults.json`

@@ -1,4 +1,14 @@
 # Changelog
+
+## [0.9.1] - 2026-06-07
+### Fixed
+- GUI解析プロセスが無引数Pythonとして起動し、Python REPLの `>>>` 待ちで終了しない問題を修正。
+- PowerShellの自動変数 `$args` との衝突を避け、`ProcessStartInfo.Arguments` に実引数を確実に渡すようにした。
+- Source/Python modeでは `.venv\Scripts\python.exe` を優先して解析CLIを起動するようにした。
+
+### Changed
+- GUIログに実際の `Launching FileName` と `Launching Arguments` を表示し、起動状態を追跡しやすくした。
+- READMEのGUIスクリーンショットを、3D Gamma解析完了後の画面に更新。
  
 ## [0.8.0] - 2026-03-13
 ### 追加 (Added)

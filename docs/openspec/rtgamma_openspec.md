@@ -1,11 +1,11 @@
-# rtgamma OpenSpec (v0.8.7 - 2026-04-14版)
+# rtgamma OpenSpec (v0.9.1 - 2026-06-07版)
 
 ## 1. Overview
 - Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
-- Status (2026-06-06): v0.9.0でGUIの3D Viewer起動経路をFast Viewer固定にした。保存済み `viewer_type=legacy` が残っていてもFastを起動する。Legacy Viewer実装とpackaging scriptsは互換資産として残すが、GUI起動経路ではfallbackしない。
+- Status (2026-06-07): v0.9.1でGUI解析プロセスの引数渡しを修正した。PowerShellの自動変数 `$args` との衝突を避け、Source/Python modeでは `.venv\Scripts\python.exe` を優先する。v0.9.0以降、GUIの3D Viewer起動経路はFast Viewer固定。
 - Stakeholders: 医療物理・QA担当、研究開発者、データ提供者。
 
 ## 2. Use Cases
@@ -85,6 +85,7 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - **高速化方針（2026-03-12 完了）**: ノン補間・補間両モードにおいて「距離順探索（中心から外側へ螺旋状に探索）」と「Early Exit（ガンマ1以下で即時終了）」を実装。ノン補間モードで約2.6倍、補間モードで約1.1倍の高速化を達成。GPR並列計算のメモリバス負荷を低減。
   - **描画性能**: Structure が多い場合の `plt.plot()` ループは遅いため `LineCollection` で一括描画し高速化。さらに `viewer_settings.json` による座標や可視性の永続化をサポート。
   - **Fast 3D Viewer**: `scripts/gamma_viewer_fast.py` はPyQtGraph + PySide6による高速3断面Viewerであり、v0.9.0以降のGUI 3D Viewer起動経路で固定使用する。既存 `scripts/gamma_viewer.py` はLegacy Viewerとして残す。
+  - **GUI解析プロセス起動**: v0.9.1以降、`ProcessStartInfo` へ渡す引数は文字列 `Arguments` として明示設定する。PowerShell自動変数 `$args` と衝突しない変数名を使用し、ログに実際の `FileName` と `Arguments` を出力する。
     - 範囲は3断面、CT grayscale、6 overlay mode（Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratio）、共有voxel cursor、現在点readout、Ref/Evalファイル名、RTSTRUCT輪郭、ROI別GPR表示。
     - 内部カーソルは voxel index `(z, y, x)` とし、Axial / Sagittal / Coronal の3断面で共有する。HU / Ref Dose / Eval Dose / Dose Diff / Gamma / Pass-Fail のreadoutは補間後の表示値ではなくsource voxel arraysから取得する。
     - `gamma=0.0` は有効な有限値とする。Pass/Failは有限gammaのみで判定し、missing / nonfinite / shape mismatchは `N/A` とする。Dose Diffは `Eval Dose - Ref Dose` とする。
@@ -185,7 +186,7 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
 - CLI/入出力・実行: rtgamma/main.py
 - DICOM I/O・幾何: rtgamma/io_dicom.py
 - レポート出力: rtgamma/report.py, scripts/pdf_report.py
-- GUI: scripts/run_gui.ps1, run_gui.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大 280px、ウィンドウ縦 950px、PDF出力設定、マウスオーバーツールチップ)
+- GUI: scripts/run_gui.ps1, run_gui_python.bat, config/gui_defaults.json (ダークテーマ、直接数値入力、ログ領域拡大、PDF出力設定、マウスオーバーツールチップ)
   - 設定読み込みは `scripts/gui_config_common.ps1` で共通化する。`viewer_type` は互換目的で残すが、3D Viewer起動時は常にFastを使用する。
   - 3D Viewer起動はFast固定。`Analysis/viewer_type=legacy` が保存済みでもFastを起動する。
   - Fast起動失敗時は、例外要約、依存関係、ログパスを表示してGUIへ戻す。Legacy fallbackは提示しない。

@@ -469,13 +469,9 @@ function Quote-ProcessArgument([string]$arg) {
   return '"' + $arg.Replace('"', '\"') + '"'
 }
 
-function Set-ProcessArguments([System.Diagnostics.ProcessStartInfo]$psi, [string[]]$args) {
-  if ($null -eq $args -or $args.Count -eq 0) { return }
-  if ($null -ne $psi.GetType().GetProperty('ArgumentList')) {
-    foreach ($arg in $args) { [void]$psi.ArgumentList.Add($arg) }
-  } else {
-    $psi.Arguments = (($args | ForEach-Object { Quote-ProcessArgument $_ }) -join ' ')
-  }
+function Set-ProcessArguments([System.Diagnostics.ProcessStartInfo]$psi, [string[]]$procArgs) {
+  if ($null -eq $procArgs -or $procArgs.Count -eq 0) { return }
+  $psi.Arguments = (($procArgs | ForEach-Object { Quote-ProcessArgument $_ }) -join ' ')
 }
 
 $btnRef.Add_Click({ Browse-File ([ref]$tbRef) })
@@ -658,6 +654,8 @@ function Run-Cmd([string[]]$cmd){
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
+  Append-Log ("Launching FileName: " + $psi.FileName)
+  Append-Log ("Launching Arguments: " + $psi.Arguments)
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.UseShellExecute = $false
@@ -763,6 +761,8 @@ function Run-Viewer([string[]]$cmd){
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $pyCmd
   Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
+  Append-Log ("Launching FileName: " + $psi.FileName)
+  Append-Log ("Launching Arguments: " + $psi.Arguments)
   $psi.UseShellExecute = $false
   $psi.CreateNoWindow = $false
   $psi.WorkingDirectory = $ROOT
