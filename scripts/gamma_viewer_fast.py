@@ -72,6 +72,35 @@ def _pass_fail_text(gamma_value: float | None) -> str:
     return "Pass" if gamma_value <= 1.0 else "Fail"
 
 
+def _gamma_value_text(gamma_value: float | None, gamma_loaded: bool) -> str:
+    if gamma_value is not None:
+        return f"{gamma_value:.3f}"
+    return "Excluded" if gamma_loaded else "N/A"
+
+
+def _gamma_coverage_text(gamma: np.ndarray | None) -> str:
+    if gamma is None:
+        return "Gamma evaluated: N/A"
+    valid = np.isfinite(gamma)
+    valid_count = int(np.sum(valid))
+    total_count = int(gamma.size)
+    if total_count == 0:
+        return "Gamma evaluated: 0/0 valid"
+    pct = valid_count / total_count * 100.0
+    return f"Gamma evaluated: {valid_count}/{total_count} ({pct:.3f}%)"
+
+
+def _overall_gpr_text(gamma: np.ndarray | None) -> str:
+    if gamma is None:
+        return "Overall GPR: N/A"
+    valid = np.isfinite(gamma)
+    evaluated = int(np.sum(valid))
+    if evaluated == 0:
+        return "Overall GPR: N/A (0 evaluated)"
+    passed = int(np.sum(gamma[valid] <= 1.0))
+    return f"Overall GPR: {passed / evaluated * 100.0:.2f}% ({passed}/{evaluated})"
+
+
 def _dose_diff_value(eval_value: float | None, ref_value: float | None) -> float | None:
     if eval_value is None or ref_value is None:
         return None
@@ -117,9 +146,9 @@ def display_point_for_cursor(
     if plane == "axial":
         return float(x_coords[x]), float(y_coords[y])
     if plane == "sagittal":
-        return float(y_coords[y]), float(z_coords[z])
+        return float(y_coords[y]), float(z_coords[z_coords.size - 1 - z])
     if plane == "coronal":
-        return float(x_coords[x]), float(z_coords[z])
+        return float(x_coords[x]), float(z_coords[z_coords.size - 1 - z])
     raise ValueError(f"Unknown plane: {plane}")
 
 
@@ -138,10 +167,10 @@ def cursor_from_display_point(
         y = _nearest_index(y_coords, display_y)
     elif plane == "sagittal":
         y = _nearest_index(y_coords, display_x)
-        z = _nearest_index(z_coords, display_y)
+        z = z_coords.size - 1 - _nearest_index(z_coords, display_y)
     elif plane == "coronal":
         x = _nearest_index(x_coords, display_x)
-        z = _nearest_index(z_coords, display_y)
+        z = z_coords.size - 1 - _nearest_index(z_coords, display_y)
     else:
         raise ValueError(f"Unknown plane: {plane}")
     return int(z), int(y), int(x)
@@ -870,6 +899,18 @@ class FastPlaneViewer:
             return volume[:, :, self.cur_x]
         return volume[:, self.cur_y, :]
 
+    def _display_slice_for_plane(self, volume: np.ndarray | None, plane: str) -> np.ndarray | None:
+        slice2d = self._slice_for_plane(volume, plane)
+        if slice2d is None:
+            return None
+        if plane in {"sagittal", "coronal"}:
+            return np.flipud(slice2d)
+        return slice2d
+
+    def _display_z_coord(self, z_index: float) -> float:
+        display_index = (self.nz - 1) - float(z_index)
+        return _index_to_coord(self.z_coords_mm, display_index)
+
     def _plane_size(self, plane: str) -> tuple[int, int]:
         if plane == "axial":
             return self.nx, self.ny
@@ -918,10 +959,10 @@ class FastPlaneViewer:
             self.cur_y = int(np.clip(self.cur_y + dy, 0, self.ny - 1))
         elif self.active_plane == "sagittal":
             self.cur_y = int(np.clip(self.cur_y + dx, 0, self.ny - 1))
-            self.cur_z = int(np.clip(self.cur_z + dy, 0, self.nz - 1))
+            self.cur_z = int(np.clip(self.cur_z - dy, 0, self.nz - 1))
         else:
             self.cur_x = int(np.clip(self.cur_x + dx, 0, self.nx - 1))
-            self.cur_z = int(np.clip(self.cur_z + dy, 0, self.nz - 1))
+            self.cur_z = int(np.clip(self.cur_z - dy, 0, self.nz - 1))
         self._update_planes_for_cursor_change(old)
 
     def _update_planes_for_cursor_change(self, old: dict[str, int]):
@@ -958,6 +999,8 @@ class FastPlaneViewer:
         if self.gpr_cond:
             text += f"Criteria: {self.gpr_cond['dta']:.1f}mm / {self.gpr_cond['dd']:.1f}%\n"
             text += f"Cutoff  : {self.gpr_cond['cutoff']:.1f}%\n"
+        text += f"{_overall_gpr_text(self.gamma)}\n"
+        text += f"{_gamma_coverage_text(self.gamma)}\n"
         text += "--------------------\n"
         text += "ROI GPR[%]\n"
         for stat in self.per_structure_stats:
@@ -1029,23 +1072,23 @@ class FastPlaneViewer:
         return rgba
 
     def _overlay_rgba(self, plane: str) -> np.ndarray | None:
-        gamma2d = self._slice_for_plane(self.gamma, plane)
+        gamma2d = self._display_slice_for_plane(self.gamma, plane)
         if self.overlay_mode == "Gamma":
             valid = None if gamma2d is None else np.isfinite(gamma2d)
             return self._scalar_rgba(gamma2d, (0.0, 2.0), valid)
         if self.overlay_mode == "Pass/Fail":
             return self._pass_fail_rgba(gamma2d)
         if self.overlay_mode == "Ref Dose":
-            ref2d = self._slice_for_plane(self.ref_dose, plane)
+            ref2d = self._display_slice_for_plane(self.ref_dose, plane)
             valid = None if ref2d is None else ref2d >= self._dose_vmax * 0.1
             return self._scalar_rgba(ref2d, (0.0, self._dose_vmax), valid)
         if self.overlay_mode == "Eval Dose":
-            eval2d = self._slice_for_plane(self.eval_dose, plane)
+            eval2d = self._display_slice_for_plane(self.eval_dose, plane)
             valid = None if eval2d is None else eval2d >= self._dose_vmax * 0.1
             return self._scalar_rgba(eval2d, (0.0, self._dose_vmax), valid)
         if self.overlay_mode == "Dose Diff":
-            ref2d = self._slice_for_plane(self.ref_dose, plane)
-            eval2d = self._slice_for_plane(self.eval_dose, plane)
+            ref2d = self._display_slice_for_plane(self.ref_dose, plane)
+            eval2d = self._display_slice_for_plane(self.eval_dose, plane)
             if ref2d is None or eval2d is None:
                 return None
             diff = eval2d - ref2d
@@ -1053,8 +1096,8 @@ class FastPlaneViewer:
             valid = np.isfinite(diff)
             return self._scalar_rgba(diff, (-max_abs, max_abs), valid, palette="blue_red")
         if self.overlay_mode == "Dose Ratio":
-            ref2d = self._slice_for_plane(self.ref_dose, plane)
-            eval2d = self._slice_for_plane(self.eval_dose, plane)
+            ref2d = self._display_slice_for_plane(self.ref_dose, plane)
+            eval2d = self._display_slice_for_plane(self.eval_dose, plane)
             if ref2d is None or eval2d is None:
                 return None
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -1065,7 +1108,7 @@ class FastPlaneViewer:
 
     def _update_plane_image(self, plane: str):
         state = self.plane_states[plane]
-        ct2d = self._slice_for_plane(self.ct, plane)
+        ct2d = self._display_slice_for_plane(self.ct, plane)
         state.ct_item.setImage(ct2d, autoLevels=False, levels=self.ct_levels)
         state.ct_item.setRect(self._plane_rect(plane))
         state.ct_item.setVisible(self.visible["CT"])
@@ -1077,7 +1120,7 @@ class FastPlaneViewer:
             state.gamma_item.setImage(rgba, autoLevels=False)
             state.gamma_item.setRect(self._plane_rect(plane))
         self._update_structure_items(plane)
-        state.title.setText(f"{plane.capitalize()} (idx {self._plane_index(plane)}) {self._slice_gpr_text(self._slice_for_plane(self.gamma, plane))}")
+        state.title.setText(f"{plane.capitalize()} (idx {self._plane_index(plane)}) {self._slice_gpr_text(self._display_slice_for_plane(self.gamma, plane))}")
         if not self.user_zoomed.get(plane, False):
             self._reset_zoom(plane)
 
@@ -1096,7 +1139,7 @@ class FastPlaneViewer:
         ref_text = f"{ref:.3f} {self.ref_unit}" if ref is not None else "N/A"
         eval_text = f"{eval_value:.3f} {self.eval_unit}" if eval_value is not None else "N/A"
         diff_text = f"{diff_value:.3f} {self.eval_unit}" if diff_value is not None else "N/A"
-        gamma_text = f"{gamma_value:.3f}" if gamma_value is not None else "N/A"
+        gamma_text = _gamma_value_text(gamma_value, self.gamma is not None)
         coord_text = self._format_physical_coordinate(z, y, x)
         return (
             f"Idx: ({z}, {y}, {x})\n"
@@ -1297,7 +1340,7 @@ class FastPlaneViewer:
                         inters.append((p1[1] + (x_w - p1[0]) / (p2[0] - p1[0]) * (p2[1] - p1[1]) - ipp[1]) / (s_row * v_row[1]))
                 if len(inters) >= 2:
                     inters.sort()
-                    z_mm = _index_to_coord(self.z_coords_mm, z_grid)
+                    z_mm = self._display_z_coord(z_grid)
                     for i in range(0, (len(inters) // 2) * 2, 2):
                         segments.append([
                             (_index_to_coord(self.y_coords_mm, inters[i]), z_mm),
@@ -1315,7 +1358,7 @@ class FastPlaneViewer:
                         inters.append((p1[0] + (y_w - p1[1]) / (p2[1] - p1[1]) * (p2[0] - p1[0]) - ipp[0]) / (s_col * v_col[0]))
                 if len(inters) >= 2:
                     inters.sort()
-                    z_mm = _index_to_coord(self.z_coords_mm, z_grid)
+                    z_mm = self._display_z_coord(z_grid)
                     for i in range(0, (len(inters) // 2) * 2, 2):
                         segments.append([
                             (_index_to_coord(self.x_coords_mm, inters[i]), z_mm),

@@ -1,3 +1,28 @@
+# Daily Summary: 2026-06-10 (Fast Viewer表示整合性修正)
+
+## 作業内容サマリ
+
+1. **Fast 3D Viewer のSagittal / Coronal表示修正**
+   - Sagittal / CoronalでCT画像のSI方向がorientation labelと逆に見える問題を修正。
+   - 表示用スライスをz方向に反転し、CT、Gamma、Pass/Fail、Ref/Eval Dose、Dose Diff/Ratio、RTSTRUCT輪郭を同じ表示変換に統一した。
+   - クリック位置、crosshair、現在点readoutも同じ表示座標系に合わせた。
+   - 上下カーソルキー移動も表示方向に合わせ、上キーでS方向、下キーでI方向へ移動するよう修正した。
+
+2. **GPR表示の定義修正**
+   - サイドバーに出していた `Gamma valid / 全voxel` がOverall GPRのように見えていたため、表示を分離。
+   - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示し、`run3d.pdf` の `pass_rate_percent` と一致させた。
+   - 全voxelに対する評価対象割合は `Gamma evaluated` として別行に表示する。
+   - cutoff除外voxelの現在点Gamma表示は `N/A` ではなく `Excluded` とし、未読込と区別できるようにした。
+
+3. **検証**
+   - `python -m pytest tests/test_fast_viewer_helpers.py -q`: `9 passed`
+   - `temp/gamma3d.npz` で `Overall GPR: 99.06% (121016/122163)`、`Gamma evaluated: 122163/3372033 (3.623%)` を確認。
+   - EXEビルドは実施せず、Source/Python modeの `scripts/gamma_viewer_fast.py` のみを対象にした。
+
+## 注意
+
+- `config/gui_config.ini` はGUI操作由来のユーザー状態変更として扱い、今回のコミット対象から除外する。
+
 # Daily Summary: 2026-06-07 (セッション22 GUI起動修正・v0.9.1リリース)
 
 ## 作業内容サマリ
