@@ -597,11 +597,23 @@ function Build-Command(){
 
   $normVal = $cbNorm.SelectedItem
   if ([string]::IsNullOrWhiteSpace($normVal)) { $normVal = 'global_max' }
+  $presetVal = $cbPreset.SelectedItem
+  $viewerDd = $dd
+  $viewerDta = $dta
+  $viewerCutoff = $cutoff
+  $viewerNormVal = $normVal
+  if ($presetVal -ne 'Custom' -and $script:presets.$presetVal) {
+    $preset = $script:presets.$presetVal
+    if ($preset.dd -ne $null) { $viewerDd = [double]$preset.dd }
+    if ($preset.dta -ne $null) { $viewerDta = [double]$preset.dta }
+    if ($preset.cutoff -ne $null) { $viewerCutoff = [double]$preset.cutoff }
+    if ($preset.norm) { $viewerNormVal = [string]$preset.norm }
+  }
 
   # Common gamma args
   $interpVal = [int]$nudInterp.Value
   $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--interp-fraction', $interpVal)
-  if ($cbPreset.SelectedItem -ne 'Custom') { $gammaArgs += @('--profile', $cbPreset.SelectedItem) }
+  if ($presetVal -ne 'Custom') { $gammaArgs += @('--profile', $presetVal) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
   if (-not $cbPDF.Checked) { $gammaArgs += @('--no-pdf') }
@@ -668,7 +680,7 @@ function Build-Command(){
       }
       $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
-        '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff,'--norm',$normVal)
+        '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal)
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
         $viewerCmd += @('--roi', $tbRoi.Text.Trim())

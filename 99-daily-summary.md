@@ -13,7 +13,7 @@
    - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示し、`run3d.pdf` の `pass_rate_percent` と一致させた。
    - 全voxelに対する評価対象割合は `Gamma evaluated` として別行に表示する。
    - cutoff除外voxelの現在点Gamma表示は `N/A` ではなく `Excluded` とし、未読込と区別できるようにした。
-   - GitHub自動レビュー指摘を受け、GUIの3D Viewer起動時にも解析時と同じ `--norm` をFast Viewerへ渡すよう修正。`norm=none` などでprecomputed gammaを開いた場合もcutoff readout判定が解析条件と一致する。
+   - GitHub自動レビュー指摘を受け、GUIの3D Viewer起動時にもpreset適用後の DD / DTA / cutoff / norm をFast Viewerへ渡すよう修正。preset選択中にprecomputed gammaを開いた場合もcutoff readout判定が解析条件と一致する。
 
 3. **検証**
    - `python -m pytest tests/test_fast_viewer_helpers.py -q`: `9 passed`
