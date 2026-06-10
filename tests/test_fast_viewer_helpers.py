@@ -31,9 +31,12 @@ def test_dose_diff_is_eval_minus_ref():
 
 
 def test_gamma_value_text_distinguishes_excluded_from_missing():
-    assert _gamma_value_text(0.0, True) == "0.000"
-    assert _gamma_value_text(None, True) == "Excluded"
-    assert _gamma_value_text(None, False) == "N/A"
+    assert _gamma_value_text(0.0, True, 12.0, 10.0) == "0.000"
+    assert _gamma_value_text(None, True, 9.9, 10.0) == "Excluded"
+    assert _gamma_value_text(None, True, 10.0, 10.0) == "N/A"
+    assert _gamma_value_text(None, True, 12.0, 10.0) == "N/A"
+    assert _gamma_value_text(None, True, None, 10.0) == "N/A"
+    assert _gamma_value_text(None, False, 9.9, 10.0) == "N/A"
 
 
 def test_gamma_coverage_text_reports_valid_voxels():

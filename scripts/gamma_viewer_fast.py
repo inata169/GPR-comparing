@@ -72,10 +72,19 @@ def _pass_fail_text(gamma_value: float | None) -> str:
     return "Pass" if gamma_value <= 1.0 else "Fail"
 
 
-def _gamma_value_text(gamma_value: float | None, gamma_loaded: bool) -> str:
+def _gamma_value_text(
+    gamma_value: float | None,
+    gamma_loaded: bool,
+    ref_value: float | None,
+    cutoff_threshold: float | None,
+) -> str:
     if gamma_value is not None:
         return f"{gamma_value:.3f}"
-    return "Excluded" if gamma_loaded else "N/A"
+    if not gamma_loaded:
+        return "N/A"
+    if ref_value is not None and cutoff_threshold is not None and ref_value < cutoff_threshold:
+        return "Excluded"
+    return "N/A"
 
 
 def _gamma_coverage_text(gamma: np.ndarray | None) -> str:
@@ -332,6 +341,7 @@ class FastPlaneViewer:
         z_mm = dose_meta["z_coords_mm"]
         self.sz = abs(float(z_mm[1] - z_mm[0])) if len(z_mm) > 1 else 1.0
         self._dose_vmax = self._compute_dose_vmax()
+        self._gamma_cutoff_threshold = self._compute_gamma_cutoff_threshold()
         self.roi_contours = {}
         if self.rtstruct_meta:
             for roi in self.rtstruct_meta["roi_list"]:
@@ -994,6 +1004,20 @@ class FastPlaneViewer:
                 vmax = max(vmax, float(np.nanmax(finite)))
         return vmax
 
+    def _compute_gamma_cutoff_threshold(self) -> float | None:
+        if not self.gpr_cond:
+            return None
+        cutoff = self.gpr_cond.get("cutoff")
+        if cutoff is None:
+            return None
+        norm = self.gpr_cond.get("norm", "global_max")
+        if norm in {"global_max", "max_ref"}:
+            finite_ref = self.ref_dose[np.isfinite(self.ref_dose)]
+            norm_factor = float(np.nanmax(finite_ref)) if finite_ref.size else 1.0
+        else:
+            norm_factor = 1.0
+        return norm_factor * float(cutoff) / 100.0
+
     def _stats_text(self) -> str:
         text = ""
         if self.gpr_cond:
@@ -1139,7 +1163,7 @@ class FastPlaneViewer:
         ref_text = f"{ref:.3f} {self.ref_unit}" if ref is not None else "N/A"
         eval_text = f"{eval_value:.3f} {self.eval_unit}" if eval_value is not None else "N/A"
         diff_text = f"{diff_value:.3f} {self.eval_unit}" if diff_value is not None else "N/A"
-        gamma_text = _gamma_value_text(gamma_value, self.gamma is not None)
+        gamma_text = _gamma_value_text(gamma_value, self.gamma is not None, ref, self._gamma_cutoff_threshold)
         coord_text = self._format_physical_coordinate(z, y, x)
         return (
             f"Idx: ({z}, {y}, {x})\n"
@@ -1457,7 +1481,7 @@ def main(argv=None) -> int:
         rtstruct_meta=rtstruct_meta,
         roi_names=roi_names,
         per_structure_stats=per_structure,
-        gpr_cond={"dd": args.dd, "dta": args.dta, "cutoff": args.cutoff},
+        gpr_cond={"dd": args.dd, "dta": args.dta, "cutoff": args.cutoff, "norm": args.norm},
         ref_label=os.path.basename(args.ref),
         eval_label=os.path.basename(args.eval) if args.eval else "",
         ref_unit=dose_meta.get("units", ""),
