@@ -1,6 +1,24 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-07 GUI起動修正・v0.9.1リリース後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-10 Fast Viewer表示整合性修正後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (23) で完了したこと
+- **Fast 3D Viewer 表示整合性修正**:
+    - Sagittal / CoronalのCT画像がSI方向でorientation labelと逆に見える問題を修正した。
+    - 表示用スライスをz方向に反転し、CT、Gamma、Pass/Fail、Ref/Eval Dose、Dose Diff/Ratio、RTSTRUCT輪郭、クリック位置、crosshairを同じ表示座標系へ統一した。
+    - Sagittal / Coronalの上下カーソルキー移動を表示方向に合わせ、上キーでS方向、下キーでI方向へ移動するようにした。
+- **GPR表示修正**:
+    - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示し、`run3d.pdf` の `pass_rate_percent` と一致する。
+    - 全voxelに対する評価対象割合は `Gamma evaluated` として別表示に分離した。
+    - cutoff除外voxelは現在点readoutで `Excluded` と表示し、Gamma未読込の `N/A` と区別する。
+- **検証**:
+    - `python -m pytest tests/test_fast_viewer_helpers.py -q`: `9 passed`
+    - `temp/gamma3d.npz` で `Overall GPR: 99.06% (121016/122163)` と `Gamma evaluated: 122163/3372033 (3.623%)` を確認。
+    - EXEビルドは実施していない。Source/Python modeの `scripts/gamma_viewer_fast.py` が対象。
+
+### 現在の正本
+- main: `origin/main` からブランチを切ってPR化予定。
+- 未コミット変更: `config/gui_config.ini` はGUI操作由来のユーザー状態なので触らない。
 
 ### 本セッション (22) で完了したこと
 - **GUI解析プロセス起動修正**:

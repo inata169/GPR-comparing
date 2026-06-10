@@ -1,5 +1,16 @@
 # TODO (Next Actions)
 
+Date: 2026-06-10 (Fast Viewer orientation / GPR display fix)
+
+High priority
+- [x] **Fast 3D Viewer 表示整合性修正（2026-06-10）**
+  - [x] Sagittal / Coronal のCT・overlay・RTSTRUCT表示をSI方向で反転し、orientation labelと画像の上下を一致させる
+  - [x] Sagittal / Coronal の上下カーソルキー移動を表示方向に合わせる
+  - [x] `Overall GPR` を有限gammaのみの pass/evaluated で表示し、`run3d.pdf` と一致させる
+  - [x] Gamma評価対象割合は `Gamma evaluated` として別表示に分離する
+  - [x] cutoff除外voxelは現在点readoutで `Excluded` と表示する
+  - [x] `tests/test_fast_viewer_helpers.py` を更新し、helper test 9件 pass を確認する
+
 Date: 2026-06-07 (GUI launch fix v0.9.1)
 
 High priority

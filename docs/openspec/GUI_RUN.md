@@ -39,7 +39,9 @@
   - Cursor readoutは補間後の表示値ではなく、元voxel値を使用します。
   - 内部cursor stateは `(z, y, x)` のarray indexを正とし、表示用の物理mm mappingとsource voxel readoutを分離します。
   - RTSTRUCT overlayは既存のvoxel index / patient coordinate変換経路を変更しません。
-  - Sagittal / Coronal は元arrayを変形せず、物理mm座標extentとViewBoxのaspect lockで1:1表示します。
+  - Sagittal / Coronal は元arrayを変更せず、表示用スライスだけをz方向に反転します。CT、Gamma、Pass/Fail、Ref/Eval Dose、Dose Diff/Ratio、RTSTRUCT輪郭、クリック位置、crosshair、上下カーソルキー移動は同じ表示座標系で同期します。
+  - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示します。全voxelに対する評価対象割合は `Gamma evaluated` として別表示します。
+  - cutoffで除外されたvoxelの現在点Gammaは `Excluded` と表示し、Gamma未読込やshape不一致の `N/A` と区別します。
   - 今回の方向表示はHFS前提の固定orientation labelです。prone / feet first / PatientPosition自動補正は対象外です。
 
 ## 手順
