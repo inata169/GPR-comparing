@@ -11,8 +11,10 @@
     - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示し、`run3d.pdf` の `pass_rate_percent` と一致する。
     - 全voxelに対する評価対象割合は `Gamma evaluated` として別表示に分離した。
     - cutoff除外voxelは現在点readoutで `Excluded` と表示し、Gamma未読込の `N/A` と区別する。
+    - GitHub自動レビュー指摘を受け、GUIの3D Viewer起動時に解析時と同じ `--norm` をFast Viewerへ渡すようにした。precomputed `gamma3d.npz` を開く場合も、cutoff readout判定が解析時のnorm条件と一致する。
 - **検証**:
     - `python -m pytest tests/test_fast_viewer_helpers.py -q`: `9 passed`
+    - PowerShell構文確認: `scripts/run_gui.ps1` / `scripts/run_gui_exe.ps1` とも `parse ok`
     - `temp/gamma3d.npz` で `Overall GPR: 99.06% (121016/122163)` と `Gamma evaluated: 122163/3372033 (3.623%)` を確認。
     - EXEビルドは実施していない。Source/Python modeの `scripts/gamma_viewer_fast.py` が対象。
 

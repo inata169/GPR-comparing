@@ -52,6 +52,7 @@
   - Action: `3D (clinical preset)` または `2D (clinical preset)`（2D は Plane/Index 指定あり）。
   - 3D ViewerはFast Viewer固定で起動します。保存済み `viewer_type=legacy` は互換目的で残っていても起動選択には使いません。
   - Source/Python modeでは `.venv\Scripts\python.exe` を優先して `scripts/gamma_viewer_fast.py` を起動します。未セットアップの場合は `setup_fast_viewer_venv.bat` を実行してください。
+  - GUIからFast Viewerを起動する場合、DD / DTA / cutoff に加えて解析時と同じ `norm` を渡します。保存済み `gamma3d.npz` を開く場合も、cutoff除外readoutは解析条件と一致します。
   - Fast起動に失敗した場合は、例外要約・依存関係・ログパスを表示します。Legacy fallbackは提示しません。
   - Clinical Preset: 既定は `clinical_rel`（3%/2mm/10%、norm=global_max、opt-shift=off）。
   - Optimize shift: 既定は OFF（必要時のみ ON）。

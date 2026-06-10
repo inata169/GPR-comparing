@@ -9,6 +9,7 @@ High priority
   - [x] `Overall GPR` を有限gammaのみの pass/evaluated で表示し、`run3d.pdf` と一致させる
   - [x] Gamma評価対象割合は `Gamma evaluated` として別表示に分離する
   - [x] cutoff除外voxelは現在点readoutで `Excluded` と表示する
+  - [x] GUI 3D Viewer起動時に解析と同じ `--norm` をFast Viewerへ渡し、cutoff readout判定を一致させる
   - [x] `tests/test_fast_viewer_helpers.py` を更新し、helper test 9件 pass を確認する
 
 Date: 2026-06-07 (GUI launch fix v0.9.1)

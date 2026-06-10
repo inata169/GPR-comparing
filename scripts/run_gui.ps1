@@ -668,7 +668,7 @@ function Build-Command(){
       }
       $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
-        '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff)
+        '--dd',$dd,'--dta',$dta,'--cutoff',$cutoff,'--norm',$normVal)
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
         $viewerCmd += @('--roi', $tbRoi.Text.Trim())
