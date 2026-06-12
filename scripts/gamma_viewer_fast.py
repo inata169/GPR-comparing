@@ -594,10 +594,14 @@ class FastPlaneViewer:
         dose_range_layout.setVerticalSpacing(3)
         self.dose_auto_check = QtWidgets.QCheckBox("Auto dose range")
         self.dose_auto_check.toggled.connect(self._on_dose_auto_changed)
-        self.dose_min_edit = QtWidgets.QLineEdit()
-        self.dose_max_edit = QtWidgets.QLineEdit()
-        self.dose_min_edit.setPlaceholderText("0.0")
-        self.dose_max_edit.setPlaceholderText("1.0")
+        self.dose_min_edit = QtWidgets.QDoubleSpinBox()
+        self.dose_max_edit = QtWidgets.QDoubleSpinBox()
+        for edit in (self.dose_min_edit, self.dose_max_edit):
+            edit.setRange(0.0, 100.0)
+            edit.setDecimals(4)
+            edit.setSingleStep(0.1)
+            edit.setKeyboardTracking(False)
+            edit.setMinimumWidth(90)
         self.dose_min_edit.editingFinished.connect(self._on_dose_range_edited)
         self.dose_max_edit.editingFinished.connect(self._on_dose_range_edited)
         dose_range_layout.addWidget(self.dose_auto_check, 0, 0, 1, 2)
@@ -1110,23 +1114,19 @@ class FastPlaneViewer:
             self.dose_max_edit.setEnabled(enabled and not self._dose_display_auto_enabled.get(dose_key, True))
             if dose_key is None:
                 self.dose_auto_check.setChecked(True)
-                self.dose_min_edit.setText("")
-                self.dose_max_edit.setText("")
+                self.dose_min_edit.setValue(0.0)
+                self.dose_max_edit.setValue(1.0)
                 return
             auto_enabled = self._dose_display_auto_enabled[dose_key]
             self.dose_auto_check.setChecked(auto_enabled)
             lo, hi = self._active_dose_display_range(dose_key)
-            self.dose_min_edit.setText(self._format_dose_range_value(lo))
-            self.dose_max_edit.setText(self._format_dose_range_value(hi))
+            self.dose_min_edit.setValue(float(np.clip(lo, 0.0, 100.0)))
+            self.dose_max_edit.setValue(float(np.clip(hi, 0.0, 100.0)))
         finally:
             self._syncing_dose_range_controls = False
 
     def _parse_dose_range_fields(self) -> tuple[float, float] | None:
-        try:
-            return float(self.dose_min_edit.text()), float(self.dose_max_edit.text())
-        except ValueError:
-            logger.warning("Invalid dose display range: min and max must be finite numbers.")
-            return None
+        return float(self.dose_min_edit.value()), float(self.dose_max_edit.value())
 
     def _on_dose_auto_changed(self, checked: bool):
         if self._syncing_dose_range_controls:
