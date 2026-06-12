@@ -1,11 +1,14 @@
 import numpy as np
 
 from scripts.gamma_viewer_fast import (
+    FastPlaneViewer,
+    _auto_dose_display_range,
     _dose_diff_value,
     _gamma_coverage_text,
     _gamma_value_text,
     _overall_gpr_text,
     _pass_fail_text,
+    _validated_dose_display_range,
     cursor_from_display_point,
     display_point_for_cursor,
 )
@@ -71,3 +74,99 @@ def test_inverse_mapping_clips_to_nearest_index():
     assert cursor_from_display_point("axial", 100.0, -100.0, cursor, x, y, z) == (1, 0, 2)
     assert cursor_from_display_point("sagittal", 11.6, 21.7, cursor, x, y, z) == (0, 1, 1)
     assert cursor_from_display_point("coronal", -1.0, 99.0, cursor, x, y, z) == (0, 2, 0)
+
+
+def test_axial_and_coronal_orientation_labels_place_r_on_left_l_on_right():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.x_coords_mm = np.array([0.0, 2.0, 4.0])
+    viewer.y_coords_mm = np.array([10.0, 12.0, 14.0])
+    viewer.z_coords_mm = np.array([20.0, 23.0, 26.0])
+
+    axial = viewer._orientation_labels("axial")
+    coronal = viewer._orientation_labels("coronal")
+
+    assert [label[0] for label in axial[:2]] == ["R", "L"]
+    assert [label[0] for label in coronal[:2]] == ["R", "L"]
+    assert axial[0][1][0] < axial[1][1][0]
+    assert coronal[0][1][0] < coronal[1][1][0]
+
+
+def test_ref_dose_overlay_keeps_low_finite_dose_visible():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.overlay_visible = True
+    viewer.overlay_mode = "Ref Dose"
+    viewer.overlay_alpha = 128
+    viewer.cur_z = 0
+    viewer.ref_dose = np.array([[[0.05, 0.2], [0.0, np.nan]]], dtype=float)
+    viewer.eval_dose = np.array([[[10.0, 10.0], [10.0, 10.0]]], dtype=float)
+    viewer.gamma = None
+    viewer._dose_display_auto_range = {"ref": (0.0, 1.0), "eval": (0.0, 10.0)}
+    viewer._dose_display_manual_range = {"ref": None, "eval": None}
+    viewer._dose_display_auto_enabled = {"ref": True, "eval": True}
+    viewer._overlay_rgba_cache = {}
+
+    rgba = viewer._overlay_rgba("axial")
+
+    assert rgba is not None
+    assert rgba[0, 0, 3] == 128
+    assert rgba[0, 1, 3] == 128
+    assert rgba[1, 0, 3] == 128
+    assert rgba[1, 1, 3] == 0
+
+
+def test_auto_dose_display_range_ignores_single_extreme_outlier():
+    volume = np.ones((20, 20, 20), dtype=float)
+    volume *= 0.8
+    volume[0, 0, 0] = 1000.0
+
+    lo, hi = _auto_dose_display_range(volume)
+
+    assert lo == 0.0
+    assert hi < 10.0
+    assert hi != float(np.nanmax(volume))
+
+
+def test_ref_and_eval_auto_dose_ranges_are_independent():
+    ref = np.full((20, 20, 20), 1.0, dtype=float)
+    eval_dose = np.full((20, 20, 20), 0.5, dtype=float)
+    eval_dose[0, 0, 0] = 1000.0
+
+    ref_range = _auto_dose_display_range(ref)
+    eval_range = _auto_dose_display_range(eval_dose)
+
+    assert ref_range == (0.0, 1.0)
+    assert eval_range[1] < 10.0
+    assert ref_range != eval_range
+
+
+def test_manual_dose_display_range_validation_accepts_valid_range():
+    previous = (0.0, 1.0)
+
+    new_range, ok, reason = _validated_dose_display_range(0.4, 1.0, previous)
+
+    assert ok
+    assert new_range == (0.4, 1.0)
+    assert reason == ""
+
+
+def test_manual_dose_display_range_validation_rejects_invalid_and_preserves_previous():
+    previous = (0.0, 1.0)
+
+    for min_value, max_value in [(1.0, 1.0), (2.0, 1.0), (np.nan, 1.0), (0.0, np.inf)]:
+        new_range, ok, reason = _validated_dose_display_range(min_value, max_value, previous)
+        assert not ok
+        assert new_range == previous
+        assert reason
+
+
+def test_auto_dose_display_range_fallbacks_are_safe():
+    cases = [
+        np.zeros((2, 2, 2), dtype=float),
+        np.full((2, 2, 2), np.nan, dtype=float),
+        np.full((2, 2, 2), np.inf, dtype=float),
+        np.full((2, 2, 2), -1.0, dtype=float),
+        None,
+    ]
+
+    for volume in cases:
+        assert _auto_dose_display_range(volume) == (0.0, 1.0)

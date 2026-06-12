@@ -1,3 +1,38 @@
+# Daily Summary: 2026-06-12 (Fast Viewer dose range controls)
+
+## 作業内容サマリ
+
+1. **Ref / Eval Dose overlay表示範囲UI追加**
+   - Ref Dose / Eval Doseに独立したauto表示範囲を実装し、positive voxelの99.5 percentileを既定maxにした。
+   - `Auto dose range`、`Dose display min [Gy]`、`Dose display max [Gy]` を追加し、Ref/Evalごとに非永続の手動rangeを指定できるようにした。
+   - Dose display min/maxを0〜100 Gy入力可能なnumeric fieldに変更し、100 Gyまで入力できる表示幅を確保した。
+   - Dose display min/max欄はクリック時に既存値を全選択し、`0` や `40` を直接入力できるようにした。
+   - Ref/Eval以外のoverlay表示中でもDose Rangeを操作できるようにし、対象（Ref/Eval）をgroup titleに表示するようにした。
+   - invalid range（非数、inf、max <= min）は前回の有効rangeを保持し、warning logのみ出す。
+   - Auto/manual切替やvalid入力時にRef/Eval overlay cacheを無効化し、表示を即時更新する。
+
+2. **外れ値対策の確認**
+   - Beam6 datasetでRef raw max約1.79 Gyに対してauto max約1.19 Gy、Eval raw max約34.47 Gyに対してauto max約0.979 Gyとなることを確認。
+   - Eval外れ値がRef表示範囲に影響しないよう、Ref/Evalを独立rangeにした。
+
+3. **検証**
+   - `python -m pytest tests/test_fast_viewer_helpers.py`: `16 passed`
+
+# Daily Summary: 2026-06-12 (Fast Viewer dose overlay / RL label fix)
+
+## 作業内容サマリ
+
+1. **Ref / Eval Dose overlay 表示修正**
+   - Ref Dose / Eval Dose overlay が、全体最大線量の10%未満を透明化する条件により見えないケースを修正。
+   - Ref / Eval Dose modeでは有限な線量voxelを表示対象にし、Dose Ratioのみ従来どおり低Ref線量域を除外する。
+
+2. **Axial / Coronal のR/Lラベル修正**
+   - Axial / Coronal のorientation labelを、表示左側 `R`、右側 `L` に修正。
+   - CT画像位置やvoxel/readout座標変換は変更せず、ラベル配置のみ修正した。
+
+3. **検証**
+   - `python -m pytest tests/test_fast_viewer_helpers.py`: `11 passed`
+
 # Daily Summary: 2026-06-10 (Fast Viewer表示整合性修正)
 
 ## 作業内容サマリ

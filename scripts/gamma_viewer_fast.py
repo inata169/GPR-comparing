@@ -116,6 +116,32 @@ def _dose_diff_value(eval_value: float | None, ref_value: float | None) -> float
     return eval_value - ref_value
 
 
+def _auto_dose_display_range(volume: np.ndarray | None) -> tuple[float, float]:
+    if volume is None:
+        return 0.0, 1.0
+    positive = volume[np.isfinite(volume) & (volume > 0)]
+    if positive.size == 0:
+        return 0.0, 1.0
+    hi = float(np.percentile(positive, 99.5))
+    if not np.isfinite(hi) or hi <= 0.0:
+        hi = float(np.nanmax(positive))
+    if not np.isfinite(hi) or hi <= 0.0:
+        hi = 1.0
+    return 0.0, hi
+
+
+def _validated_dose_display_range(
+    min_value: float,
+    max_value: float,
+    previous: tuple[float, float],
+) -> tuple[tuple[float, float], bool, str]:
+    if not np.isfinite(min_value) or not np.isfinite(max_value):
+        return previous, False, "min and max must be finite numbers"
+    if max_value <= min_value:
+        return previous, False, "max must be greater than min"
+    return (float(min_value), float(max_value)), True, ""
+
+
 def _coord_edges(coords: np.ndarray) -> tuple[float, float]:
     coords = np.asarray(coords, dtype=float)
     if coords.size == 0:
@@ -341,7 +367,18 @@ class FastPlaneViewer:
         z_mm = dose_meta["z_coords_mm"]
         self.sz = abs(float(z_mm[1] - z_mm[0])) if len(z_mm) > 1 else 1.0
         self._dose_vmax = self._compute_dose_vmax()
+        self._dose_display_auto_range = {
+            "ref": _auto_dose_display_range(self.ref_dose),
+            "eval": _auto_dose_display_range(self.eval_dose),
+        }
+        self._dose_display_manual_range: dict[str, tuple[float, float] | None] = {"ref": None, "eval": None}
+        self._dose_display_auto_enabled = {"ref": True, "eval": True}
+        self._dose_range_control_key = "ref"
+        self._overlay_rgba_cache: dict[tuple, np.ndarray | None] = {}
+        self._syncing_dose_range_controls = False
         self._gamma_cutoff_threshold = self._compute_gamma_cutoff_threshold()
+        self._log_dose_volume_debug("Ref", "ref", self.ref_dose)
+        self._log_dose_volume_debug("Eval", "eval", self.eval_dose)
         self.roi_contours = {}
         if self.rtstruct_meta:
             for roi in self.rtstruct_meta["roi_list"]:
@@ -551,6 +588,42 @@ class FastPlaneViewer:
         self.mode_group.buttonClicked.connect(self._on_mode_changed)
         layout.addWidget(mode_box)
 
+        self.dose_range_box = QtWidgets.QGroupBox("Dose Range")
+        dose_range_layout = QtWidgets.QGridLayout(self.dose_range_box)
+        dose_range_layout.setContentsMargins(6, 10, 6, 6)
+        dose_range_layout.setHorizontalSpacing(6)
+        dose_range_layout.setVerticalSpacing(3)
+        self.dose_auto_check = QtWidgets.QCheckBox("Auto dose range")
+        self.dose_auto_check.toggled.connect(self._on_dose_auto_changed)
+        class DoseRangeSpinBox(QtWidgets.QDoubleSpinBox):
+            def focusInEvent(self, event):
+                super().focusInEvent(event)
+                self.lineEdit().selectAll()
+
+            def mousePressEvent(self, event):
+                was_focused = self.hasFocus()
+                super().mousePressEvent(event)
+                if not was_focused:
+                    self.lineEdit().selectAll()
+
+        self.dose_min_edit = DoseRangeSpinBox()
+        self.dose_max_edit = DoseRangeSpinBox()
+        for edit in (self.dose_min_edit, self.dose_max_edit):
+            edit.setRange(0.0, 100.0)
+            edit.setDecimals(4)
+            edit.setSingleStep(0.1)
+            edit.setKeyboardTracking(False)
+            edit.setMinimumWidth(90)
+        self.dose_min_edit.editingFinished.connect(self._on_dose_range_edited)
+        self.dose_max_edit.editingFinished.connect(self._on_dose_range_edited)
+        dose_range_layout.addWidget(self.dose_auto_check, 0, 0, 1, 2)
+        dose_range_layout.addWidget(QtWidgets.QLabel("Dose display min [Gy]"), 1, 0)
+        dose_range_layout.addWidget(self.dose_min_edit, 1, 1)
+        dose_range_layout.addWidget(QtWidgets.QLabel("Dose display max [Gy]"), 2, 0)
+        dose_range_layout.addWidget(self.dose_max_edit, 2, 1)
+        layout.addWidget(self.dose_range_box)
+        self._sync_dose_range_controls()
+
         zoom_box = QtWidgets.QGroupBox("Zoom")
         zoom_layout = QtWidgets.QHBoxLayout(zoom_box)
         zoom_layout.setContentsMargins(6, 10, 6, 6)
@@ -665,8 +738,8 @@ class FastPlaneViewer:
         ym = (y0 + y1) / 2.0
         if plane == "axial":
             return [
-                ("L", (x0, ym), (0, 0.5)),
-                ("R", (x1, ym), (1, 0.5)),
+                ("R", (x0, ym), (0, 0.5)),
+                ("L", (x1, ym), (1, 0.5)),
                 ("A", (xm, y0), (0.5, 0)),
                 ("P", (xm, y1), (0.5, 1)),
             ]
@@ -678,8 +751,8 @@ class FastPlaneViewer:
                 ("I", (xm, y1), (0.5, 1)),
             ]
         return [
-            ("L", (x0, ym), (0, 0.5)),
-            ("R", (x1, ym), (1, 0.5)),
+            ("R", (x0, ym), (0, 0.5)),
+            ("L", (x1, ym), (1, 0.5)),
             ("S", (xm, y0), (0.5, 0)),
             ("I", (xm, y1), (0.5, 1)),
         ]
@@ -1004,6 +1077,179 @@ class FastPlaneViewer:
                 vmax = max(vmax, float(np.nanmax(finite)))
         return vmax
 
+    def _dose_key_for_mode(self, mode: str | None = None) -> str | None:
+        mode = self.overlay_mode if mode is None else mode
+        if mode == "Ref Dose":
+            return "ref"
+        if mode == "Eval Dose":
+            return "eval"
+        return None
+
+    def _dose_key_for_controls(self) -> str:
+        return self._dose_key_for_mode() or self._dose_range_control_key
+
+    def _active_dose_display_range(self, dose_key: str) -> tuple[float, float]:
+        if self._dose_display_auto_enabled.get(dose_key, True):
+            return self._dose_display_auto_range[dose_key]
+        manual = self._dose_display_manual_range.get(dose_key)
+        if manual is not None:
+            return manual
+        return self._dose_display_auto_range[dose_key]
+
+    def _set_manual_dose_display_range(self, dose_key: str, min_value: float, max_value: float) -> bool:
+        previous = self._active_dose_display_range(dose_key)
+        new_range, ok, reason = _validated_dose_display_range(min_value, max_value, previous)
+        if not ok:
+            logger.warning("Invalid dose display range: %s.", reason)
+            return False
+        self._dose_display_manual_range[dose_key] = new_range
+        self._dose_display_auto_enabled[dose_key] = False
+        self._invalidate_dose_overlay_cache(dose_key)
+        self._log_dose_volume_debug(self._dose_label(dose_key), dose_key, self._dose_volume(dose_key))
+        return True
+
+    def _dose_label(self, dose_key: str) -> str:
+        return "Ref" if dose_key == "ref" else "Eval"
+
+    def _dose_volume(self, dose_key: str) -> np.ndarray | None:
+        return self.ref_dose if dose_key == "ref" else self.eval_dose
+
+    def _format_dose_range_value(self, value: float) -> str:
+        return f"{float(value):.4g}"
+
+    def _sync_dose_range_controls(self):
+        if not hasattr(self, "dose_auto_check"):
+            return
+        dose_key = self._dose_key_for_controls()
+        self._syncing_dose_range_controls = True
+        try:
+            self.dose_range_box.setTitle(f"Dose Range ({self._dose_label(dose_key)})")
+            self.dose_auto_check.setEnabled(True)
+            self.dose_min_edit.setEnabled(not self._dose_display_auto_enabled.get(dose_key, True))
+            self.dose_max_edit.setEnabled(not self._dose_display_auto_enabled.get(dose_key, True))
+            auto_enabled = self._dose_display_auto_enabled[dose_key]
+            self.dose_auto_check.setChecked(auto_enabled)
+            lo, hi = self._active_dose_display_range(dose_key)
+            self.dose_min_edit.setValue(float(np.clip(lo, 0.0, 100.0)))
+            self.dose_max_edit.setValue(float(np.clip(hi, 0.0, 100.0)))
+        finally:
+            self._syncing_dose_range_controls = False
+
+    def _parse_dose_range_fields(self) -> tuple[float, float] | None:
+        return float(self.dose_min_edit.value()), float(self.dose_max_edit.value())
+
+    def _on_dose_auto_changed(self, checked: bool):
+        if self._syncing_dose_range_controls:
+            return
+        dose_key = self._dose_key_for_controls()
+        self._dose_display_auto_enabled[dose_key] = bool(checked)
+        if checked:
+            self._invalidate_dose_overlay_cache(dose_key)
+            self._log_dose_volume_debug(self._dose_label(dose_key), dose_key, self._dose_volume(dose_key))
+            self._refresh_current_dose_overlay(dose_key)
+        else:
+            values = self._parse_dose_range_fields()
+            if values is not None and self._set_manual_dose_display_range(dose_key, values[0], values[1]):
+                self._refresh_current_dose_overlay(dose_key)
+            else:
+                self._dose_display_auto_enabled[dose_key] = True
+        self._sync_dose_range_controls()
+
+    def _on_dose_range_edited(self):
+        if self._syncing_dose_range_controls:
+            return
+        dose_key = self._dose_key_for_controls()
+        if self._dose_display_auto_enabled.get(dose_key, True):
+            self._sync_dose_range_controls()
+            return
+        values = self._parse_dose_range_fields()
+        if values is not None and self._set_manual_dose_display_range(dose_key, values[0], values[1]):
+            self._refresh_current_dose_overlay(dose_key)
+        self._sync_dose_range_controls()
+
+    def _invalidate_dose_overlay_cache(self, dose_key: str | None = None):
+        if dose_key is None:
+            self._overlay_rgba_cache.clear()
+            return
+        modes = {"ref": "Ref Dose", "eval": "Eval Dose"}
+        mode = modes[dose_key]
+        for key in list(self._overlay_rgba_cache):
+            if key[0] == mode:
+                self._overlay_rgba_cache.pop(key, None)
+
+    def _refresh_current_dose_overlay(self, dose_key: str):
+        current_key = self._dose_key_for_mode()
+        if current_key == dose_key:
+            self._update_all_images()
+
+    def _log_dose_volume_debug(self, label: str, dose_key: str, volume: np.ndarray | None):
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        active_lo, active_hi = self._active_dose_display_range(dose_key)
+        auto_lo, auto_hi = self._dose_display_auto_range[dose_key]
+        if volume is None:
+            logger.debug(
+                "%s dose stats: volume=N/A auto=(%.6g, %.6g) active=(%.6g, %.6g)",
+                label,
+                auto_lo,
+                auto_hi,
+                active_lo,
+                active_hi,
+            )
+            return
+        finite_mask = np.isfinite(volume)
+        finite = volume[finite_mask]
+        positive = volume[finite_mask & (volume > 0)]
+        if finite.size:
+            raw_min = float(np.nanmin(finite))
+            raw_max = float(np.nanmax(finite))
+            percentiles = [float(np.percentile(finite, p)) for p in (95, 99, 99.5, 99.9)]
+            finite_indices = np.argwhere(finite_mask)
+            max_index = tuple(int(i) for i in finite_indices[int(np.argmax(finite))])
+        else:
+            raw_min = raw_max = float("nan")
+            percentiles = [float("nan")] * 4
+            max_index = None
+        logger.debug(
+            "%s dose stats: finite=%d positive=%d raw_min=%.6g raw_max=%.6g "
+            "p95=%.6g p99=%.6g p99.5=%.6g p99.9=%.6g auto=(%.6g, %.6g) "
+            "active=(%.6g, %.6g) max_index=%s",
+            label,
+            int(finite.size),
+            int(positive.size),
+            raw_min,
+            raw_max,
+            percentiles[0],
+            percentiles[1],
+            percentiles[2],
+            percentiles[3],
+            auto_lo,
+            auto_hi,
+            active_lo,
+            active_hi,
+            max_index,
+        )
+
+    def _log_rgba_debug(self, label: str, plane: str, rgba: np.ndarray | None):
+        if rgba is None or not logger.isEnabledFor(logging.DEBUG):
+            return
+        rgb = rgba[..., :3]
+        alpha = rgba[..., 3]
+        flat_rgba = rgba.reshape(-1, 4)
+        unique_count = int(np.unique(flat_rgba, axis=0).shape[0]) if flat_rgba.shape[0] <= 200_000 else -1
+        logger.debug(
+            "%s %s RGBA: rgb_min=%s rgb_max=%s alpha_min=%d alpha_max=%d "
+            "alpha_nonzero=%d unique_colors=%s",
+            label,
+            plane,
+            [int(v) for v in rgb.reshape(-1, 3).min(axis=0)],
+            [int(v) for v in rgb.reshape(-1, 3).max(axis=0)],
+            int(alpha.min()),
+            int(alpha.max()),
+            int(np.count_nonzero(alpha)),
+            unique_count if unique_count >= 0 else "skipped",
+        )
+
     def _compute_gamma_cutoff_threshold(self) -> float | None:
         if not self.gpr_cond:
             return None
@@ -1103,13 +1349,29 @@ class FastPlaneViewer:
         if self.overlay_mode == "Pass/Fail":
             return self._pass_fail_rgba(gamma2d)
         if self.overlay_mode == "Ref Dose":
+            dose_key = "ref"
+            dose_range = self._active_dose_display_range(dose_key)
+            cache_key = (self.overlay_mode, plane, self._plane_index(plane), self.overlay_alpha, dose_range)
+            if cache_key in self._overlay_rgba_cache:
+                return self._overlay_rgba_cache[cache_key]
             ref2d = self._display_slice_for_plane(self.ref_dose, plane)
-            valid = None if ref2d is None else ref2d >= self._dose_vmax * 0.1
-            return self._scalar_rgba(ref2d, (0.0, self._dose_vmax), valid)
+            valid = None if ref2d is None else np.isfinite(ref2d)
+            rgba = self._scalar_rgba(ref2d, dose_range, valid)
+            self._overlay_rgba_cache[cache_key] = rgba
+            self._log_rgba_debug("Ref Dose", plane, rgba)
+            return rgba
         if self.overlay_mode == "Eval Dose":
+            dose_key = "eval"
+            dose_range = self._active_dose_display_range(dose_key)
+            cache_key = (self.overlay_mode, plane, self._plane_index(plane), self.overlay_alpha, dose_range)
+            if cache_key in self._overlay_rgba_cache:
+                return self._overlay_rgba_cache[cache_key]
             eval2d = self._display_slice_for_plane(self.eval_dose, plane)
-            valid = None if eval2d is None else eval2d >= self._dose_vmax * 0.1
-            return self._scalar_rgba(eval2d, (0.0, self._dose_vmax), valid)
+            valid = None if eval2d is None else np.isfinite(eval2d)
+            rgba = self._scalar_rgba(eval2d, dose_range, valid)
+            self._overlay_rgba_cache[cache_key] = rgba
+            self._log_rgba_debug("Eval Dose", plane, rgba)
+            return rgba
         if self.overlay_mode == "Dose Diff":
             ref2d = self._display_slice_for_plane(self.ref_dose, plane)
             eval2d = self._display_slice_for_plane(self.eval_dose, plane)
@@ -1233,6 +1495,7 @@ class FastPlaneViewer:
     def _on_alpha_changed(self, value: int):
         self.overlay_alpha = int(np.clip(round(value / 100 * 255), 0, 255))
         self.alpha_value_label.setText(f"{int(value)}%")
+        self._invalidate_dose_overlay_cache()
         for plane in ("axial", "sagittal", "coronal"):
             rgba = self._overlay_rgba(plane)
             if rgba is not None:
@@ -1266,6 +1529,9 @@ class FastPlaneViewer:
 
     def _set_overlay_mode(self, mode: str):
         self.overlay_mode = mode
+        dose_key = self._dose_key_for_mode(mode)
+        if dose_key is not None:
+            self._dose_range_control_key = dose_key
         for button in self.mode_group.buttons():
             if button.text() == mode:
                 button.setChecked(True)
@@ -1273,6 +1539,7 @@ class FastPlaneViewer:
         for name, action in self._overlay_actions.items():
             action.setChecked(name == mode)
         self.overlay_visible = self.gamma is not None or self.overlay_mode in {"Ref Dose", "Eval Dose", "Dose Diff", "Dose Ratio"}
+        self._sync_dose_range_controls()
         self._update_all_images()
 
     def _reset_zoom(self, plane: str):

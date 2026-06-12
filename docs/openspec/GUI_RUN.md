@@ -35,6 +35,9 @@
   - HU / Ref / Eval / Dose Diff / Gamma / Pass-Fail は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
   - `gamma=0.0` は有効な有限値として扱います。
   - Pass/Failは有限gammaのみ対象です。`gamma <= 1.0` はPass、`gamma > 1.0` はFail、missing / nonfinite / shape mismatchは `N/A` です。
+  - Ref Dose / Eval Dose overlayは有限な線量voxelを表示対象にし、Ref/Evalそれぞれ独立したDose display rangeでcolormapを正規化します。
+  - Dose display rangeの既定はpositive voxelの99.5 percentileをmaxにしたauto rangeです。`Auto dose range`をOFFにすると、`Dose display min [Gy]` / `Dose display max [Gy]` に手入力した非永続rangeを使用します。入力欄は0〜100 Gyのnumeric fieldです。Ref/Eval以外のoverlay表示中も、最後に選択したdose mode（初期Ref）のrangeを操作できます。
+  - invalid range（非数、inf、max <= min）は前回の有効rangeを保持し、viewerは落としません。Dose Ratioは低Ref線量域を除外します。
   - Dose Diffは `Eval Dose - Ref Dose` です。
   - Cursor readoutは補間後の表示値ではなく、元voxel値を使用します。
   - 内部cursor stateは `(z, y, x)` のarray indexを正とし、表示用の物理mm mappingとsource voxel readoutを分離します。
@@ -42,7 +45,7 @@
   - Sagittal / Coronal は元arrayを変更せず、表示用スライスだけをz方向に反転します。CT、Gamma、Pass/Fail、Ref/Eval Dose、Dose Diff/Ratio、RTSTRUCT輪郭、クリック位置、crosshair、上下カーソルキー移動は同じ表示座標系で同期します。
   - `Overall GPR` は有限gammaのみを分母にした pass/evaluated として表示します。全voxelに対する評価対象割合は `Gamma evaluated` として別表示します。
   - cutoffで除外されたvoxelの現在点Gammaは `Excluded` と表示し、Gamma未読込やshape不一致の `N/A` と区別します。
-  - 今回の方向表示はHFS前提の固定orientation labelです。prone / feet first / PatientPosition自動補正は対象外です。
+  - 今回の方向表示はHFS前提の固定orientation labelです。Axial / Coronalは表示左側を `R`、右側を `L` とします。prone / feet first / PatientPosition自動補正は対象外です。
 
 ## 手順
 - ファイル選択

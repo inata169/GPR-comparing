@@ -1,5 +1,26 @@
 # TODO (Next Actions)
 
+Date: 2026-06-12 (Fast Viewer dose range controls)
+
+High priority
+- [x] **Fast 3D Viewer Dose overlay表示範囲UI追加**
+  - [x] Ref Dose / Eval Doseに独立したrobust auto range（positive voxelの99.5 percentile）を実装する
+  - [x] `Dose display min [Gy]` / `Dose display max [Gy]` と `Auto dose range` を追加し、手動rangeを非永続で切り替えられるようにする
+  - [x] invalid rangeは前回の有効値を保持し、viewerを落とさない
+  - [x] Dose display min/maxを0〜100 Gy入力可能なnumeric fieldにし、入力欄の表示幅を確保する
+  - [x] Dose display min/max欄をクリックしたとき既存値を全選択し、`0` や `40` を直接入力できるようにする
+  - [x] Ref/Eval以外のoverlay中でもAuto dose rangeをOFFにできるようにし、Dose Rangeタイトルに対象（Ref/Eval）を表示する
+  - [x] Beam6 datasetでRef auto max約1.19 Gy、Eval auto max約0.979 Gyとなり、Eval raw max約34.47 Gyに潰されないことを確認する
+  - [x] `tests/test_fast_viewer_helpers.py` を更新し、16件 pass を確認する
+
+Date: 2026-06-12 (Fast Viewer dose overlay / RL label fix)
+
+High priority
+- [x] **Fast 3D Viewer Ref/Eval Dose表示・RLラベル修正**
+  - [x] Ref Dose / Eval Dose overlay が10% cutoff相当の透明化で見えなくなる問題を修正し、有限な線量voxelは表示対象にする
+  - [x] Axial / Coronal のorientation labelで左側を `R`、右側を `L` に戻す
+  - [x] `tests/test_fast_viewer_helpers.py` に再発防止テストを追加し、11件 pass を確認する
+
 Date: 2026-06-10 (Fast Viewer orientation / GPR display fix)
 
 High priority
