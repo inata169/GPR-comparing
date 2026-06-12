@@ -595,8 +595,19 @@ class FastPlaneViewer:
         dose_range_layout.setVerticalSpacing(3)
         self.dose_auto_check = QtWidgets.QCheckBox("Auto dose range")
         self.dose_auto_check.toggled.connect(self._on_dose_auto_changed)
-        self.dose_min_edit = QtWidgets.QDoubleSpinBox()
-        self.dose_max_edit = QtWidgets.QDoubleSpinBox()
+        class DoseRangeSpinBox(QtWidgets.QDoubleSpinBox):
+            def focusInEvent(self, event):
+                super().focusInEvent(event)
+                self.lineEdit().selectAll()
+
+            def mousePressEvent(self, event):
+                was_focused = self.hasFocus()
+                super().mousePressEvent(event)
+                if not was_focused:
+                    self.lineEdit().selectAll()
+
+        self.dose_min_edit = DoseRangeSpinBox()
+        self.dose_max_edit = DoseRangeSpinBox()
         for edit in (self.dose_min_edit, self.dose_max_edit):
             edit.setRange(0.0, 100.0)
             edit.setDecimals(4)

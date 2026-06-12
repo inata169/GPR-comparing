@@ -8,6 +8,7 @@ High priority
   - [x] `Dose display min [Gy]` / `Dose display max [Gy]` と `Auto dose range` を追加し、手動rangeを非永続で切り替えられるようにする
   - [x] invalid rangeは前回の有効値を保持し、viewerを落とさない
   - [x] Dose display min/maxを0〜100 Gy入力可能なnumeric fieldにし、入力欄の表示幅を確保する
+  - [x] Dose display min/max欄をクリックしたとき既存値を全選択し、`0` や `40` を直接入力できるようにする
   - [x] Ref/Eval以外のoverlay中でもAuto dose rangeをOFFにできるようにし、Dose Rangeタイトルに対象（Ref/Eval）を表示する
   - [x] Beam6 datasetでRef auto max約1.19 Gy、Eval auto max約0.979 Gyとなり、Eval raw max約34.47 Gyに潰されないことを確認する
   - [x] `tests/test_fast_viewer_helpers.py` を更新し、16件 pass を確認する
