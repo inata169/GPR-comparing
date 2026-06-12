@@ -1,6 +1,13 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-12 Fast Viewer dose range controls後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-12 Dose overlay cache visibility follow-up後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (26) で完了したこと
+- **Codex Review指摘対応**:
+    - Ref/Eval Dose overlay cacheが `overlay_visible=False` を無視し、`O`キーで非表示にしてもcached RGBAを返す可能性を修正した。
+    - Ref/Eval Dose overlayではcache hit前にvisibilityを確認し、非表示中は `None` を返す。
+- **検証**:
+    - `python -m pytest tests/test_fast_viewer_helpers.py`: `17 passed`
 
 ### 本セッション (25) で完了したこと
 - **Fast 3D Viewer Dose overlay表示範囲UI追加**:

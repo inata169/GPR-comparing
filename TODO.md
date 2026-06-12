@@ -1,5 +1,13 @@
 # TODO (Next Actions)
 
+Date: 2026-06-12 (Dose overlay cache visibility follow-up)
+
+High priority
+- [x] **Fast 3D Viewer Dose overlay cache表示切替修正**
+  - [x] Ref/Eval Dose overlay cacheが `overlay_visible=False` を無視して再表示される問題を修正する
+  - [x] cache hit前にoverlay visibilityを確認し、`O`キーで非表示にした場合はcached RGBAを返さない
+  - [x] `tests/test_fast_viewer_helpers.py` に回帰テストを追加し、17件 pass を確認する
+
 Date: 2026-06-12 (Fast Viewer dose range controls)
 
 High priority
