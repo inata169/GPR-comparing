@@ -35,7 +35,9 @@
   - HU / Ref / Eval / Dose Diff / Gamma / Pass-Fail は個別にshape・範囲・finite確認を行い、取得できない値だけ `N/A` と表示します。
   - `gamma=0.0` は有効な有限値として扱います。
   - Pass/Failは有限gammaのみ対象です。`gamma <= 1.0` はPass、`gamma > 1.0` はFail、missing / nonfinite / shape mismatchは `N/A` です。
-  - Ref Dose / Eval Dose overlayは有限な線量voxelを表示対象にします。Dose Ratioは低Ref線量域を除外します。
+  - Ref Dose / Eval Dose overlayは有限な線量voxelを表示対象にし、Ref/Evalそれぞれ独立したDose display rangeでcolormapを正規化します。
+  - Dose display rangeの既定はpositive voxelの99.5 percentileをmaxにしたauto rangeです。`Auto dose range`をOFFにすると、`Dose display min [Gy]` / `Dose display max [Gy]` に手入力した非永続rangeを使用します。
+  - invalid range（非数、inf、max <= min）は前回の有効rangeを保持し、viewerは落としません。Dose Ratioは低Ref線量域を除外します。
   - Dose Diffは `Eval Dose - Ref Dose` です。
   - Cursor readoutは補間後の表示値ではなく、元voxel値を使用します。
   - 内部cursor stateは `(z, y, x)` のarray indexを正とし、表示用の物理mm mappingとsource voxel readoutを分離します。

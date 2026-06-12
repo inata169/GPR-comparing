@@ -1,6 +1,18 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-12 Fast Viewer dose overlay / RL label fix後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-12 Fast Viewer dose range controls後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (25) で完了したこと
+- **Fast 3D Viewer Dose overlay表示範囲UI追加**:
+    - Ref Dose / Eval Doseに独立したauto表示範囲を実装した。既定maxはpositive voxelの99.5 percentile。
+    - `Auto dose range`、`Dose display min [Gy]`、`Dose display max [Gy]` を追加し、Ref/Evalごとに非永続の手動rangeを指定できる。
+    - invalid range（非数、inf、max <= min）は前回の有効rangeを保持し、warning logのみ出す。
+    - Auto/manual切替やvalid入力時にRef/Eval overlay cacheを無効化し、表示を即時更新する。
+- **外れ値対策の確認**:
+    - Beam6 datasetでRef auto max約1.19 Gy、Eval auto max約0.979 Gyを確認。Eval raw max約34.47 Gyには引っ張られない。
+    - Gamma / Pass-Fail / Dose Diff / Dose Ratioの表示ロジックは変更していない。
+- **検証**:
+    - `python -m pytest tests/test_fast_viewer_helpers.py`: `16 passed`
 
 ### 本セッション (24) で完了したこと
 - **Fast 3D Viewer Ref/Eval Dose表示修正**:
