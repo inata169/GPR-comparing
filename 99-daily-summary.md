@@ -1,3 +1,14 @@
+# Daily Summary: 2026-06-12 (Dose overlay cache visibility follow-up)
+
+## 作業内容サマリ
+
+1. **Codex Review指摘対応**
+   - Ref/Eval Dose overlay cacheが `overlay_visible=False` を無視し、`O`キーで非表示にしてもcached RGBAを返す可能性を修正。
+   - Ref/Eval Dose overlayではcache hit前にvisibilityを確認し、非表示中は `None` を返すようにした。
+
+2. **検証**
+   - `python -m pytest tests/test_fast_viewer_helpers.py`: `17 passed`
+
 # Daily Summary: 2026-06-12 (Fast Viewer dose range controls)
 
 ## 作業内容サマリ

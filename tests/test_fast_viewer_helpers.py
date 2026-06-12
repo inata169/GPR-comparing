@@ -114,6 +114,28 @@ def test_ref_dose_overlay_keeps_low_finite_dose_visible():
     assert rgba[1, 1, 3] == 0
 
 
+def test_cached_dose_overlay_respects_overlay_visibility():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.overlay_visible = True
+    viewer.overlay_mode = "Ref Dose"
+    viewer.overlay_alpha = 128
+    viewer.cur_z = 0
+    viewer.ref_dose = np.array([[[0.05, 0.2], [0.0, np.nan]]], dtype=float)
+    viewer.eval_dose = None
+    viewer.gamma = None
+    viewer._dose_display_auto_range = {"ref": (0.0, 1.0), "eval": (0.0, 1.0)}
+    viewer._dose_display_manual_range = {"ref": None, "eval": None}
+    viewer._dose_display_auto_enabled = {"ref": True, "eval": True}
+    viewer._overlay_rgba_cache = {}
+
+    assert viewer._overlay_rgba("axial") is not None
+    assert viewer._overlay_rgba_cache
+
+    viewer.overlay_visible = False
+
+    assert viewer._overlay_rgba("axial") is None
+
+
 def test_auto_dose_display_range_ignores_single_extreme_outlier():
     volume = np.ones((20, 20, 20), dtype=float)
     volume *= 0.8

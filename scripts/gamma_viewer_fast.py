@@ -1349,6 +1349,8 @@ class FastPlaneViewer:
         if self.overlay_mode == "Pass/Fail":
             return self._pass_fail_rgba(gamma2d)
         if self.overlay_mode == "Ref Dose":
+            if not self.overlay_visible:
+                return None
             dose_key = "ref"
             dose_range = self._active_dose_display_range(dose_key)
             cache_key = (self.overlay_mode, plane, self._plane_index(plane), self.overlay_alpha, dose_range)
@@ -1361,6 +1363,8 @@ class FastPlaneViewer:
             self._log_rgba_debug("Ref Dose", plane, rgba)
             return rgba
         if self.overlay_mode == "Eval Dose":
+            if not self.overlay_visible:
+                return None
             dose_key = "eval"
             dose_range = self._active_dose_display_range(dose_key)
             cache_key = (self.overlay_mode, plane, self._plane_index(plane), self.overlay_alpha, dose_range)
