@@ -1,6 +1,16 @@
-# 記憶の引き継ぎ書: Handover Context (2026-06-10 Fast Viewer表示整合性修正後)
+# 記憶の引き継ぎ書: Handover Context (2026-06-12 Fast Viewer dose overlay / RL label fix後)
 
 ## 1. 現在の進捗状況 (Current Progress)
+
+### 本セッション (24) で完了したこと
+- **Fast 3D Viewer Ref/Eval Dose表示修正**:
+    - Ref Dose / Eval Dose overlay が、全体最大線量の10%未満を透明化する条件により見えなくなるケースを修正した。
+    - Ref / Eval Dose modeでは有限な線量voxelを表示対象にする。Dose Ratioの低Ref線量域除外は維持。
+- **Axial / Coronal のR/Lラベル修正**:
+    - Axial / Coronal のorientation labelを、表示左側 `R`、右側 `L` に修正した。
+    - CT画像位置、voxel/readout座標変換、RTSTRUCT座標変換は変更していない。
+- **検証**:
+    - `python -m pytest tests/test_fast_viewer_helpers.py`: `11 passed`
 
 ### 本セッション (23) で完了したこと
 - **Fast 3D Viewer 表示整合性修正**:

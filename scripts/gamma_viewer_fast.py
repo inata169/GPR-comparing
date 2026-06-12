@@ -665,8 +665,8 @@ class FastPlaneViewer:
         ym = (y0 + y1) / 2.0
         if plane == "axial":
             return [
-                ("L", (x0, ym), (0, 0.5)),
-                ("R", (x1, ym), (1, 0.5)),
+                ("R", (x0, ym), (0, 0.5)),
+                ("L", (x1, ym), (1, 0.5)),
                 ("A", (xm, y0), (0.5, 0)),
                 ("P", (xm, y1), (0.5, 1)),
             ]
@@ -678,8 +678,8 @@ class FastPlaneViewer:
                 ("I", (xm, y1), (0.5, 1)),
             ]
         return [
-            ("L", (x0, ym), (0, 0.5)),
-            ("R", (x1, ym), (1, 0.5)),
+            ("R", (x0, ym), (0, 0.5)),
+            ("L", (x1, ym), (1, 0.5)),
             ("S", (xm, y0), (0.5, 0)),
             ("I", (xm, y1), (0.5, 1)),
         ]
@@ -1104,11 +1104,11 @@ class FastPlaneViewer:
             return self._pass_fail_rgba(gamma2d)
         if self.overlay_mode == "Ref Dose":
             ref2d = self._display_slice_for_plane(self.ref_dose, plane)
-            valid = None if ref2d is None else ref2d >= self._dose_vmax * 0.1
+            valid = None if ref2d is None else np.isfinite(ref2d)
             return self._scalar_rgba(ref2d, (0.0, self._dose_vmax), valid)
         if self.overlay_mode == "Eval Dose":
             eval2d = self._display_slice_for_plane(self.eval_dose, plane)
-            valid = None if eval2d is None else eval2d >= self._dose_vmax * 0.1
+            valid = None if eval2d is None else np.isfinite(eval2d)
             return self._scalar_rgba(eval2d, (0.0, self._dose_vmax), valid)
         if self.overlay_mode == "Dose Diff":
             ref2d = self._display_slice_for_plane(self.ref_dose, plane)

@@ -1,6 +1,7 @@
 import numpy as np
 
 from scripts.gamma_viewer_fast import (
+    FastPlaneViewer,
     _dose_diff_value,
     _gamma_coverage_text,
     _gamma_value_text,
@@ -71,3 +72,38 @@ def test_inverse_mapping_clips_to_nearest_index():
     assert cursor_from_display_point("axial", 100.0, -100.0, cursor, x, y, z) == (1, 0, 2)
     assert cursor_from_display_point("sagittal", 11.6, 21.7, cursor, x, y, z) == (0, 1, 1)
     assert cursor_from_display_point("coronal", -1.0, 99.0, cursor, x, y, z) == (0, 2, 0)
+
+
+def test_axial_and_coronal_orientation_labels_place_r_on_left_l_on_right():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.x_coords_mm = np.array([0.0, 2.0, 4.0])
+    viewer.y_coords_mm = np.array([10.0, 12.0, 14.0])
+    viewer.z_coords_mm = np.array([20.0, 23.0, 26.0])
+
+    axial = viewer._orientation_labels("axial")
+    coronal = viewer._orientation_labels("coronal")
+
+    assert [label[0] for label in axial[:2]] == ["R", "L"]
+    assert [label[0] for label in coronal[:2]] == ["R", "L"]
+    assert axial[0][1][0] < axial[1][1][0]
+    assert coronal[0][1][0] < coronal[1][1][0]
+
+
+def test_ref_dose_overlay_keeps_low_finite_dose_visible():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.overlay_visible = True
+    viewer.overlay_mode = "Ref Dose"
+    viewer.overlay_alpha = 128
+    viewer.cur_z = 0
+    viewer.ref_dose = np.array([[[0.05, 0.2], [0.0, np.nan]]], dtype=float)
+    viewer.eval_dose = np.array([[[10.0, 10.0], [10.0, 10.0]]], dtype=float)
+    viewer.gamma = None
+    viewer._dose_vmax = 10.0
+
+    rgba = viewer._overlay_rgba("axial")
+
+    assert rgba is not None
+    assert rgba[0, 0, 3] == 128
+    assert rgba[0, 1, 3] == 128
+    assert rgba[1, 0, 3] == 128
+    assert rgba[1, 1, 3] == 0

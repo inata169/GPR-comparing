@@ -1,3 +1,18 @@
+# Daily Summary: 2026-06-12 (Fast Viewer dose overlay / RL label fix)
+
+## 作業内容サマリ
+
+1. **Ref / Eval Dose overlay 表示修正**
+   - Ref Dose / Eval Dose overlay が、全体最大線量の10%未満を透明化する条件により見えないケースを修正。
+   - Ref / Eval Dose modeでは有限な線量voxelを表示対象にし、Dose Ratioのみ従来どおり低Ref線量域を除外する。
+
+2. **Axial / Coronal のR/Lラベル修正**
+   - Axial / Coronal のorientation labelを、表示左側 `R`、右側 `L` に修正。
+   - CT画像位置やvoxel/readout座標変換は変更せず、ラベル配置のみ修正した。
+
+3. **検証**
+   - `python -m pytest tests/test_fast_viewer_helpers.py`: `11 passed`
+
 # Daily Summary: 2026-06-10 (Fast Viewer表示整合性修正)
 
 ## 作業内容サマリ

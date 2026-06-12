@@ -1,5 +1,13 @@
 # TODO (Next Actions)
 
+Date: 2026-06-12 (Fast Viewer dose overlay / RL label fix)
+
+High priority
+- [x] **Fast 3D Viewer Ref/Eval Dose表示・RLラベル修正**
+  - [x] Ref Dose / Eval Dose overlay が10% cutoff相当の透明化で見えなくなる問題を修正し、有限な線量voxelは表示対象にする
+  - [x] Axial / Coronal のorientation labelで左側を `R`、右側を `L` に戻す
+  - [x] `tests/test_fast_viewer_helpers.py` に再発防止テストを追加し、11件 pass を確認する
+
 Date: 2026-06-10 (Fast Viewer orientation / GPR display fix)
 
 High priority
