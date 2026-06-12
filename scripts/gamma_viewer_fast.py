@@ -373,6 +373,7 @@ class FastPlaneViewer:
         }
         self._dose_display_manual_range: dict[str, tuple[float, float] | None] = {"ref": None, "eval": None}
         self._dose_display_auto_enabled = {"ref": True, "eval": True}
+        self._dose_range_control_key = "ref"
         self._overlay_rgba_cache: dict[tuple, np.ndarray | None] = {}
         self._syncing_dose_range_controls = False
         self._gamma_cutoff_threshold = self._compute_gamma_cutoff_threshold()
@@ -587,8 +588,8 @@ class FastPlaneViewer:
         self.mode_group.buttonClicked.connect(self._on_mode_changed)
         layout.addWidget(mode_box)
 
-        dose_range_box = QtWidgets.QGroupBox("Dose Range")
-        dose_range_layout = QtWidgets.QGridLayout(dose_range_box)
+        self.dose_range_box = QtWidgets.QGroupBox("Dose Range")
+        dose_range_layout = QtWidgets.QGridLayout(self.dose_range_box)
         dose_range_layout.setContentsMargins(6, 10, 6, 6)
         dose_range_layout.setHorizontalSpacing(6)
         dose_range_layout.setVerticalSpacing(3)
@@ -609,7 +610,7 @@ class FastPlaneViewer:
         dose_range_layout.addWidget(self.dose_min_edit, 1, 1)
         dose_range_layout.addWidget(QtWidgets.QLabel("Dose display max [Gy]"), 2, 0)
         dose_range_layout.addWidget(self.dose_max_edit, 2, 1)
-        layout.addWidget(dose_range_box)
+        layout.addWidget(self.dose_range_box)
         self._sync_dose_range_controls()
 
         zoom_box = QtWidgets.QGroupBox("Zoom")
@@ -1073,6 +1074,9 @@ class FastPlaneViewer:
             return "eval"
         return None
 
+    def _dose_key_for_controls(self) -> str:
+        return self._dose_key_for_mode() or self._dose_range_control_key
+
     def _active_dose_display_range(self, dose_key: str) -> tuple[float, float]:
         if self._dose_display_auto_enabled.get(dose_key, True):
             return self._dose_display_auto_range[dose_key]
@@ -1105,18 +1109,13 @@ class FastPlaneViewer:
     def _sync_dose_range_controls(self):
         if not hasattr(self, "dose_auto_check"):
             return
-        dose_key = self._dose_key_for_mode()
+        dose_key = self._dose_key_for_controls()
         self._syncing_dose_range_controls = True
         try:
-            enabled = dose_key is not None
-            self.dose_auto_check.setEnabled(enabled)
-            self.dose_min_edit.setEnabled(enabled and not self._dose_display_auto_enabled.get(dose_key, True))
-            self.dose_max_edit.setEnabled(enabled and not self._dose_display_auto_enabled.get(dose_key, True))
-            if dose_key is None:
-                self.dose_auto_check.setChecked(True)
-                self.dose_min_edit.setValue(0.0)
-                self.dose_max_edit.setValue(1.0)
-                return
+            self.dose_range_box.setTitle(f"Dose Range ({self._dose_label(dose_key)})")
+            self.dose_auto_check.setEnabled(True)
+            self.dose_min_edit.setEnabled(not self._dose_display_auto_enabled.get(dose_key, True))
+            self.dose_max_edit.setEnabled(not self._dose_display_auto_enabled.get(dose_key, True))
             auto_enabled = self._dose_display_auto_enabled[dose_key]
             self.dose_auto_check.setChecked(auto_enabled)
             lo, hi = self._active_dose_display_range(dose_key)
@@ -1131,10 +1130,7 @@ class FastPlaneViewer:
     def _on_dose_auto_changed(self, checked: bool):
         if self._syncing_dose_range_controls:
             return
-        dose_key = self._dose_key_for_mode()
-        if dose_key is None:
-            self._sync_dose_range_controls()
-            return
+        dose_key = self._dose_key_for_controls()
         self._dose_display_auto_enabled[dose_key] = bool(checked)
         if checked:
             self._invalidate_dose_overlay_cache(dose_key)
@@ -1151,8 +1147,8 @@ class FastPlaneViewer:
     def _on_dose_range_edited(self):
         if self._syncing_dose_range_controls:
             return
-        dose_key = self._dose_key_for_mode()
-        if dose_key is None or self._dose_display_auto_enabled.get(dose_key, True):
+        dose_key = self._dose_key_for_controls()
+        if self._dose_display_auto_enabled.get(dose_key, True):
             self._sync_dose_range_controls()
             return
         values = self._parse_dose_range_fields()
@@ -1522,6 +1518,9 @@ class FastPlaneViewer:
 
     def _set_overlay_mode(self, mode: str):
         self.overlay_mode = mode
+        dose_key = self._dose_key_for_mode(mode)
+        if dose_key is not None:
+            self._dose_range_control_key = dose_key
         for button in self.mode_group.buttons():
             if button.text() == mode:
                 button.setChecked(True)

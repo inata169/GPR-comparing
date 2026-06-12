@@ -7,6 +7,7 @@
     - Ref Dose / Eval Doseに独立したauto表示範囲を実装した。既定maxはpositive voxelの99.5 percentile。
     - `Auto dose range`、`Dose display min [Gy]`、`Dose display max [Gy]` を追加し、Ref/Evalごとに非永続の手動rangeを指定できる。
     - Dose display min/maxは0〜100 Gy入力可能なnumeric fieldで、100 Gyまで入力できる表示幅を確保済み。
+    - Ref/Eval以外のoverlay表示中でもDose Rangeを操作でき、対象（Ref/Eval）はgroup titleに表示される。
     - invalid range（非数、inf、max <= min）は前回の有効rangeを保持し、warning logのみ出す。
     - Auto/manual切替やvalid入力時にRef/Eval overlay cacheを無効化し、表示を即時更新する。
 - **外れ値対策の確認**:
