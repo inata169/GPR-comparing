@@ -70,7 +70,7 @@ dist/offline/
 4. 必要なwheelがすべてバイナリ形式で収集できる
 5. 一時仮想環境へ `--no-index` でインストールできる
 6. 主要ライブラリをimportできる
-7. 全同梱ファイルのSHA-256が一致する
+7. GUIが更新する `app/config/gui_config.ini` を除き、同梱ファイルのSHA-256が一致する
 
 生成したZIPをUSBストレージへコピーします。`dicom/`、`output/`、`.venv/`、`.git/`などGit管理外のデータは収集されません。
 

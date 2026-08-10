@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "offline" / "INSTALL_OFFLINE.bat"
+BUILDER = ROOT / "offline" / "build_offline_bundle.ps1"
 
 
 def test_installer_points_pip_to_bundled_wheelhouse() -> None:
@@ -11,3 +12,10 @@ def test_installer_points_pip_to_bundled_wheelhouse() -> None:
 
     assert '--find-links "%BUNDLE_ROOT%\\wheelhouse"' in script
     assert '--find-links "%BUNDLE_ROOT%wheelhouse"' not in script
+
+
+def test_bundle_manifest_excludes_mutable_gui_settings() -> None:
+    script = BUILDER.read_text(encoding="utf-8")
+
+    assert "$mutableRelativePaths = @('app/config/gui_config.ini')" in script
+    assert "if ($relative -in $mutableRelativePaths) { continue }" in script

@@ -182,9 +182,11 @@ Verify:  double-click RUN_SMOKE_TEST.bat
 Set-Content -LiteralPath (Join-Path $bundleRoot 'BUNDLE_INFO.txt') -Value $bundleInfo -Encoding UTF8
 
 $manifestPath = Join-Path $bundleRoot 'SHA256SUMS.txt'
+$mutableRelativePaths = @('app/config/gui_config.ini')
 $hashLines = foreach ($file in Get-ChildItem -LiteralPath $bundleRoot -Recurse -File | Sort-Object FullName) {
     if ($file.FullName -eq $manifestPath) { continue }
     $relative = $file.FullName.Substring($bundleRoot.Length + 1) -replace '\\', '/'
+    if ($relative -in $mutableRelativePaths) { continue }
     $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash *$relative"
 }
