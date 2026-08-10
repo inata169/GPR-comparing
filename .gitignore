@@ -8,6 +8,7 @@ docs/openspec/images/*.jpeg
 # Data and large files
 dicom/
 output/
+phits-linac-validation/
 *.npz
 *.log
 __pycache__/
