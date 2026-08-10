@@ -102,11 +102,18 @@ $rootFiles = @(
     'INSTALL_OFFLINE.bat',
     'LAUNCH_GPR_COMPARING.bat',
     'RUN_SMOKE_TEST.bat',
+    'check_existing_python.ps1',
     'verify_bundle.ps1'
 )
 foreach ($name in $rootFiles) {
     $source = Join-Path $appDir "offline\$name"
-    $destinationName = if ($name -eq 'verify_bundle.ps1') { 'VERIFY_BUNDLE.ps1' } else { $name }
+    $destinationName = if ($name -eq 'verify_bundle.ps1') {
+        'VERIFY_BUNDLE.ps1'
+    } elseif ($name -eq 'check_existing_python.ps1') {
+        'CHECK_EXISTING_PYTHON.ps1'
+    } else {
+        $name
+    }
     Copy-Item -LiteralPath $source -Destination (Join-Path $bundleRoot $destinationName)
 }
 

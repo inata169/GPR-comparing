@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 
 set "BUNDLE_ROOT=%~dp0."
 set "APP_DIR=%BUNDLE_ROOT%\app"
@@ -20,12 +20,21 @@ echo GPR-comparing offline installer - Python 3.12 x64
 echo ============================================================
 echo.
 
-echo [1/6] Verifying bundle SHA-256 checksums...
+echo [1/7] Verifying bundle SHA-256 checksums...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\VERIFY_BUNDLE.ps1" -BundleRoot "%BUNDLE_ROOT%"
 if errorlevel 1 goto :fail
 
 if not exist "%PYTHON_EXE%" (
-    echo [2/6] Installing bundled Python 3.12.10 locally...
+    echo [2/7] Checking for an existing external Python 3.12...
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\CHECK_EXISTING_PYTHON.ps1" -BundledPythonDir "%PYTHON_DIR%"
+    set "PREFLIGHT_RC=!ERRORLEVEL!"
+    if not "!PREFLIGHT_RC!"=="0" (
+        if "!PREFLIGHT_RC!"=="12" echo [ERROR] Safety preflight stopped installation before the Python installer was launched.
+        if not "!PREFLIGHT_RC!"=="12" echo [ERROR] Python safety preflight failed with exit code !PREFLIGHT_RC!.
+        goto :fail
+    )
+
+    echo [3/7] Installing bundled Python 3.12.10 locally...
     if not exist "%PY_INSTALLER%" (
         echo [ERROR] Python installer is missing: %PY_INSTALLER%
         goto :fail
@@ -42,29 +51,30 @@ if not exist "%PYTHON_EXE%" (
         goto :fail
     )
 ) else (
-    echo [2/6] Bundled Python is already installed.
+    echo [2/7] Bundled runtime detected; external Python check is not needed.
+    echo [3/7] Bundled Python is already installed.
 )
 
 "%PYTHON_EXE%" -c "import struct,sys; assert sys.version_info[:3] == (3,12,10), sys.version; assert struct.calcsize('P') == 8, '64-bit Python required'"
 if errorlevel 1 goto :fail
 
 if not exist "%VENV_PYTHON%" (
-    echo [3/6] Creating dedicated virtual environment...
+    echo [4/7] Creating dedicated virtual environment...
     "%PYTHON_EXE%" -m venv "%VENV_DIR%"
     if errorlevel 1 goto :fail
 ) else (
-    echo [3/6] Dedicated virtual environment already exists.
+    echo [4/7] Dedicated virtual environment already exists.
 )
 
-echo [4/6] Installing only from the local wheelhouse...
+echo [5/7] Installing only from the local wheelhouse...
 "%VENV_PYTHON%" -m pip install --no-index --find-links "%BUNDLE_ROOT%wheelhouse" -r "%APP_DIR%\offline\requirements-offline.txt"
 if errorlevel 1 goto :fail
 
-echo [5/6] Checking Python 3.12 and runtime imports...
+echo [6/7] Checking Python 3.12 and runtime imports...
 "%VENV_PYTHON%" -c "import struct,sys; assert sys.version_info[:2] == (3,12), sys.version; assert struct.calcsize('P') == 8; import pydicom,numpy,scipy,numba,matplotlib,reportlab,PySide6,pyqtgraph; print(sys.version); print('Runtime imports: OK')"
 if errorlevel 1 goto :fail
 
-echo [6/6] Running non-patient DICOM smoke test...
+echo [7/7] Running non-patient DICOM smoke test...
 call "%BUNDLE_ROOT%\RUN_SMOKE_TEST.bat"
 if errorlevel 1 goto :fail
 

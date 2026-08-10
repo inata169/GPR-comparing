@@ -84,13 +84,14 @@ dist/offline/
 インストーラは次を行います。
 
 - SHA-256によるバンドル完全性確認
+- 外部のPython 3.12 x64が既に存在する場合、公式Pythonインストーラを起動せず安全停止
 - バンドル内 `runtime/python312` へのPython 3.12.10ユーザー領域インストール
 - `app/.venv` 専用仮想環境の作成
 - `PIP_NO_INDEX=1`、`PIP_CONFIG_FILE=NUL`、`--no-index --find-links wheelhouse`を指定したwheel導入
 - Python 3.12 x64と主要importの確認
 - 非患者合成DICOMによるスモークテスト
 
-既にPCへ導入されているPythonやグローバルsite-packagesは使いません。
+既にPCへ導入されているPythonやグローバルsite-packagesは使いません。外部のPython 3.12 x64が検出された場合は、その環境を変更しないため導入を中止します。完全導入試験にはPython 3.12が未導入のクリーンなWindows PCを使用してください。
 
 ## 3. 起動する
 
@@ -123,6 +124,7 @@ GUI表示とGPU/画面ドライバの相性は無人スモークテストでは�
 
 - `SHA-256 mismatch`: USBコピーまたは展開時に破損しています。ZIPを再コピーしてください。
 - Pythonインストール失敗: TPS PCのアプリケーション制御ポリシーを管理者へ確認してください。
+- `[SAFETY STOP]`: 外部のPython 3.12 x64が検出されています。既存Pythonを変更しないため、Pythonインストーラは起動されていません。Python 3.12未導入のクリーンなWindows PCで導入してください。
 - `python_install.log`: Python本体の無人導入に失敗した場合、バンドル直下のこのログで終了理由を確認してください。既に同じPython 3.12系列がユーザーインストールされているPCでは、公式インストーラが保守モードとして動作する場合があります。
 - wheel導入時にネットワークへ接続しようとする表示がある: このバッチでは通信を無効化しています。必ず同梱 `INSTALL_OFFLINE.bat` を使用してください。
 - Qt/GUIが起動しない: 画面ドライバ、リモートデスクトップ制限、セキュリティ製品のログを確認してください。
