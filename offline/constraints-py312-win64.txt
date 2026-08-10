@@ -15,8 +15,6 @@ pillow==12.3.0
 pydicom==2.4.5
 pyparsing==3.3.2
 pyqtgraph==0.14.0
-PySide6==6.11.1
-PySide6_Addons==6.11.1
 PySide6_Essentials==6.11.1
 python-dateutil==2.9.0.post0
 reportlab==4.5.1

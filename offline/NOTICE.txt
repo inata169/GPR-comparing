@@ -1,0 +1,40 @@
+GPR-comparing Windows offline distribution notice
+
+Copyright (c) 2026 Hiroki Inata. The GPR-comparing application code and
+documentation are distributed under the MIT License in LICENSE.
+
+Distribution and license contact: Hiroki Inata <169@inata169.com>
+
+Third-party components remain under their own licenses. Exact bundled wheel
+names, versions, hashes, declared licenses, distribution sources, dependency
+metadata, and collected license files are recorded in
+THIRD_PARTY_MANIFEST.json and THIRD_PARTY_LICENSES/.
+
+The bundle includes the unmodified official CPython 3.12.10 x64 installer.
+Its Authenticode signature and SHA-256 are verified during bundle creation.
+Python is licensed under the Python Software Foundation License Version 2;
+the official license and installer SPDX document are included under
+THIRD_PARTY_LICENSES/_official/Python-3.12.10/.
+
+The Fast Viewer uses the Qt for Python / PySide6 Community Edition. It uses
+QtCore, QtGui, and QtWidgets from PySide6_Essentials. Qt/PySide6 is offered
+under its applicable LGPLv3/GPL terms rather than the application's MIT
+License. Individual Qt/PySide6 library binaries are not modified. The upstream
+Essentials wheel archive is filtered during bundle creation only to remove
+unused modules identified by Qt as GPL-only; the original and bundled wheel
+hashes and every removed path are recorded in THIRD_PARTY_MANIFEST.json.
+The corresponding LGPLv3, GPLv3, GPLv2, and Qt GPL exception texts are included
+under THIRD_PARTY_LICENSES/_official/Qt-PySide6-6.11.1/.
+
+This distribution adds no term that prohibits replacing the LGPL-covered
+libraries or reverse engineering for the purpose of debugging modifications
+to those libraries. Qt and PySide6 source locations are recorded in the
+manifest.
+
+PHITS, RT-PHITS, phits2dicom, Sumtally, patient DICOM, private facility or
+vendor data, credentials, local settings, and calculation results are not part
+of this bundle. Users must obtain any PHITS-related software separately and
+lawfully from its authorized source.
+
+GPR-comparing is intended for education and research. It must not be used for
+clinical decisions or patient-specific quality assurance.

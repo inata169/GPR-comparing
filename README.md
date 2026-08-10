@@ -141,6 +141,33 @@ Fast 3D Viewerでは、Axial / Sagittal / Coronalの3断面、共有cursor、ROI
 - **2026-03**: DICOM 世界座標 (LPS) と画像インデックス間の変換ロジックを刷新し、斜めスライス等に対する座標変換往復テスト (Round-trip tests) を実装しました。
 - **2025-10**: Local gamma オプション (`--gamma-type local`) の追加。OpenSpec ドキュメントの導入。
 
+## ライセンスとオフライン配布
+
+GPR-comparing のアプリケーションコードと文書は、リポジトリ直下の
+`LICENSE` に記載した MIT License で配布します。同梱する Python、Qt / PySide6、
+Python パッケージなどの第三者コンポーネントは MIT License には移行せず、
+それぞれ固有のライセンスに従います。
+
+ライセンスおよび配布に関する連絡先: Hiroki Inata <169@inata169.com>
+
+Windows オフライン ZIP では、第三者ライセンスを次の場所で確認できます。
+
+- `NOTICE.txt`: 配布物全体と Qt / PySide6 に関する注意
+- `THIRD_PARTY_MANIFEST.json`: パッケージ名、正確なバージョン、wheel の
+  SHA-256、ライセンス、配布元、収集した資料
+- `THIRD_PARTY_LICENSES/`: wheel の `.dist-info` から収集した原文と、Python / Qt
+  の公式ライセンス資料
+
+PHITS、RT-PHITS、phits2dicom、Sumtally は ZIP に含まれません。必要な利用者は、
+権利者が指定する正規の方法で別途入手してください。患者 DICOM、施設・ベンダーの
+非公開データ、認証情報、ローカル設定、計算結果も配布物には含めません。
+
+本ソフトウェアは教育・研究用です。臨床判断および患者固有 QA には使用しないで
+ください。
+
+オフライン ZIP の作成・導入・検証とライセンス確認の詳細は
+[`docs/OFFLINE_INSTALL_JA.md`](docs/OFFLINE_INSTALL_JA.md) を参照してください。
+
 ## **免責事項 / Disclaimer**
 
 ## **⚠️ 重要：使用上の注意 (Important Notice)**

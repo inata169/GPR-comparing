@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "resources": [
+    {
+      "path": "Python-3.12.10/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/python/cpython/v3.12.10/LICENSE",
+      "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+    },
+    {
+      "path": "Python-3.12.10/python-3.12.10-amd64.exe.spdx.json",
+      "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe.spdx.json",
+      "sha256": "1905207f988375b65dccbe3a1aafb22cc96b03f7826a4867c1b34006c214e571"
+    },
+    {
+      "path": "Qt-PySide6-6.11.1/LGPL-3.0-only.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/LICENSES/LGPL-3.0-only.txt?h=v6.11.1",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "path": "Qt-PySide6-6.11.1/GPL-3.0-only.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/LICENSES/GPL-3.0-only.txt?h=v6.11.1",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "path": "Qt-PySide6-6.11.1/GPL-2.0-only.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/LICENSES/GPL-2.0-only.txt?h=v6.11.1",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "path": "Qt-PySide6-6.11.1/Qt-GPL-exception-1.0.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/LICENSES/Qt-GPL-exception-1.0.txt?h=v6.11.1",
+      "sha256": "40678d338ce53cd93f8b22b281a2ecbcaa3ee65ce60b25ffb0c462b0530846b2"
+    }
+  ]
+}

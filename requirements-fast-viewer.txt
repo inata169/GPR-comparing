@@ -1,2 +1,4 @@
 pyqtgraph>=0.13
-PySide6>=6.5
+# Only QtCore/QtGui/QtWidgets are used.  Avoid the PySide6 meta-package because
+# it pulls the unused PySide6_Addons distribution into offline bundles.
+PySide6_Essentials>=6.5
