@@ -1,0 +1,5 @@
+# Runtime dependencies included in the Windows offline bundle.
+# Keep these references aligned with the normal source installation.
+-c constraints-py312-win64.txt
+-r ../REQUIREMENTS.txt
+-r ../requirements-fast-viewer.txt
