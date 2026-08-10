@@ -25,6 +25,10 @@ Python環境がない場合は、Releases からビルド済みの `rtgamma_vX.X
 - Python/source mode では、保存済み設定がなければ3D Viewerの既定は Fast です。Legacy は引き続き選択できます。
 - パッケージ化（開発者向け）: `scripts/build_exe.ps1` を実行することで PyInstaller による `.exe` 生成が可能です。
 
+### インターネット未接続のWindows TPS PC
+
+Python 3.12本体、Windows x64用wheel、リポジトリ本体をオンラインPCでUSB用ZIPにまとめ、オフラインPCでは専用仮想環境へ通信なしで導入できます。手順は [Windows TPS PC オフライン導入ガイド](docs/OFFLINE_INSTALL_JA.md) を参照してください。
+
 ## クイックスタート（CLI）
 - 3D 解析（レポートのみ）
   - `python -m rtgamma.main --ref dicom/PHITS_Iris_10_rtdose.dcm --eval dicom/RTD.deposit-3D-Lung16Beams-1.5-10-8.dcm --mode 3d --report phits-linac-validation/output/rtgamma/run3d`
