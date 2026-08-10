@@ -1,13 +1,13 @@
 @echo off
 setlocal EnableExtensions
 
-set "BUNDLE_ROOT=%~dp0"
-set "APP_DIR=%BUNDLE_ROOT%app"
-set "PYTHON_DIR=%BUNDLE_ROOT%runtime\python312"
+set "BUNDLE_ROOT=%~dp0."
+set "APP_DIR=%BUNDLE_ROOT%\app"
+set "PYTHON_DIR=%BUNDLE_ROOT%\runtime\python312"
 set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 set "VENV_DIR=%APP_DIR%\.venv"
 set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
-set "PY_INSTALLER=%BUNDLE_ROOT%python\python-3.12.10-amd64.exe"
+set "PY_INSTALLER=%BUNDLE_ROOT%\python\python-3.12.10-amd64.exe"
 
 set "PYTHONUTF8=1"
 set "PIP_NO_INDEX=1"
@@ -20,7 +20,7 @@ echo ============================================================
 echo.
 
 echo [1/6] Verifying bundle SHA-256 checksums...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%VERIFY_BUNDLE.ps1" -BundleRoot "%BUNDLE_ROOT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\VERIFY_BUNDLE.ps1" -BundleRoot "%BUNDLE_ROOT%"
 if errorlevel 1 goto :fail
 
 if not exist "%PYTHON_EXE%" (
@@ -56,7 +56,7 @@ echo [5/6] Checking Python 3.12 and runtime imports...
 if errorlevel 1 goto :fail
 
 echo [6/6] Running non-patient DICOM smoke test...
-call "%BUNDLE_ROOT%RUN_SMOKE_TEST.bat"
+call "%BUNDLE_ROOT%\RUN_SMOKE_TEST.bat"
 if errorlevel 1 goto :fail
 
 echo.

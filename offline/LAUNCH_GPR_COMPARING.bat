@@ -1,8 +1,8 @@
 @echo off
 setlocal EnableExtensions
 
-set "BUNDLE_ROOT=%~dp0"
-set "APP_DIR=%BUNDLE_ROOT%app"
+set "BUNDLE_ROOT=%~dp0."
+set "APP_DIR=%BUNDLE_ROOT%\app"
 set "VENV_PYTHON=%APP_DIR%\.venv\Scripts\python.exe"
 
 if not exist "%VENV_PYTHON%" (

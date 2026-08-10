@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 
-set "BUNDLE_ROOT=%~dp0"
-set "APP_DIR=%BUNDLE_ROOT%app"
+set "BUNDLE_ROOT=%~dp0."
+set "APP_DIR=%BUNDLE_ROOT%\app"
 set "VENV_PYTHON=%APP_DIR%\.venv\Scripts\python.exe"
-set "SMOKE_OUTPUT=%BUNDLE_ROOT%smoke_output"
+set "SMOKE_OUTPUT=%BUNDLE_ROOT%\smoke_output"
 
 if not exist "%VENV_PYTHON%" (
     echo [ERROR] Dedicated environment is not installed.
