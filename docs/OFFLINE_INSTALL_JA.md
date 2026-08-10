@@ -120,6 +120,20 @@ GUI表示とGPU/画面ドライバの相性は無人スモークテストでは�
 
 結果はバンドル直下の `smoke_output/YYYYMMDD_HHMMSS/` に保存されます。成功時は `SMOKE_TEST_RESULT.json` に `"status": "PASS"` が記録されます。
 
+## 検証状況（2026-08-10）
+
+- Ruff: 合格
+- pytest: `45 passed, 7 skipped`
+- GitHub Actions: Windows/Ubuntu、Python 3.10/3.11/3.12の全6ジョブ成功
+- 23個の固定wheelを `--no-index` で導入し、主要importに成功
+- 245個の不変ファイルについてSHA-256検証に成功
+- `config/gui_config.ini` を変更した後も、同ファイルを除く完全性検証に成功
+- 非患者合成DICOMによるHeader Compare、2D/3D Gamma、帳票・画像生成に成功
+- 既存Python 3.12.10があるWindows 11 Home PCでは、Pythonインストーラ起動前に安全停止し、既存Pythonが変化しないことを確認
+- 最終Codexレビュー: 重大な問題なし
+
+Python 3.12未導入のクリーンWindows PCが現在ないため、初回完全導入の受入試験は保留中です。詳細な開発記録と配布ZIPのSHA-256は [Progress Log — 2026-08-10](PROGRESS_2026-08-10.md) を参照してください。
+
 ## トラブルシューティングと制約
 
 - `SHA-256 mismatch`: USBコピーまたは展開時に破損しています。ZIPを再コピーしてください。

@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased] - 2026-08-10
+
+### Added
+- Python 3.12.10 x64本体、固定wheel、リポジトリ本体を収集するWindowsオフラインバンドルビルダーを追加。
+- 専用仮想環境へ通信なしで導入する `INSTALL_OFFLINE.bat`、GUI起動用バッチ、SHA-256検証、非患者合成DICOMスモークテストを追加。
+- オンラインPCでのバンドル作成、USB搬送、オフライン導入、検証方法を説明する日本語ガイドを追加。
+
+### Fixed
+- 既存の外部Python 3.12を検出した場合、同梱Pythonインストーラ起動前に安全停止するよう修正。
+- オフラインpipが参照するwheelhouseパスの区切り不足を修正。
+- GUIが更新する `config/gui_config.ini` を不変ファイルのチェックサム対象から除外し、再検証時の誤検出を防止。
+
+### Validation
+- Ruff合格、pytest `45 passed, 7 skipped`、GitHub Actions全6ジョブ成功。
+- 最終Codexレビューで重大な問題なし。詳細は `docs/PROGRESS_2026-08-10.md` を参照。
+- Python 3.12未導入のクリーンWindows PCでの初回完全導入試験は保留中。
+
 ## [0.9.1] - 2026-06-07
 ### Fixed
 - GUI解析プロセスが無引数Pythonとして起動し、Python REPLの `>>>` 待ちで終了しない問題を修正。
