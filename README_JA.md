@@ -91,6 +91,13 @@ Python 3.12本体、Windows x64用wheel、リポジトリ本体をオンライ�
 - PHI を含む DICOM はコミット禁止（匿名化サンプルのみ）
 - 出力は `phits-linac-validation/output/rtgamma/` 配下へ
 
+## 最近の更新（2026-08-10: Windowsオフライン導入）
+- Python 3.12.10 x64本体、固定wheel、アプリケーションをUSB用ZIPへまとめるオフライン導入方式を追加
+- 専用仮想環境、外部通信を禁止したpip導入、Windows用インストール・起動バッチを追加
+- 既存Python 3.12の安全停止、SHA-256完全性確認、非患者合成DICOMスモークテストを追加
+- 実装・検証・PRレビューの詳細: [Progress Log — 2026-08-10](docs/PROGRESS_2026-08-10.md)
+- Python 3.12未導入のクリーンWindows PCでの初回完全導入試験は保留中
+
 ## 最近の更新（2026-03-06: v0.6.0）
 - PyInstaller によるスタンドアロン EXE パッケージの自動ビルド機能と GUI 統合を追加
 - GUI のパラメータ設定項目に詳細な解説ツールチップを実装
