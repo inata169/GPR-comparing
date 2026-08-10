@@ -67,7 +67,7 @@ if not exist "%VENV_PYTHON%" (
 )
 
 echo [5/7] Installing only from the local wheelhouse...
-"%VENV_PYTHON%" -m pip install --no-index --find-links "%BUNDLE_ROOT%wheelhouse" -r "%APP_DIR%\offline\requirements-offline.txt"
+"%VENV_PYTHON%" -m pip install --no-index --find-links "%BUNDLE_ROOT%\wheelhouse" -r "%APP_DIR%\offline\requirements-offline.txt"
 if errorlevel 1 goto :fail
 
 echo [6/7] Checking Python 3.12 and runtime imports...
