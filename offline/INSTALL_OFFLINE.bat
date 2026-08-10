@@ -8,6 +8,7 @@ set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 set "VENV_DIR=%APP_DIR%\.venv"
 set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 set "PY_INSTALLER=%BUNDLE_ROOT%\python\python-3.12.10-amd64.exe"
+set "PYTHON_INSTALL_LOG=%BUNDLE_ROOT%\python_install.log"
 
 set "PYTHONUTF8=1"
 set "PIP_NO_INDEX=1"
@@ -30,13 +31,21 @@ if not exist "%PYTHON_EXE%" (
         goto :fail
     )
     if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
-    start /wait "" "%PY_INSTALLER%" /quiet InstallAllUsers=0 TargetDir="%PYTHON_DIR%" Include_pip=1 Include_tcltk=1 Include_launcher=0 InstallLauncherAllUsers=0 PrependPath=0 Include_test=0 Shortcuts=0
-    if errorlevel 1 goto :fail
+    start /wait "" "%PY_INSTALLER%" /quiet InstallAllUsers=0 TargetDir="%PYTHON_DIR%" Include_pip=1 Include_tcltk=1 Include_launcher=0 InstallLauncherAllUsers=0 PrependPath=0 Include_test=0 Shortcuts=0 /log "%PYTHON_INSTALL_LOG%"
+    if errorlevel 1 (
+        echo [ERROR] Python installer failed. See: %PYTHON_INSTALL_LOG%
+        goto :fail
+    )
+    if not exist "%PYTHON_EXE%" (
+        echo [ERROR] Python installer did not create: %PYTHON_EXE%
+        echo See installer log: %PYTHON_INSTALL_LOG%
+        goto :fail
+    )
 ) else (
     echo [2/6] Bundled Python is already installed.
 )
 
-"%PYTHON_EXE%" -c "import struct,sys; assert sys.version_info[:2] == (3,12), sys.version; assert struct.calcsize('P') == 8, '64-bit Python required'"
+"%PYTHON_EXE%" -c "import struct,sys; assert sys.version_info[:3] == (3,12,10), sys.version; assert struct.calcsize('P') == 8, '64-bit Python required'"
 if errorlevel 1 goto :fail
 
 if not exist "%VENV_PYTHON%" (
