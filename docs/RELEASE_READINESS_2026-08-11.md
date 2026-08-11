@@ -49,7 +49,7 @@ The approved scope is software verification for research and education:
 ### Repository and publication hygiene
 
 - Commit only the intended source and public-documentation changes.
-- Exclude the locally modified `config/gui_config.ini`, which currently contains workstation-specific DICOM paths.
+- Keep the tracked `config/gui_config.ini` seed free of workstation paths, and exclude any locally saved DICOM-path changes from publication commits.
 - Preserve the user's unrelated `AGENTS.md` change without staging it as part of the release work.
 - Confirm that `test_data_local/`, `dist/`, DICOM, NPZ, reports, logs, databases, and local absolute paths are absent from the publication diff.
 - Choose the release version and approve the version change, tag, and GitHub Release as separate actions.
