@@ -55,3 +55,4 @@ def test_gui_config_is_local_and_falls_back_to_tracked_example():
 def test_cli_executable_build_collects_pymedphys():
     build_script = (ROOT / 'scripts' / 'build_exe.ps1').read_text(encoding='utf-8-sig')
     assert "'--collect-all', 'pymedphys'" in build_script
+    assert "'--copy-metadata', 'pymedphys'" in build_script

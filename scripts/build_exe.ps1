@@ -28,6 +28,7 @@ $cliArgs = @(
     '--add-data', 'config;config',
     '--hidden-import', 'numba',
     '--collect-all', 'pymedphys',
+    '--copy-metadata', 'pymedphys',
     '--hidden-import', 'pydicom',
     '--hidden-import', 'reportlab',
     '--hidden-import', 'rtgamma.gamma',
