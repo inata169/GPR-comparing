@@ -12,7 +12,8 @@ High priority
 Next pending
 - [ ] Python未導入のクリーンWindows PCが用意できた時点で、オフラインZIPの初回完全導入受入試験を行う
 - [x] PyMedPhys標準化の検証範囲・既知の制限をrelease準備の範囲として人間が承認する（2026-08-11、臨床利用・version/tag/Release承認ではない）
-- [ ] release-readiness記録に列挙したpolicy、clean candidate、CI、公開前ゲートを解決または明示的にdeferする
+- [x] PyMedPhys 0.41.0完全固定、version更新時の再検証、`norm=none`拒否、Numba一致をrelease基準にしない方針、peak memory defer、clean-PC pendingを承認する
+- [ ] clean candidate、CI、公開前ゲートを解決する
 
 Date: 2026-06-12 (Dose overlay cache visibility follow-up)
 

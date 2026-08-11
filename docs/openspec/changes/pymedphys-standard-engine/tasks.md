@@ -5,11 +5,11 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 ## A. Decisions and protocol freeze
 
 - [x] Approve the current source baseline: CPython 3.12 and PyMedPhys 0.41.0.
-- [ ] Approve the dependency lock/update policy and any future PyMedPhys compatibility range.
+- [x] Keep an exact PyMedPhys 0.41.0 pin for the current supported baseline; any engine-version change requires a separately reviewed validation cycle and rebuilt dependency/integrity/licensing artifacts.
 - [x] Approve staged versus direct default-engine migration.
-- [ ] Approve `norm=none` mapping or rejection.
+- [x] Approve fail-closed rejection of `norm=none` for PyMedPhys; any future absolute-dose mapping requires a separate specification and validation cycle.
 - [x] Use fail-closed rejection for differing orientations; do not claim arbitrary-orientation resampling support.
-- [ ] Approve cross-engine numerical and mask-agreement criteria.
+- [x] Do not use PyMedPhys-versus-Numba numerical or mask-agreement thresholds as a release criterion; retain the comparison as recorded characterization of the legacy/experimental engine.
 - [x] Define application-version and report-schema-version sources. Source runs use installed metadata, an explicit environment value, or Git describe; report schema version is 2.
 
 ## B. Engine architecture
@@ -57,9 +57,10 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 - [x] Record evaluated-mask counts and overlap.
 - [x] Record GPR and voxelwise gamma differences.
 - [x] Record pass/fail confusion and disagreement coordinates.
-- [ ] Record runtime and peak memory.
-- [ ] Review every threshold failure without case-specific tuning.
-- [ ] Publish the complete non-patient reproducibility package or document why it cannot be public.
+- [x] Record runtime for the controlled comparison matrix.
+- [x] Explicitly defer peak-memory characterization; make no peak-memory performance claim in the current release scope.
+- [x] Review and record observed mask disagreements without case-specific tuning; no cross-engine acceptance threshold is defined.
+- [x] Document the project-owner decision that source/derived phantom DICOM and numerical artifacts remain local-only; publish hashes, fixed settings, summaries, and limitations instead.
 - [x] Record the local full-volume GUI workflow check with input hashes, exact effective settings, results, dirty-worktree status, operator observations, and limitations.
 
 ## G. External proprietary-system comparisons

@@ -24,7 +24,7 @@ The adapter should pass unscaled dose arrays and map settings explicitly:
 
 Do not depend on PyMedPhys defaults for any result-affecting option. The adapter must validate finite, monotonic axes and supported dimensionality before calling PyMedPhys. Performance options such as `max_gamma`, `skip_once_passed`, `random_subset`, and `ram_available` must be either fixed and reported or unavailable; stochastic subsets must not be enabled by default.
 
-The current `global_max` and `max_ref` names both resolve to the maximum finite reference dose. Preserve that behavior unless a separately approved change distinguishes them. Phase one rejects `norm=none` for PyMedPhys until an explicit normalization of one dose unit and its cutoff behavior are approved and validated across both engines.
+The current `global_max` and `max_ref` names both resolve to the maximum finite reference dose. Preserve that behavior unless a separately approved change distinguishes them. The approved standardization scope rejects `norm=none` fail-closed for PyMedPhys. No absolute-dose mapping is inferred from the Numba legacy behavior; adding one requires a separate specification and validation cycle.
 
 ## 3. Geometry contract
 
@@ -131,6 +131,8 @@ Freeze one manifest per case before execution. It must bind input hashes, common
 - runtime, peak resident memory, and any engine resource settings.
 
 Numerical tolerances and required agreement are human decisions. Report all failures; do not remove cases or alter parameters after seeing results.
+
+The 2026-08-11 policy freeze does not make PyMedPhys-versus-Numba numerical or mask-agreement thresholds a release criterion. PyMedPhys is the selected standard and Numba is a legacy/experimental comparator with documented early-exit behavior. Comparisons must continue to report masks, GPR, voxelwise differences, disagreements, and runtime, but disagreement does not by itself invalidate the PyMedPhys result. Peak-memory measurement is explicitly deferred and no peak-memory performance claim may be made in the current release scope.
 
 The legacy Numba kernels exit the candidate loop at the first sampled `gamma <= 1`. That is sufficient for the sampled pass/fail classification but can leave a non-minimal gamma value at a passing reference point. The comparison must therefore separate pass-mask agreement from gamma-map agreement and must not define voxelwise equality as a prerequisite for legacy reproduction. Any proposal to remove this early exit is a separate numerical-behavior change requiring explicit approval and new regression baselines.
 

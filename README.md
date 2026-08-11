@@ -39,7 +39,7 @@ Implemented features include:
 - a Windows GUI and a PySide6/PyQtGraph Fast 3D Viewer;
 - an offline Windows bundle builder and a synthetic, non-patient installation smoke test.
 
-The PyMedPhys default, GUI selection, versioned runtime provenance, controlled local PyMedPhys-versus-Numba characterization, geometry safety gates, and analytical regression tests are implemented. Offline PyMedPhys packaging, approved cross-engine numerical thresholds, and release approval remain open. A 3DVH comparison is not required for PyMedPhys standardization.
+The PyMedPhys default, GUI selection, versioned runtime provenance, controlled local PyMedPhys-versus-Numba characterization, geometry safety gates, and analytical regression tests are implemented. The current standardization scope fixes PyMedPhys at 0.41.0; changing that version requires a separately reviewed validation cycle. Cross-engine numerical equality is not a release criterion because Numba remains a legacy/experimental comparator. Release approval remains open, and a 3DVH comparison is not required for PyMedPhys standardization.
 
 ## 4. Supported environment
 
@@ -70,7 +70,7 @@ For tests and document validation:
 
 These commands install the standard PyMedPhys 0.41.0 engine and the explicit legacy/research Numba engine. Use CPython 3.12 for the standardization work.
 
-For an offline Windows computer, follow [Windows offline installation](docs/OFFLINE_INSTALL.md). The current bundle definition pins PyMedPhys 0.41.0 and explicitly smoke-tests PyMedPhys and Numba. Previously built ZIP artifacts are unchanged and must be rebuilt and reverified before being described as PyMedPhys-capable.
+For an offline Windows computer, follow [Windows offline installation](docs/OFFLINE_INSTALL.md). The current bundle pins PyMedPhys 0.41.0 and explicitly smoke-tests PyMedPhys and Numba. Any future engine-version update requires new dependency resolution, integrity and licensing manifests, software tests, controlled verification, and a rebuilt bundle before it enters the supported baseline.
 
 ## 6. CLI quick start
 
@@ -116,7 +116,7 @@ In 2D mode with shift optimization off, only the selected reference slice is bui
 
 `--gamma-type local` uses the dose at each reference voxel as the dose-difference denominator. It is normally stricter in lower-dose regions. Reference values effectively equal to zero are not evaluated in the local Numba path.
 
-The PyMedPhys adapter explicitly forwards `local_gamma`, `interp_fraction`, and the resolved global normalization. Local results are not assumed numerically equivalent to Numba; cross-engine acceptance criteria remain to be approved.
+The PyMedPhys adapter explicitly forwards `local_gamma`, `interp_fraction`, and the resolved global normalization. Local results are not assumed numerically equivalent to Numba. The approved release policy does not require a numerical or mask-agreement threshold between engines; observed differences must still be recorded and reviewed without case-specific tuning.
 
 A local migration characterization used two anonymized Monaco phantom RTDOSE distributions (3 x 3 cm and 5 x 5 cm fields) and controlled evaluation variants derived from each source: a uniform +2% dose scale and a +1 mm shift in the positive DICOM column direction. The fixed 2D protocol used axial slices 74, 75, and 76, 3% / 2 mm, a 10% reference cutoff, `global_max`, interpolation fraction 10, linear resampling, and shift optimization off. Across 24 engine comparisons, the finite evaluated masks agreed in every run. Global gamma had no pass/fail disagreements across 41,970 common points. Local gamma had 165 disagreements across 41,970 common points (0.393%), all in the +1 mm shift variants; the uniform +2% variants had none. Disagreements occurred in both directions, so they are recorded as engine-definition and interpolation differences rather than attributed solely to the Numba early exit.
 
@@ -126,7 +126,7 @@ These local results support the PyMedPhys standard while keeping Numba available
 
 `--dd` is the dose-difference criterion in percent. For global gamma, the Numba dose term is `(evaluation - reference) / normalization * 100`. For local gamma it is `(evaluation - reference) / reference_voxel * 100`.
 
-For the Numba engine, `--norm none` sets the normalization factor to `1.0` dose unit; it does not convert `--dd` into a clearly specified absolute-dose criterion. The phase-one PyMedPhys adapter rejects `norm=none` until its semantics and cutoff behavior are approved. Before calculation, the program rejects missing or invalid `DoseUnits` and reference/evaluation unit mismatches.
+For the Numba engine, `--norm none` sets the normalization factor to `1.0` dose unit; it does not convert `--dd` into a clearly specified absolute-dose criterion. The approved PyMedPhys scope rejects `norm=none` fail-closed; no absolute-dose mapping is inferred. A future mapping would require a separate specification and validation cycle. Before calculation, the program rejects missing or invalid `DoseUnits` and reference/evaluation unit mismatches.
 
 ## 11. Distance-to-agreement criterion
 
@@ -176,7 +176,7 @@ Local characterization with controlled derivatives of anonymized 3 x 3 cm and 5 
 
 A separate [controlled 5 x 5 cm RTDOSE verification record](docs/PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md) documents two full-volume PyMedPhys 0.41.0 source-GUI runs and Fast 3D Viewer checks: a uniform +2% dose variant and a +1 mm positive-column spatial-shift variant. It records only input hashes, effective settings, summary results, and explicit limitations; the DICOM inputs and numerical outputs remain local and Git-ignored.
 
-The project owner approved the documented validation scope and known limitations for release preparation on 2026-08-11. This is not clinical-use or release approval. Remaining policy, clean-candidate, CI, offline-acceptance, and publication gates are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
+The project owner approved the documented validation scope, numerical policy, and known limitations for release preparation on 2026-08-11. This is not clinical-use or release approval. Remaining compatibility-cleanup, clean-candidate, CI, offline-acceptance, and publication gates are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
 
 The RTDOSE loader validates IPP, IOP, Pixel Spacing, GFOV, dimensions, Dose Grid Scaling, Dose Units, and finite dose values before calculation. It accepts strictly ascending or descending GFOV and sorts frames and offsets together into ascending order. Axial absolute-z GFOV is converted to offsets from IPP. Different origins and voxel spacing are supported, but differing reference/evaluation orientations, Dose Units, or present Frame of Reference UIDs fail closed. A missing Frame of Reference UID remains a recorded warning for compatibility with older research data. The interpolating Numba kernel assumes uniform evaluation-axis spacing based on the first interval; PyMedPhys is the standard engine.
 

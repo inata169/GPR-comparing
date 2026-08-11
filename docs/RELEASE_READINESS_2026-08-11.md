@@ -27,23 +27,23 @@ The approved scope is software verification for research and education:
 
 ### Source and numerical policy
 
-- Decide the dependency update policy and whether future PyMedPhys versions use an exact pin, a reviewed compatibility range, or a new validation cycle.
-- Approve the current fail-closed handling of `norm=none` for PyMedPhys or specify a separately validated mapping.
-- Decide whether numerical PyMedPhys-versus-Numba thresholds are required for release. Numba agreement must not define PyMedPhys correctness.
+- Resolved 2026-08-11: keep the exact PyMedPhys 0.41.0 pin; any engine-version change requires a separately reviewed validation cycle and rebuilt dependency, integrity, licensing, test, controlled-verification, and offline-bundle evidence.
+- Resolved 2026-08-11: reject `norm=none` fail-closed for PyMedPhys. No absolute-dose mapping is inferred; a future mapping requires a separate specification and validation cycle.
+- Resolved 2026-08-11: do not require PyMedPhys-versus-Numba numerical or mask-agreement thresholds for release. Continue to record and review disagreements without case-specific tuning.
+- Resolved 2026-08-11: runtime is recorded; peak-memory characterization is deferred and no peak-memory performance claim is permitted in the current release scope.
 - Decide when the internal legacy boolean engine switch and legacy-report compatibility path may be removed.
-- Complete or explicitly defer peak-memory characterization.
 
 ### Verification and CI
 
 - Re-run the release candidate from a clean Git revision so reports no longer record `git_dirty=true`.
 - Confirm the complete supported Python/operating-system CI matrix on that revision.
 - Verify schema handling for any retained legacy, ROI, and DVH report paths selected for the release scope.
-- Review any failed acceptance threshold without case-specific parameter tuning.
+- Continue to review observed cross-engine disagreements without case-specific parameter tuning; no cross-engine acceptance threshold is defined.
 
 ### Offline delivery
 
 - Perform a physically network-isolated installation check if that claim is desired.
-- Perform the first-install test on a Windows x64 PC without Python when a suitable machine becomes available. This is currently an explicitly accepted pending item.
+- Perform the first-install test on a Windows x64 PC without Python when a suitable machine becomes available. This is an explicitly accepted pending item and does not block a source release, but it blocks any clean-machine-verified offline-installation claim.
 - Do not describe the current candidate ZIP as clean-machine verified.
 
 ### Repository and publication hygiene
@@ -56,4 +56,4 @@ The approved scope is software verification for research and education:
 
 ## Current disposition
 
-Release preparation may continue. No version, tag, push, pull request, or GitHub Release was created at this checkpoint. The next safe technical step is to resolve or explicitly defer the source/numerical policy items, then create a clean release-candidate revision and run the final CI/reproducibility checks from it.
+Release preparation may continue. The source/numerical policy items above were resolved or explicitly deferred on 2026-08-11. No version, tag, or GitHub Release is approved by this checkpoint. The next safe technical step is to publish the review branch, run CI, then create a clean release-candidate revision and repeat the final reproducibility checks from it.
