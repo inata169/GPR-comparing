@@ -27,6 +27,7 @@ debug_dicom_info*.py
 create_graph.py
 
 # User Config
+config/gui_config.ini
 config/report_template.json
 scripts/viewer_settings.json
 

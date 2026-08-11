@@ -25,7 +25,7 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 
 - [x] Add `--engine {numba,pymedphys}` and help text.
 - [x] Add GUI engine selection and persistence.
-- [x] Sanitize the tracked GUI seed configuration so workstation DICOM and output paths are blank; keep locally saved path changes out of publication commits.
+- [x] Make `config/gui_config.ini` local and Git-ignored; add a tracked path-free example fallback and exclude locally saved GUI settings from release packaging.
 - [x] Add batch CSV engine selection.
 - [x] Exercise the source GUI 3D PyMedPhys path and Fast 3D Viewer with controlled full-volume 5 x 5 cm +2% and +1 mm phantom variants; record the local, non-clinical result without distributing DICOM.
 - [ ] Add migration warnings for legacy configuration/report files without engine identity.

@@ -20,22 +20,34 @@ def test_gui_default_and_saved_config_select_pymedphys():
     defaults = json.loads(
         (ROOT / 'config' / 'gui_defaults.json').read_text(encoding='utf-8-sig')
     )
-    saved_config = (ROOT / 'config' / 'gui_config.ini').read_text(encoding='utf-8-sig')
-
-    assert defaults['engine'] == 'pymedphys'
-    assert 'engine = pymedphys' in saved_config
-
-
-def test_tracked_gui_seed_has_no_workstation_paths():
-    saved_config = (ROOT / 'config' / 'gui_config.ini').read_text(
+    example_config = (ROOT / 'config' / 'gui_config.example.ini').read_text(
         encoding='utf-8-sig'
     )
 
-    assert re.search(r'(?im)^ref_dose\s*=\s*$', saved_config)
-    assert re.search(r'(?im)^eval_dose\s*=\s*$', saved_config)
-    assert re.search(r'(?im)^output_dir\s*=\s*$', saved_config)
-    assert re.search(r'(?im)^ct_dir\s*=\s*$', saved_config)
-    assert not re.search(r'(?i)[a-z]:\\', saved_config)
+    assert defaults['engine'] == 'pymedphys'
+    assert 'engine = pymedphys' in example_config
+
+
+def test_tracked_gui_example_has_no_workstation_paths():
+    example_config = (ROOT / 'config' / 'gui_config.example.ini').read_text(
+        encoding='utf-8-sig'
+    )
+
+    assert re.search(r'(?im)^ref_dose\s*=\s*$', example_config)
+    assert re.search(r'(?im)^eval_dose\s*=\s*$', example_config)
+    assert re.search(r'(?im)^output_dir\s*=\s*$', example_config)
+    assert re.search(r'(?im)^ct_dir\s*=\s*$', example_config)
+    assert not re.search(r'(?i)[a-z]:\\', example_config)
+
+
+def test_gui_config_is_local_and_falls_back_to_tracked_example():
+    gitignore = (ROOT / '.gitignore').read_text(encoding='utf-8-sig')
+    common = (ROOT / 'scripts' / 'gui_config_common.ps1').read_text(
+        encoding='utf-8-sig'
+    )
+
+    assert 'config/gui_config.ini' in gitignore
+    assert "'config/gui_config.example.ini'" in common
 
 
 def test_cli_executable_build_collects_pymedphys():

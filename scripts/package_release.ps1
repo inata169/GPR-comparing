@@ -261,7 +261,9 @@ if ($DistributionMode -eq 'Fast') {
 Write-Host "Copying configuration files..."
 $targetConfigDir = Join-Path $stagingDirPath 'config'
 New-Item -ItemType Directory -Path $targetConfigDir -Force | Out-Null
-Get-ChildItem -Path (Join-Path $ROOT 'config') -File | ForEach-Object {
+Get-ChildItem -Path (Join-Path $ROOT 'config') -File |
+Where-Object { $_.Name -ne 'gui_config.ini' } |
+ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $targetConfigDir -Force
 }
 
