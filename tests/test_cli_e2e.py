@@ -118,7 +118,9 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         'name': 'pymedphys',
         'version': '0.41.0',
     }
-    assert provenance['runtime']['python_version'].startswith('3.12.')
+    assert provenance['runtime']['python_version'] == '.'.join(
+        str(part) for part in sys.version_info[:3]
+    )
     assert provenance['privacy']['absolute_paths_recorded'] is False
     assert provenance['inputs']['reference']['sha256']
     assert ref_path not in json.dumps(data)
