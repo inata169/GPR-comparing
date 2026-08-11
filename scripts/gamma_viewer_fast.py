@@ -19,7 +19,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from rtgamma.gamma import compute_gamma, gamma_engine_version
-from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct, world_to_index
+from rtgamma.io_dicom import (
+    load_ct,
+    load_rtdose,
+    load_rtstruct,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
 from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
 from rtgamma.resample import resample_ct_onto_dose, resample_eval_onto_ref
@@ -253,6 +259,7 @@ def _resample_eval(
     if not eval_path:
         return None, "", None
     eval_meta = load_rtdose(eval_path)
+    validate_rtdose_pair_geometry(dose_meta, eval_meta)
     Xw, Yw, Zw = build_ref_world_coords(dose_meta)
     w2i = lambda pts: world_to_index(
         eval_meta["ipp"],
@@ -1758,8 +1765,8 @@ def main(argv=None) -> int:
     logger.info("Loading reference dose: %s", args.ref)
     dose_meta = load_rtdose(args.ref)
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
-    eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
     try:
+        eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
         gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
     except ValueError as exc:
         logger.error("%s", exc)

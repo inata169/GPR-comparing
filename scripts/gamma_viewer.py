@@ -22,9 +22,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from rtgamma.gamma import compute_gamma
-from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct
+from rtgamma.io_dicom import (
+    load_ct,
+    load_rtdose,
+    load_rtstruct,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
+from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
-from rtgamma.resample import resample_ct_onto_dose
+from rtgamma.resample import resample_ct_onto_dose, resample_eval_onto_ref
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -741,6 +748,30 @@ def _parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def _load_and_resample_eval(eval_path, dose_meta):
+    eval_meta = load_rtdose(eval_path)
+    validate_rtdose_pair_geometry(dose_meta, eval_meta)
+    Xw, Yw, Zw = build_ref_world_coords(dose_meta)
+    w2i = lambda pts: world_to_index(
+        eval_meta['ipp'],
+        eval_meta['v_col'],
+        eval_meta['v_row'],
+        eval_meta['v_slice'],
+        eval_meta['s_col'],
+        eval_meta['s_row'],
+        eval_meta['z_offsets'],
+        pts,
+    )
+    eval_on_ref = resample_eval_onto_ref(
+        eval_meta['dose'],
+        w2i,
+        (Xw, Yw, Zw),
+        interp='linear',
+        shift_mm=(0, 0, 0),
+    )
+    return eval_meta, eval_on_ref
+
+
 def main(argv=None):
     args = _parse_args(argv)
 
@@ -753,23 +784,11 @@ def main(argv=None):
     if args.gamma_npz:
         gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
-            eval_meta = load_rtdose(args.eval)
+            eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
             eval_dose_unit = eval_meta.get('units')
-            from rtgamma.io_dicom import world_to_index
-            from rtgamma.main import build_ref_world_coords
-            from rtgamma.resample import resample_eval_onto_ref
-            Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-            w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
-            eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
-        eval_meta = load_rtdose(args.eval)
+        eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
         eval_dose_unit = eval_meta.get('units')
-        from rtgamma.io_dicom import world_to_index
-        from rtgamma.main import build_ref_world_coords
-        from rtgamma.resample import resample_eval_onto_ref
-        Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-        w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
-        eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
         axes = (dose_meta['z_coords_mm'], dose_meta['y_coords_mm'], dose_meta['x_coords_mm'])
         gamma_map, _, _ = compute_gamma(
             axes_ref_mm=axes,

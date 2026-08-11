@@ -77,3 +77,11 @@ def test_viewers_accept_and_route_explicit_engine():
         assert 'numba' in script
         assert 'engine=args.engine' in script
         assert 'interp_fraction=args.interp_fraction' in script
+
+
+def test_both_viewers_validate_rtdose_pairs_before_resampling():
+    legacy = (ROOT / 'scripts' / 'gamma_viewer.py').read_text(encoding='utf-8-sig')
+    fast = (ROOT / 'scripts' / 'gamma_viewer_fast.py').read_text(encoding='utf-8-sig')
+
+    assert 'validate_rtdose_pair_geometry(dose_meta, eval_meta)' in legacy
+    assert 'validate_rtdose_pair_geometry(dose_meta, eval_meta)' in fast

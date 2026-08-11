@@ -12,6 +12,7 @@ from scripts.gamma_viewer_fast import (
     _overall_gpr_text,
     _parse_args,
     _pass_fail_text,
+    _resample_eval,
     _validated_dose_display_range,
     cursor_from_display_point,
     display_point_for_cursor,
@@ -35,6 +36,37 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
     assert args.engine == 'numba'
     assert args.interp_fraction == 4
     assert args.opt_shift == 'off'
+
+
+def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
+    reference = {'role': 'reference'}
+    evaluation = {'role': 'evaluation'}
+    calls = []
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_rtdose',
+        lambda _: evaluation,
+    )
+
+    def fake_validate(ref_meta, eval_meta):
+        calls.append((ref_meta, eval_meta))
+        raise ValueError('incompatible RTDOSE pair')
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.validate_rtdose_pair_geometry',
+        fake_validate,
+    )
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.resample_eval_onto_ref',
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError('resampling must not run')
+        ),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, 'incompatible RTDOSE pair'):
+        _resample_eval('evaluation.dcm', reference)
+
+    assert calls == [(reference, evaluation)]
 
 
 def test_on_demand_gamma_routes_selected_engine(monkeypatch):
