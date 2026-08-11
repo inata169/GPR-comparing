@@ -45,7 +45,7 @@ This guide helps contributors and agents work efficiently in this repository.
 
 ## GUI State Management & External Integration (2026-04-14)
 - **Config Sync**: The GUI's persistent state is stored in `config/gui_config.ini`.
-- **Seamless Launch**: External automation tools (like `dicom-phits_inp`) can achieve seamless integration by updating this INI file programmatically before launching `scripts/run_gui_exe.ps1`.
+- **Seamless Launch**: External automation tools (such as the independently maintained `dicomxphits` project) can achieve seamless integration by updating this INI file programmatically before launching `scripts/run_gui_exe.ps1`.
 - **Recommended Auto-Sync Keys**:
   - `Paths/ref_dose`, `Paths/eval_dose`, `Paths/ct_dir`: Auto-populate file selectors.
   - `Paths/output_dir`: Sets the default results folder; if `gamma_map.npz` exists here, the 3D Viewer will load it automatically.
