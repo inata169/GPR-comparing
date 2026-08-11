@@ -1,5 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_data_files,
+    collect_submodules,
+    copy_metadata,
+)
 
 datas = []
 binaries = []
@@ -14,6 +19,10 @@ hiddenimports = [
 ]
 hiddenimports += collect_submodules('scipy')
 datas += collect_data_files('pyqtgraph', excludes=['examples/**', 'tests/**'])
+pymedphys_datas, pymedphys_binaries, pymedphys_hiddenimports = collect_all('pymedphys')
+datas += pymedphys_datas + copy_metadata('pymedphys')
+binaries += pymedphys_binaries
+hiddenimports += pymedphys_hiddenimports
 
 excludes = [
     'PySide6.Qt3DAnimation',

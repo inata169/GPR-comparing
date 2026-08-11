@@ -16,6 +16,8 @@ def test_gui_launchers_expose_persist_and_forward_engine():
         assert 'using pymedphys. Save Settings to persist it.' in script
         assert "$engineVal -eq 'pymedphys' -and $viewerNormVal -eq 'none'" in script
         assert "does not support Norm 'none'" in script
+        assert "'--engine',$engineVal,'--interp-fraction',$interpVal" in script
+        assert "$viewerCmd += @('--gamma-type','local')" in script
 
 
 def test_gui_default_and_saved_config_select_pymedphys():
@@ -52,7 +54,20 @@ def test_gui_config_is_local_and_falls_back_to_tracked_example():
     assert "'config/gui_config.example.ini'" in common
 
 
-def test_cli_executable_build_collects_pymedphys():
+def test_executable_builds_collect_pymedphys_and_metadata():
     build_script = (ROOT / 'scripts' / 'build_exe.ps1').read_text(encoding='utf-8-sig')
-    assert "'--collect-all', 'pymedphys'" in build_script
-    assert "'--copy-metadata', 'pymedphys'" in build_script
+    fast_spec = (ROOT / 'gamma_viewer_fast.spec').read_text(encoding='utf-8-sig')
+
+    assert build_script.count("'--collect-all', 'pymedphys'") == 2
+    assert build_script.count("'--copy-metadata', 'pymedphys'") == 2
+    assert "collect_all('pymedphys')" in fast_spec
+    assert "copy_metadata('pymedphys')" in fast_spec
+
+
+def test_viewers_accept_and_route_explicit_engine():
+    for relative_path in ('scripts/gamma_viewer.py', 'scripts/gamma_viewer_fast.py'):
+        script = (ROOT / relative_path).read_text(encoding='utf-8-sig')
+        assert 'pymedphys' in script
+        assert 'numba' in script
+        assert 'engine=args.engine' in script
+        assert 'interp_fraction=args.interp_fraction' in script

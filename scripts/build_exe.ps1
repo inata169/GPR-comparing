@@ -51,6 +51,8 @@ $viewerArgs = @(
     '-m', 'PyInstaller', '-y', '--name', 'gamma_viewer', '--onedir', '--noconsole',
     '--hidden-import', 'matplotlib',
     '--hidden-import', 'numba',
+    '--collect-all', 'pymedphys',
+    '--copy-metadata', 'pymedphys',
     '--hidden-import', 'pydicom',
     '--collect-submodules', 'scipy',
     '--clean',

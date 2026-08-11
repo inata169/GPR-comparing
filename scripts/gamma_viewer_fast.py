@@ -278,15 +278,17 @@ def _compute_gamma_if_needed(args, dose_meta: dict, eval_on_ref: np.ndarray | No
         logger.info("No --gamma-npz supplied. Computing Gamma map for PoC display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])
         gamma_map, _, _ = compute_gamma(
-            axes,
-            dose_meta["dose"],
-            axes,
-            eval_on_ref,
-            args.dd,
-            args.dta,
-            args.cutoff,
-            args.gamma_type,
-            args.norm,
+            axes_ref_mm=axes,
+            dose_ref=dose_meta["dose"],
+            axes_eval_mm=axes,
+            dose_eval=eval_on_ref,
+            dd_percent=args.dd,
+            dta_mm=args.dta,
+            cutoff_percent=args.cutoff,
+            gamma_type=args.gamma_type,
+            norm=args.norm,
+            engine=args.engine,
+            interp_fraction=args.interp_fraction,
         )
         return gamma_map
     return None
@@ -1696,6 +1698,8 @@ def _parse_args(argv=None):
     parser.add_argument("--cutoff", type=float, default=10.0)
     parser.add_argument("--gamma-type", choices=["global", "local"], default="global")
     parser.add_argument("--norm", choices=["global_max", "max_ref", "none"], default="global_max")
+    parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
+    parser.add_argument("--interp-fraction", type=int, default=1)
     return parser.parse_args(argv)
 
 

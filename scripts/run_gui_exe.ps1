@@ -567,7 +567,7 @@ function Build-Command(){
     if ($preset.cutoff -ne $null) { $viewerCutoff = [double]$preset.cutoff }
     if ($preset.norm) { $viewerNormVal = [string]$preset.norm }
   }
-  if (($cbAction.SelectedIndex -eq 1 -or $cbAction.SelectedIndex -eq 2) -and
+  if ($cbAction.SelectedIndex -ne 0 -and
       $engineVal -eq 'pymedphys' -and $viewerNormVal -eq 'none') {
     [System.Windows.Forms.MessageBox]::Show(
       "PyMedPhys (standard) does not support Norm 'none'. Select global_max or max_ref, or explicitly select Numba (legacy / experimental).",
@@ -630,7 +630,9 @@ function Build-Command(){
         return $null
       }
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
-        '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal)
+        '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal,
+        '--engine',$engineVal,'--interp-fraction',$interpVal)
+      if ($cbLocal.Checked) { $viewerCmd += @('--gamma-type','local') }
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
         $viewerCmd += @('--roi', $tbRoi.Text.Trim())
