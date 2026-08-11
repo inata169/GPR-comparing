@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 
@@ -21,11 +22,30 @@ from .io_dicom import (
 from .mask import build_roi_masks
 from .optimize import grid_search_best_shift
 from .pdf_report import save_summary_pdf
-from .provenance import build_provenance
+from .provenance import build_provenance, sha256_file
 from .report import save_summary_csv, save_summary_json, save_summary_markdown
 from .resample import resample_eval_onto_ref
 from .settings import DEFAULT_GAMMA_ENGINE, REPORT_SCHEMA_VERSION, GammaSettings
 from .viz import save_dose_diff_2d, save_gamma_map_2d
+
+
+def _save_npz_with_sha256(path: str, **arrays) -> str:
+    """Atomically save an NPZ and return the digest of the published bytes."""
+    target = os.path.abspath(path)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix='.rtgamma-',
+        suffix='.npz',
+        dir=os.path.dirname(target),
+    )
+    os.close(descriptor)
+    try:
+        np.savez_compressed(temporary, **arrays)
+        digest = sha256_file(temporary)
+        os.replace(temporary, target)
+        return digest
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
 
 
 def build_ref_world_coords(meta_ref):
@@ -512,6 +532,7 @@ def main(argv=None):
 
     # Outputs
     pass_rate_out = None
+    gamma_map_sha256 = None
     if args.mode == '2d':
         if not args.plane:
             raise SystemExit('--plane is required in 2d mode')
@@ -570,6 +591,7 @@ def main(argv=None):
         if args.save_gamma_map:
             logging.info(f"Saving 2D gamma map to {args.save_gamma_map}")
             save_gamma_map_2d(args.save_gamma_map, g2d, title=f'Gamma (shift {best_shift} mm)')
+            gamma_map_sha256 = sha256_file(args.save_gamma_map)
         if args.save_dose_diff:
             logging.info(f"Saving 2D dose difference map to {args.save_dose_diff}")
             nf = np.nanmax(dose_ref) if np.isfinite(dose_ref).any() else 1.0
@@ -578,7 +600,10 @@ def main(argv=None):
         # 3D outputs: save as NPZ if paths provided
         if args.save_gamma_map:
             logging.info(f"Saving 3D gamma map to {args.save_gamma_map}")
-            np.savez_compressed(args.save_gamma_map, gamma=gamma_map)
+            gamma_map_sha256 = _save_npz_with_sha256(
+                args.save_gamma_map,
+                gamma=gamma_map,
+            )
         if args.save_dose_diff:
             logging.info(f"Saving 3D dose difference map to {args.save_dose_diff}")
             nf = np.nanmax(dose_ref) if np.isfinite(dose_ref).any() else 1.0
@@ -684,6 +709,7 @@ def main(argv=None):
         'save_gamma_map_path': (
             os.path.basename(args.save_gamma_map) if args.save_gamma_map else None
         ),
+        'save_gamma_map_sha256': gamma_map_sha256,
         'provenance': provenance,
     }
     if per_structure:

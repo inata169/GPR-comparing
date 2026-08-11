@@ -34,6 +34,7 @@
     "cumulative_pass": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
   },
   "save_gamma_map_path": null,
+  "save_gamma_map_sha256": null,
   "provenance": {
     "schema_version": 2,
     "application": {

@@ -2,6 +2,7 @@
 param(
     [string]$OutputDirectory,
     [string]$PythonExe = 'python',
+    [string]$Version = 'offline-py312',
     [switch]$Force,
     [switch]$SkipArchive,
     [switch]$AllowDirty
@@ -67,8 +68,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Git worktree.' }
 if ($dirty.Count -gt 0 -and -not $AllowDirty) {
     throw 'The worktree must be clean so the bundle exactly matches a Git commit.'
 }
-$commit = (git -C $repoRoot rev-parse HEAD).Trim()
+$gitCommit = (git -C $repoRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Could not determine Git commit.' }
+$commit = $gitCommit
+$dirtyBuild = $dirty.Count -gt 0
 if ($dirty.Count -gt 0) {
     $commit = "$commit-dirty-validation-only"
     Write-Warning 'Building from a dirty worktree. Do not publish this validation bundle.'
@@ -126,6 +129,13 @@ foreach ($relativePath in $trackedFiles) {
     Copy-Item -LiteralPath $source -Destination $destination
 }
 Write-Host "[OK ] copied $($trackedFiles.Count) tracked files"
+
+[ordered]@{
+    schema_version = 1
+    version = $Version
+    git_commit = $gitCommit
+    git_dirty = $dirtyBuild
+} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $appDir 'application_identity.json') -Encoding UTF8
 
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $bundleRoot 'LICENSE')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'offline\NOTICE.txt') -Destination (Join-Path $bundleRoot 'NOTICE.txt')

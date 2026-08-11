@@ -33,6 +33,7 @@ def _write_cache(tmp_path, report_settings):
         json.dumps(
             {
                 **report_settings,
+                "save_gamma_map_sha256": sha256_file(npz),
                 "provenance": {
                     "analysis": {
                         "gamma": {"opt_shift": report_settings["opt_shift"]}
@@ -103,6 +104,21 @@ def test_validated_gamma_cache_rejects_loaded_digest_mismatch(tmp_path):
         expected_settings=_settings(),
         ref_source_sha256=sha256_file(ref),
         eval_source_sha256="0" * 64,
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_rejects_npz_not_bound_to_report(tmp_path):
+    ref, evaluation, npz, report = _write_cache(tmp_path, _settings())
+    np.savez_compressed(npz, gamma=np.full((1, 2, 2), 0.75))
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=_settings(),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
     )
 
     assert gamma is None

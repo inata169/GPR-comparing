@@ -26,6 +26,21 @@ def test_release_license_collection_includes_pymedphys():
 
     assert "'pymedphys'," in package_script
     assert 'numba, PyMedPhys if bundled' in package_script
+    assert (
+        'Collect-ThirdPartyLicenses $stagingDirPath\n'
+        'Remove-NonFastQtComponents $stagingDirPath'
+    ) in package_script
+
+
+def test_offline_bundle_writes_application_identity_sidecar():
+    builder = (
+        ROOT / 'offline' / 'build_offline_bundle.ps1'
+    ).read_text(encoding='utf-8-sig')
+
+    assert "[string]$Version = 'offline-py312'" in builder
+    assert "Join-Path $appDir 'application_identity.json'" in builder
+    assert 'git_commit = $gitCommit' in builder
+    assert 'git_dirty = $dirtyBuild' in builder
 
 
 def test_offline_builder_verifies_standard_engine_version():

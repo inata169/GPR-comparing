@@ -140,6 +140,12 @@
       "required": ["bin_edges", "counts", "cumulative_pass"]
     },
     "save_gamma_map_path": { "type": ["string", "null"] },
+    "save_gamma_map_sha256": {
+      "oneOf": [
+        { "$ref": "#/definitions/sha256" },
+        { "type": "null" }
+      ]
+    },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
@@ -363,7 +369,8 @@
     "gamma_p95",
     "gamma_p99",
     "histogram",
-    "save_gamma_map_path"
+    "save_gamma_map_path",
+    "save_gamma_map_sha256"
     , "provenance"
   ]
 }

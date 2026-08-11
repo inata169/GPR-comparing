@@ -296,9 +296,9 @@ Copy-IfExists (Join-Path $ROOT 'RUN_INSTRUCTIONS_JA.txt') $stagingDirPath
 
 if ($DistributionMode -eq 'Fast') {
     Write-FastNotice $stagingDirPath
-    Collect-ThirdPartyLicenses $stagingDirPath
     Remove-FastUnneededQtPlugins $stagingDirPath
 }
+Collect-ThirdPartyLicenses $stagingDirPath
 Remove-NonFastQtComponents $stagingDirPath
 
 $manifestPath = Write-BundledManifest $stagingDirPath

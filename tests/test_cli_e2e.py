@@ -172,6 +172,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     )
     assert provenance['privacy']['absolute_paths_recorded'] is False
     assert data['save_gamma_map_path'] == 'gamma3d.npz'
+    assert data['save_gamma_map_sha256'] == sha256_file(out_dir / 'gamma3d.npz')
     assert str(out_dir / 'gamma3d.npz') not in json.dumps(data)
     assert provenance['inputs']['reference']['sha256']
     assert provenance['inputs']['rtstruct'] == {

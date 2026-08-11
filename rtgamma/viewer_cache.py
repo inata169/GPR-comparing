@@ -1,6 +1,8 @@
 """Validation helpers for Gamma maps auto-loaded by the GUI viewers."""
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import logging
 from pathlib import Path
@@ -73,7 +75,13 @@ def load_validated_gamma_cache(
                 log.warning("Ignoring stale Gamma cache: %s RTDOSE differs", name)
                 return None
 
-        with np.load(npz_path) as npz:
+        npz_bytes = Path(npz_path).read_bytes()
+        actual_npz_sha256 = hashlib.sha256(npz_bytes).hexdigest()
+        if report.get("save_gamma_map_sha256") != actual_npz_sha256:
+            log.warning("Ignoring stale Gamma cache: NPZ digest differs from report")
+            return None
+
+        with np.load(io.BytesIO(npz_bytes)) as npz:
             if "gamma" not in npz:
                 log.warning("Gamma NPZ has no 'gamma' key: %s", npz_path)
                 return None
