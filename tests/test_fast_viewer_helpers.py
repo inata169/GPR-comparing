@@ -1,17 +1,199 @@
+from types import SimpleNamespace
+
 import numpy as np
 
 from scripts.gamma_viewer_fast import (
     FastPlaneViewer,
     _auto_dose_display_range,
+    _compute_gamma_if_needed,
     _dose_diff_value,
     _gamma_coverage_text,
     _gamma_value_text,
     _overall_gpr_text,
+    _parse_args,
     _pass_fail_text,
+    _resample_eval,
     _validated_dose_display_range,
     cursor_from_display_point,
     display_point_for_cursor,
 )
+
+
+def test_parser_accepts_explicit_engine_and_interpolation_fraction():
+    args = _parse_args(
+        [
+            '--ct',
+            'ct',
+            '--ref',
+            'ref.dcm',
+            '--engine',
+            'numba',
+            '--interp-fraction',
+            '4',
+        ]
+    )
+
+    assert args.engine == 'numba'
+    assert args.interp_fraction == 4
+    assert args.opt_shift == 'off'
+    assert args.shift_range == 'x:-3:3:1,y:-3:3:1,z:-3:3:1'
+    assert args.refine == 'coarse2fine'
+    assert args.fine_range_mm == 10.0
+    assert args.fine_step_mm == 1.0
+    assert args.early_stop_epsilon == 0.05
+    assert args.early_stop_patience == 100
+    assert args.prescan_2d == 'on'
+
+
+def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
+    reference = {'role': 'reference'}
+    evaluation = {'role': 'evaluation'}
+    calls = []
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_rtdose',
+        lambda _: evaluation,
+    )
+
+    def fake_validate(ref_meta, eval_meta):
+        calls.append((ref_meta, eval_meta))
+        raise ValueError('incompatible RTDOSE pair')
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.validate_rtdose_pair_geometry',
+        fake_validate,
+    )
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.resample_eval_onto_ref',
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError('resampling must not run')
+        ),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, 'incompatible RTDOSE pair'):
+        _resample_eval('evaluation.dcm', reference)
+
+    assert calls == [(reference, evaluation)]
+
+
+def test_on_demand_gamma_routes_selected_engine(monkeypatch):
+    captured = {}
+    dose = np.ones((2, 2, 2), dtype=float)
+    axes = np.arange(2, dtype=float)
+
+    def fake_compute_gamma(**kwargs):
+        captured.update(kwargs)
+        return np.zeros_like(dose), 100.0, {}
+
+    monkeypatch.setattr('scripts.gamma_viewer_fast.compute_gamma', fake_compute_gamma)
+    args = SimpleNamespace(
+        gamma_npz=None,
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='local',
+        norm='none',
+        engine='numba',
+        interp_fraction=4,
+        opt_shift='off',
+    )
+    dose_meta = {
+        'dose': dose,
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
+
+    gamma = _compute_gamma_if_needed(args, dose_meta, dose.copy())
+
+    np.testing.assert_array_equal(gamma, np.zeros_like(dose))
+    assert captured['engine'] == 'numba'
+    assert captured['gamma_type'] == 'local'
+    assert captured['norm'] == 'none'
+    assert captured['interp_fraction'] == 4
+
+
+def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
+    captured = {}
+    dose = np.ones((2, 2, 2), dtype=float)
+    axes = np.arange(2, dtype=float)
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_validated_gamma_cache',
+        lambda *args, **kwargs: None,
+    )
+
+    def fake_compute_gamma(**kwargs):
+        captured.update(kwargs)
+        return np.full_like(dose, 0.25), 100.0, {}
+
+    monkeypatch.setattr('scripts.gamma_viewer_fast.compute_gamma', fake_compute_gamma)
+    args = SimpleNamespace(
+        gamma_npz='stale-gamma3d.npz',
+        gamma_report='run3d.json',
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='global',
+        norm='global_max',
+        engine='numba',
+        interp_fraction=4,
+        opt_shift='off',
+    )
+    dose_meta = {
+        'source_path': 'reference.dcm',
+        'source_sha256': '1' * 64,
+        'dose': dose,
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
+    eval_meta = {'source_path': 'evaluation.dcm', 'source_sha256': '2' * 64}
+
+    gamma = _compute_gamma_if_needed(args, dose_meta, dose.copy(), eval_meta)
+
+    np.testing.assert_array_equal(gamma, np.full_like(dose, 0.25))
+    assert captured['engine'] == 'numba'
+
+
+def test_missing_optimized_cache_fails_closed(monkeypatch):
+    dose = np.ones((2, 2, 2), dtype=float)
+    axes = np.arange(2, dtype=float)
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_validated_gamma_cache',
+        lambda *args, **kwargs: None,
+    )
+    args = SimpleNamespace(
+        gamma_npz='stale-gamma3d.npz',
+        gamma_report='run3d.json',
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='global',
+        norm='global_max',
+        engine='pymedphys',
+        interp_fraction=4,
+        opt_shift='on',
+    )
+    dose_meta = {
+        'source_path': 'reference.dcm',
+        'source_sha256': '1' * 64,
+        'dose': dose,
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
+
+    with np.testing.assert_raises_regex(
+        ValueError,
+        'No compatible shift-optimized Gamma cache',
+    ):
+        _compute_gamma_if_needed(
+            args,
+            dose_meta,
+            dose.copy(),
+            {'source_path': 'evaluation.dcm', 'source_sha256': '2' * 64},
+        )
 
 
 def test_pass_fail_treats_zero_gamma_as_pass():

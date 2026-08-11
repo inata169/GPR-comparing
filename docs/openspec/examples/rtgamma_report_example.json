@@ -1,25 +1,161 @@
 {
-  "ref": "AGLPhantom_AGLCATCCC_Dose_RxQA_Bm1.dcm",
-  "eval": "AGLPhantom_AGLCATpMCFF_Dose_RxQA_Bm1.dcm",
-  "mode": "2d",
-  "plane": "axial",
-  "plane_index": 50,
+  "report_schema_version": 2,
+  "ref": "synthetic_reference_rtdose.dcm",
+  "eval": "synthetic_evaluation_rtdose.dcm",
+  "profile": null,
+  "mode": "3d",
+  "plane": null,
+  "plane_index": null,
   "dd_percent": 3.0,
-  "dta_mm": 2.0,
+  "dta_mm": 3.0,
   "cutoff_percent": 10.0,
   "gamma_type": "global",
   "norm": "global_max",
-  "pass_rate_percent": 96.873,
+  "interp_fraction": 10,
+  "gamma_engine": "pymedphys",
+  "gamma_engine_version": "0.41.0",
+  "pass_rate_percent": 100.0,
   "best_shift_mm": [0.0, 0.0, 0.0],
   "best_shift_mag_mm": 0.0,
-  "absolute_geometry_only": true,
-  "ref_for_uid": "1.2.840.113619.2.55.3.604688726.781.1639571712.467",
-  "eval_for_uid": "1.2.840.113619.2.55.3.604688726.781.1639571712.467",
+  "absolute_geometry_only": false,
+  "ref_for_uid": "1.2.826.0.1.3680043.10.999.1",
+  "eval_for_uid": "1.2.826.0.1.3680043.10.999.1",
   "same_for_uid": true,
-  "orientation_min_dot": 0.999999,
+  "orientation_min_dot": 1.0,
   "warnings": "",
-  "gamma_mean": 0.43,
-  "gamma_median": 0.31,
-  "gamma_max": 6.7
+  "gamma_mean": 0.0,
+  "gamma_median": 0.0,
+  "gamma_max": 0.0,
+  "gamma_p95": 0.0,
+  "gamma_p99": 0.0,
+  "histogram": {
+    "bin_edges": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0],
+    "counts": [1000, 0, 0, 0, 0, 0, 0, 0, 0],
+    "cumulative_pass": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+  },
+  "save_gamma_map_path": null,
+  "save_gamma_map_sha256": null,
+  "provenance": {
+    "schema_version": 2,
+    "gamma_cache_contract_version": 1,
+    "application": {
+      "name": "GPR-comparing",
+      "version": "v0.9.2-15-g179e914",
+      "version_source": "git-describe",
+      "git_commit": "179e914f0ca83aa4f21ed5df59c235b2fe1488d1",
+      "git_dirty": false
+    },
+    "execution": {
+      "started_utc": "2026-08-11T00:00:00+00:00",
+      "ended_utc": "2026-08-11T00:00:01+00:00",
+      "elapsed_seconds": 1.0
+    },
+    "runtime": {
+      "python_version": "3.12.10",
+      "python_implementation": "CPython",
+      "os": "Windows",
+      "os_release": "11",
+      "architecture": "AMD64"
+    },
+    "engine": {
+      "name": "pymedphys",
+      "version": "0.41.0"
+    },
+    "inputs": {
+      "reference": {
+        "role": "reference",
+        "basename": "synthetic_reference_rtdose.dcm",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "evaluation": {
+        "role": "evaluation",
+        "basename": "synthetic_evaluation_rtdose.dcm",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "rtstruct_supplied": false,
+      "rtstruct": null,
+      "roi_names": [],
+      "effective_roi_names": []
+    },
+    "analysis": {
+      "mode": "3d",
+      "plane": null,
+      "plane_index": null,
+      "opt_shift_requested": false,
+      "identity_comparison_shortcut": false,
+      "gamma": {
+        "dd_percent": 3.0,
+        "dta_mm": 3.0,
+        "cutoff_percent": 10.0,
+        "gamma_type": "global",
+        "norm": "global_max",
+        "engine": "pymedphys",
+        "interp_fraction": 10,
+        "resample_interp": "linear",
+        "opt_shift": false,
+        "shift_range": "x:-3:3:1,y:-3:3:1,z:-3:3:1",
+        "refine": "coarse2fine",
+        "fine_range_mm": 10.0,
+        "fine_step_mm": 1.0,
+        "early_stop_epsilon": 0.05,
+        "early_stop_patience": 100,
+        "prescan_2d": true
+      },
+      "resolved_normalisation": 2.0,
+      "selected_shift_axis_mm": [0.0, 0.0, 0.0],
+      "selected_shift_lps_mm": [0.0, 0.0, 0.0],
+      "shift_candidate_count": 0,
+      "execution_controls": {
+        "threads_requested": null,
+        "threads_applied": false,
+        "gpu_requested": "off",
+        "gpu_applied": false,
+        "seed_requested": null,
+        "seed_applied": false
+      },
+      "parsed_but_not_applied": {
+        "cutoff_mask": "ref",
+        "low_dose_exclusion": null,
+        "spacing_override": null,
+        "tolerance": 1e-06
+      }
+    },
+    "geometry": {
+      "reference": {
+        "shape_kji": [10, 10, 10],
+        "dose_units": "GY",
+        "image_position_patient": [0.0, 0.0, 0.0],
+        "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "pixel_spacing_mm": [2.0, 2.0],
+        "grid_frame_offset_vector": {
+          "count": 10,
+          "first_mm": 0.0,
+          "last_mm": 18.0,
+          "strictly_increasing": true
+        },
+        "frame_of_reference_uid_present": true
+      },
+      "evaluation": {
+        "shape_kji": [10, 10, 10],
+        "dose_units": "GY",
+        "image_position_patient": [0.0, 0.0, 0.0],
+        "image_orientation_patient": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        "pixel_spacing_mm": [2.0, 2.0],
+        "grid_frame_offset_vector": {
+          "count": 10,
+          "first_mm": 0.0,
+          "last_mm": 18.0,
+          "strictly_increasing": true
+        },
+        "frame_of_reference_uid_present": true
+      },
+      "orientation_min_dot": 1.0
+    },
+    "warnings": [],
+    "privacy": {
+      "absolute_paths_recorded": false,
+      "dicom_demographics_recorded": false,
+      "input_identity": "basename-and-sha256"
+    }
+  }
 }
-

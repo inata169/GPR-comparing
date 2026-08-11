@@ -14,12 +14,13 @@ import traceback
 from typing import Dict, List
 
 from .main import main as run_gamma
+from .settings import DEFAULT_GAMMA_ENGINE
 
 # ---- CSV column spec ----
 # Required: ref, eval
 # Optional (override per row):
 #   patient_id, rtstruct, roi, dta_mm, dd_percent, cutoff_percent,
-#   gamma_type, norm, opt_shift, interp_fraction, mode, report_dir
+#   gamma_type, norm, engine, opt_shift, interp_fraction, mode, report_dir
 # Blank cells fall back to CLI defaults.
 
 _DEFAULTS = {
@@ -28,6 +29,7 @@ _DEFAULTS = {
     'cutoff_percent': '10.0',
     'gamma_type': 'global',
     'norm': 'global_max',
+    'engine': DEFAULT_GAMMA_ENGINE,
     'opt_shift': 'on',
     'interp_fraction': '10',
     'mode': '3d',
@@ -47,6 +49,7 @@ def _build_argv(row: Dict[str, str], output_dir: str) -> List[str]:
     cutoff = row.get('cutoff_percent', '').strip() or _DEFAULTS['cutoff_percent']
     gamma_type = row.get('gamma_type', '').strip() or _DEFAULTS['gamma_type']
     norm = row.get('norm', '').strip() or _DEFAULTS['norm']
+    engine = row.get('engine', '').strip() or _DEFAULTS['engine']
     opt_shift = row.get('opt_shift', '').strip() or _DEFAULTS['opt_shift']
     interp_fraction = row.get('interp_fraction', '').strip() or _DEFAULTS['interp_fraction']
     mode = row.get('mode', '').strip() or _DEFAULTS['mode']
@@ -56,6 +59,7 @@ def _build_argv(row: Dict[str, str], output_dir: str) -> List[str]:
     argv += ['--cutoff', cutoff]
     argv += ['--gamma-type', gamma_type]
     argv += ['--norm', norm]
+    argv += ['--engine', engine]
     argv += ['--opt-shift', opt_shift]
     argv += ['--interp-fraction', interp_fraction]
     argv += ['--mode', mode]
@@ -117,6 +121,17 @@ def run_batch(csv_path: str, output_dir: str, pdf: bool = False) -> Dict:
     errors: List[Dict] = []
 
     logging.info(f"Batch: {total} pairs loaded from {csv_path}")
+    rows_without_engine = [
+        index
+        for index, row in enumerate(rows, 1)
+        if not row.get('engine', '').strip()
+    ]
+    if rows_without_engine:
+        logging.warning(
+            "Batch engine was omitted for row(s) %s; the standard default is "
+            "PyMedPhys. Add engine=numba only for legacy reproduction.",
+            rows_without_engine,
+        )
 
     for idx, row in enumerate(rows, 1):
         if pdf and 'pdf' not in row:
@@ -189,6 +204,8 @@ def _write_summary_csv(path: str, results: List[Dict]):
             'dta_mm': r.get('dta_mm', ''),
             'cutoff_percent': r.get('cutoff_percent', ''),
             'gamma_type': r.get('gamma_type', ''),
+            'gamma_engine': r.get('gamma_engine', ''),
+            'gamma_engine_version': r.get('gamma_engine_version', ''),
             'pass_rate_percent': r.get('pass_rate_percent', ''),
             'gamma_mean': r.get('gamma_mean', ''),
             'gamma_median': r.get('gamma_median', ''),
@@ -229,8 +246,8 @@ def _write_summary_md(path: str, results: List[Dict], errors: List[Dict], total:
         "",
         "## Results",
         "",
-        "| # | Patient | Ref | Eval | GPR (%) | Mean | Median | Max | Shift (mm) | Warnings |",
-        "|---|---|---|---|---:|---:|---:|---:|---|---|",
+        "| # | Patient | Ref | Eval | Engine | GPR (%) | Mean | Median | Max | Shift (mm) | Warnings |",
+        "|---|---|---|---|---|---:|---:|---:|---:|---|---|",
     ]
     for r in results:
         gpr = r.get('pass_rate_percent', '')
@@ -248,6 +265,7 @@ def _write_summary_md(path: str, results: List[Dict], errors: List[Dict], total:
         lines.append(
             f"| {r.get('batch_index', '')} | {r.get('patient_id', '')} "
             f"| {r.get('ref', '')} | {r.get('eval', '')} "
+            f"| {r.get('gamma_engine', '')} {r.get('gamma_engine_version', '')} "
             f"| {gpr} | {gmean} | {gmed} | {gmax} "
             f"| {r.get('best_shift_mm', '')} | {r.get('warnings', '')} |"
         )

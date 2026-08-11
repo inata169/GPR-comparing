@@ -3,18 +3,23 @@
 ## [Unreleased] - 2026-08-10
 
 ### Added
+- PyMedPhys 0.41.0をCLI・batch・GUIの標準gamma engineとして選択し、Numbaを明示的なlegacy/experimental選択として保持。
+- report schema version 2のprovenanceを追加し、application/Git、engine、Python/OS、UTC実行時間、入力SHA-256、gamma/shift/geometry設定をJSON・CSV・Markdown・PDF・SQLiteへ記録。
+- GUIのEngine選択、`Gamma/engine`永続化、旧INIの移行警告、PyInstallerでのPyMedPhys収集設定を追加。
 - Python 3.12.10 x64本体、固定wheel、リポジトリ本体を収集するWindowsオフラインバンドルビルダーを追加。
 - 専用仮想環境へ通信なしで導入する `INSTALL_OFFLINE.bat`、GUI起動用バッチ、SHA-256検証、非患者合成DICOMスモークテストを追加。
 - オンラインPCでのバンドル作成、USB搬送、オフライン導入、検証方法を説明する日本語ガイドを追加。
 
 ### Fixed
+- shift optimizationの全候補へ最終計算と同じ`interp_fraction`を渡すよう修正。
+- JSON reportの非有限値を`null`へ変換し、非標準`NaN`を出力しないstrict JSONへ変更。
 - 既存の外部Python 3.12を検出した場合、同梱Pythonインストーラ起動前に安全停止するよう修正。
 - オフラインpipが参照するwheelhouseパスの区切り不足を修正。
 - GUIが更新する `config/gui_config.ini` を不変ファイルのチェックサム対象から除外し、再検証時の誤検出を防止。
 
 ### Validation
-- Ruff合格、pytest `45 passed, 7 skipped`、GitHub Actions全6ジョブ成功。
-- 最終Codexレビューで重大な問題なし。詳細は `docs/PROGRESS_2026-08-10.md` を参照。
+- Python 3.12.10でRuff合格、pytest `82 passed, 7 skipped`。変更後のCI実行は未実施。
+- source/EXE GUI PowerShell構文、report schema/example、実RTDOSE由来ケースでの省略時PyMedPhys実行を確認。
 - Python 3.12未導入のクリーンWindows PCでの初回完全導入試験は保留中。
 
 ## [0.9.1] - 2026-06-07

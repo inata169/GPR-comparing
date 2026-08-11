@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from .gamma import compute_gamma
+from .settings import DEFAULT_GAMMA_ENGINE
 
 
 def parse_shift_range(spec: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -40,6 +41,8 @@ def grid_search_best_shift(
     early_stop_epsilon: float = 0.05,
     early_stop_patience: int = 100,
     prescan_2d: bool = True,
+    engine: str = DEFAULT_GAMMA_ENGINE,
+    interp_fraction: int = 10,
 ) -> Tuple[Tuple[float, float, float], float, Dict]:
 
     z_eval, y_eval, x_eval = eval_axes_mm_1d
@@ -57,9 +60,12 @@ def grid_search_best_shift(
             cutoff_percent=cutoff,
             gamma_type=gamma_type,
             norm=norm,
-            use_pymedphys=False,
+            engine=engine,
+            interp_fraction=interp_fraction,
         )
         return pass_rate
+
+    log: List[Dict] = []
 
     # Optional 2D prescan on central axial slice to narrow XY range
     xs_coarse, ys_coarse, zs_coarse = parse_shift_range(shift_spec)
@@ -75,7 +81,7 @@ def grid_search_best_shift(
 
             def eval2d(dx, dy):
                 shifted = (eval_axes_2d[0], eval_axes_2d[1] + dy, eval_axes_2d[2] + dx)
-                _, pr, _ = compute_gamma(
+                _, pr, gstats = compute_gamma(
                     axes_ref_mm=ref_axes_2d,
                     dose_ref=dose_ref_2d,
                     axes_eval_mm=shifted,
@@ -85,8 +91,17 @@ def grid_search_best_shift(
                     cutoff_percent=cutoff,
                     gamma_type=gamma_type,
                     norm=norm,
-                    use_pymedphys=False,
+                    engine=engine,
+                    interp_fraction=interp_fraction,
                 )
+                log.append({
+                    'dx': dx,
+                    'dy': dy,
+                    'dz': 0.0,
+                    'pass_rate': pr,
+                    'type': 'prescan_2d',
+                    'n_eval': gstats.get('valid_points', 0),
+                })
                 return pr
 
             best_xy = (0.0, 0.0)
@@ -124,7 +139,6 @@ def grid_search_best_shift(
     ref_n_eval = 0 # Points at (0,0,0)
     last_significant_pass = -1.0
 
-    log: List[Dict] = []
     noimp = 0
 
     for x, y, z in coarse_shifts:
@@ -136,7 +150,8 @@ def grid_search_best_shift(
             axes_eval_mm=shifted_axes_eval,
             dose_eval=dose_eval,
             dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
-            gamma_type=gamma_type, norm=norm, use_pymedphys=False
+            gamma_type=gamma_type, norm=norm, engine=engine,
+            interp_fraction=interp_fraction,
         )
         n_eval = gstats.get('valid_points', 0)
         if x == 0 and y == 0 and z == 0:
@@ -206,7 +221,8 @@ def grid_search_best_shift(
                 axes_ref_mm=ref_axes_mm_1d, dose_ref=dose_ref,
                 axes_eval_mm=shifted_axes_eval, dose_eval=dose_eval,
                 dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
-                gamma_type=gamma_type, norm=norm, use_pymedphys=False
+                gamma_type=gamma_type, norm=norm, engine=engine,
+                interp_fraction=interp_fraction,
             )
             n_eval = gstats.get('valid_points', 0)
             log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine', 'n_eval': n_eval})

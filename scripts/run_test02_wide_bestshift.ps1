@@ -29,7 +29,7 @@ $dd = 3; $dta = 2; $cut = 10
 Write-Host "[Wide 3D Search] shift-range: $shiftSpec" -ForegroundColor Cyan
 $wide3d = Join-Path $testDir "wide_best_3d"
 python -m rtgamma.main --mode 3d --opt-shift on --shift-range $shiftSpec --refine coarse2fine `
-  --norm none --dd $dd --dta $dta --cutoff $cut --ref $ref --eval $eval --report $wide3d
+  --norm none --engine numba --dd $dd --dta $dta --cutoff $cut --ref $ref --eval $eval --report $wide3d
 
 $bestJsonPath = "$wide3d.json"
 if (-not (Test-Path $bestJsonPath)) { throw "Wide best 3D JSON not found: $bestJsonPath" }
@@ -53,7 +53,7 @@ foreach ($p in $planes) {
   Write-Host ("[2D] $p with fixed best shift...") -ForegroundColor Cyan
   python -m rtgamma.main --mode 2d --plane $p --plane-index auto `
     --opt-shift on --shift-range $fixedSpec --refine none `
-    --norm none --dd $dd --dta $dta --cutoff $cut `
+    --norm none --engine numba --dd $dd --dta $dta --cutoff $cut `
     --ref $ref --eval $eval --save-gamma-map ("{0}_gamma.png" -f $base) `
     --save-dose-diff ("{0}_diff.png" -f $base) --report $base
 

@@ -1,7 +1,141 @@
+import hashlib
+import io
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pydicom
+
+GEOMETRY_TOLERANCE = 1e-5
+
+
+class RTDoseGeometryError(ValueError):
+    """Raised when RTDOSE geometry is invalid or unsupported."""
+
+
+def _read_dicom_snapshot(path: str):
+    """Hash and parse exactly the same immutable byte snapshot."""
+    with open(path, 'rb') as stream:
+        source_bytes = stream.read()
+    dataset = pydicom.dcmread(io.BytesIO(source_bytes), force=True)
+    return dataset, hashlib.sha256(source_bytes).hexdigest()
+
+
+def _geometry_error(message: str) -> RTDoseGeometryError:
+    return RTDoseGeometryError(f"Invalid RTDOSE geometry: {message}")
+
+
+def _required_numeric_vector(ds, name: str, length: int) -> np.ndarray:
+    if not hasattr(ds, name):
+        raise _geometry_error(f"missing required {name}")
+    try:
+        values = np.asarray(getattr(ds, name), dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise _geometry_error(f"{name} is not numeric") from exc
+    if values.ndim != 1 or values.size != length:
+        raise _geometry_error(f"{name} must contain exactly {length} values")
+    if not np.isfinite(values).all():
+        raise _geometry_error(f"{name} contains non-finite values")
+    return values
+
+
+def _validate_iop(iop: np.ndarray) -> None:
+    v_col = iop[:3]
+    v_row = iop[3:6]
+    col_norm = float(np.linalg.norm(v_col))
+    row_norm = float(np.linalg.norm(v_row))
+    if col_norm <= GEOMETRY_TOLERANCE or row_norm <= GEOMETRY_TOLERANCE:
+        raise _geometry_error("ImageOrientationPatient contains a zero direction vector")
+    if not np.isclose(col_norm, 1.0, atol=GEOMETRY_TOLERANCE, rtol=0.0):
+        raise _geometry_error("ImageOrientationPatient first direction is not unit length")
+    if not np.isclose(row_norm, 1.0, atol=GEOMETRY_TOLERANCE, rtol=0.0):
+        raise _geometry_error("ImageOrientationPatient second direction is not unit length")
+    if abs(float(np.dot(v_col, v_row))) > GEOMETRY_TOLERANCE:
+        raise _geometry_error("ImageOrientationPatient directions are not orthogonal")
+    if float(np.linalg.norm(np.cross(v_col, v_row))) <= GEOMETRY_TOLERANCE:
+        raise _geometry_error("ImageOrientationPatient directions are degenerate")
+
+
+def _normalise_gfov(ds, ipp: np.ndarray, iop: np.ndarray, nframes: int) -> np.ndarray:
+    if not hasattr(ds, 'GridFrameOffsetVector'):
+        raise _geometry_error("missing required GridFrameOffsetVector")
+    try:
+        gfov = np.asarray(ds.GridFrameOffsetVector, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise _geometry_error("GridFrameOffsetVector is not numeric") from exc
+    if gfov.ndim != 1 or gfov.size != nframes:
+        raise _geometry_error(
+            "GridFrameOffsetVector length does not match NumberOfFrames"
+        )
+    if not np.isfinite(gfov).all():
+        raise _geometry_error("GridFrameOffsetVector contains non-finite values")
+
+    # DICOM permits axial grids to encode absolute patient-z coordinates.
+    axial_iop = np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+    if (
+        gfov.size
+        and np.allclose(iop, axial_iop, atol=GEOMETRY_TOLERANCE, rtol=0.0)
+        and np.isclose(gfov[0], ipp[2], atol=GEOMETRY_TOLERANCE, rtol=0.0)
+    ):
+        gfov = gfov - ipp[2]
+
+    if gfov.size > 1:
+        differences = np.diff(gfov)
+        if not (np.all(differences > 0.0) or np.all(differences < 0.0)):
+            raise _geometry_error(
+                "GridFrameOffsetVector must be strictly monotonic without duplicates"
+            )
+    return gfov
+
+
+def validate_rtdose_pair_geometry(meta_ref: Dict, meta_eval: Dict) -> float:
+    """Validate geometry assumptions shared by both gamma engines.
+
+    Differing origins, in-plane spacing, and slice spacing are supported. The
+    direction matrices must match because the direct 3D gamma path represents
+    both distributions with one common rectilinear axis frame.
+    """
+    ref_units = str(meta_ref.get('units', '')).strip().upper()
+    eval_units = str(meta_eval.get('units', '')).strip().upper()
+    if ref_units != eval_units:
+        raise RTDoseGeometryError(
+            "Unsupported RTDOSE pair geometry: DoseUnits mismatch "
+            f"(reference={ref_units}, evaluation={eval_units})"
+        )
+
+    ref_for_uid = str(
+        getattr(meta_ref['dataset'], 'FrameOfReferenceUID', '')
+    ).strip()
+    eval_for_uid = str(
+        getattr(meta_eval['dataset'], 'FrameOfReferenceUID', '')
+    ).strip()
+    if ref_for_uid and eval_for_uid and ref_for_uid != eval_for_uid:
+        raise RTDoseGeometryError(
+            "Unsupported RTDOSE pair geometry: FrameOfReferenceUID values differ"
+        )
+
+    signed_dots = np.array([
+        np.dot(meta_ref['v_col'], meta_eval['v_col']),
+        np.dot(meta_ref['v_row'], meta_eval['v_row']),
+        np.dot(meta_ref['v_slice'], meta_eval['v_slice']),
+    ], dtype=float)
+    orientation_min_dot = float(np.min(signed_dots))
+    ref_matrix = np.stack([
+        meta_ref['v_col'], meta_ref['v_row'], meta_ref['v_slice']
+    ])
+    eval_matrix = np.stack([
+        meta_eval['v_col'], meta_eval['v_row'], meta_eval['v_slice']
+    ])
+    if not np.allclose(
+        ref_matrix,
+        eval_matrix,
+        atol=GEOMETRY_TOLERANCE,
+        rtol=0.0,
+    ):
+        raise RTDoseGeometryError(
+            "Unsupported RTDOSE pair geometry: reference and evaluation "
+            "ImageOrientationPatient directions differ"
+        )
+    return orientation_min_dot
 
 
 def _dircos_to_matrix(iop: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -36,7 +170,7 @@ def load_rtdose(path: str) -> Dict:
         else:
             raise FileNotFoundError(f"No RTDOSE found in directory: {path}")
 
-    ds = pydicom.dcmread(target_path, force=True)
+    ds, source_sha256 = _read_dicom_snapshot(target_path)
 
     # Workaround for files with missing TransferSyntaxUID
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
@@ -45,11 +179,35 @@ def load_rtdose(path: str) -> Dict:
     if getattr(ds, 'Modality', None) != 'RTDOSE':
         raise ValueError("DICOM is not RTDOSE (Modality != RTDOSE)")
 
-    rows = int(ds.Rows)
-    cols = int(ds.Columns)
-    nframes = int(getattr(ds, 'NumberOfFrames', 1))
+    try:
+        rows = int(ds.Rows)
+        cols = int(ds.Columns)
+        nframes = int(ds.NumberOfFrames)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise _geometry_error(
+            "Rows, Columns, and NumberOfFrames must be present integers"
+        ) from exc
+    if rows <= 0 or cols <= 0 or nframes <= 0:
+        raise _geometry_error("Rows, Columns, and NumberOfFrames must be positive")
 
-    scaling = float(getattr(ds, 'DoseGridScaling', 1.0))
+    ipp = _required_numeric_vector(ds, 'ImagePositionPatient', 3)
+    iop = _required_numeric_vector(ds, 'ImageOrientationPatient', 6)
+    _validate_iop(iop)
+    ps = _required_numeric_vector(ds, 'PixelSpacing', 2)
+    if np.any(ps <= 0.0):
+        raise _geometry_error("PixelSpacing values must be positive")
+    gfov = _normalise_gfov(ds, ipp, iop, nframes)
+
+    units = str(getattr(ds, 'DoseUnits', '')).strip().upper()
+    if units not in {'GY', 'RELATIVE'}:
+        raise _geometry_error("DoseUnits must be GY or RELATIVE")
+
+    try:
+        scaling = float(ds.DoseGridScaling)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise _geometry_error("DoseGridScaling must be present and numeric") from exc
+    if not np.isfinite(scaling) or scaling <= 0.0:
+        raise _geometry_error("DoseGridScaling must be finite and positive")
     pixel_array = ds.pixel_array.astype(np.float64) * scaling
     # Shape normalize to (z, y, x)
     if pixel_array.ndim == 3:
@@ -58,9 +216,14 @@ def load_rtdose(path: str) -> Dict:
         dose = pixel_array[None, :, :]
     else:
         raise ValueError("Unexpected RTDOSE pixel array dimensions")
+    if dose.shape != (nframes, rows, cols):
+        raise _geometry_error(
+            "decoded pixel array dimensions do not match "
+            "NumberOfFrames, Rows, and Columns"
+        )
+    if not np.isfinite(dose).all():
+        raise _geometry_error("scaled dose array contains non-finite values")
 
-    ipp = np.array(ds.ImagePositionPatient, dtype=float)
-    iop = np.array(ds.ImageOrientationPatient, dtype=float)
     # v_col is the direction of the first row (incrementing column index i)
     # v_row is the direction of the first column (incrementing row index j)
     v_col, v_row, v_slice = _dircos_to_matrix(iop)
@@ -68,20 +231,10 @@ def load_rtdose(path: str) -> Dict:
     # PixelSpacing is (row, column) spacing
     # ps[0] is distance between adjacent rows (spacing along v_row)
     # ps[1] is distance between adjacent columns (spacing along v_col)
-    ps = np.array(ds.PixelSpacing, dtype=float)
     s_row = float(ps[0])
     s_col = float(ps[1])
 
     # GridFrameOffsetVector gives per-slice offsets (mm) along the normal from IPP
-    gfov = np.array(ds.GridFrameOffsetVector, dtype=float)
-    if len(gfov) != nframes:
-        # Some RTDOSEs use equally spaced frames; derive from SliceThickness when needed
-        st = float(getattr(ds, 'SliceThickness', 0.0) or 0.0)
-        if st > 0.0 and nframes > 1:
-            gfov = np.linspace(0.0, st * (nframes - 1), nframes)
-        else:
-            gfov = np.arange(nframes, dtype=float)  # fallback
-
     # Sort frames by Z-offset to ensure monotonicity
     order = np.argsort(gfov)
     dose = dose[order, :, :]
@@ -95,6 +248,8 @@ def load_rtdose(path: str) -> Dict:
     k_mm = gfov.copy()
 
     meta = {
+        'source_path': os.path.abspath(target_path),
+        'source_sha256': source_sha256,
         'dose': dose.astype(np.float32),  # (z,y,x) -> (k,j,i)
         'ipp': ipp,
         'v_col': v_col, # i-axis (horizontal in 2D)
@@ -106,7 +261,7 @@ def load_rtdose(path: str) -> Dict:
         'x_coords_mm': i_mm, # used by legacy code as 'x' coords
         'y_coords_mm': j_mm, # used by legacy code as 'y' coords
         'z_coords_mm': k_mm, # used by legacy code as 'z' coords
-        'units': getattr(ds, 'DoseUnits', 'UNKNOWN'),
+        'units': units,
         'dataset': ds,
         'shape': dose.shape,
     }
@@ -287,7 +442,7 @@ def load_rtstruct(path: str) -> Dict:
         else:
             raise FileNotFoundError(f"No RTSTRUCT found in directory: {path}")
 
-    ds = pydicom.dcmread(target_path, force=True)
+    ds, source_sha256 = _read_dicom_snapshot(target_path)
 
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
         ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
@@ -335,6 +490,8 @@ def load_rtstruct(path: str) -> Dict:
             for_uid = str(getattr(ref_for_seq[0], 'FrameOfReferenceUID', ''))
 
     return {
+        'source_path': os.path.abspath(target_path),
+        'source_sha256': source_sha256,
         'roi_list': roi_list,
         'for_uid': for_uid,
         'dataset': ds,

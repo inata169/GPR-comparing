@@ -13,11 +13,15 @@ numpy==1.26.4
 packaging==26.3
 pillow==12.3.0
 pydicom==2.4.5
+pymedphys==0.41.0
 pyparsing==3.3.2
 pyqtgraph==0.14.0
 PySide6_Essentials==6.11.1
 python-dateutil==2.9.0.post0
 reportlab==4.5.1
 scipy==1.17.1
+setuptools==84.0.0
 shiboken6==6.11.1
 six==1.17.0
+tomlkit==0.15.1
+typing_extensions==4.16.0

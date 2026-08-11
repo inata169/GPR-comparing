@@ -52,7 +52,11 @@ function Read-GuiDefaults([string]$root) {
 
 function Read-GuiConfig([string]$root) {
   $iniPath = Join-Path $root 'config/gui_config.ini'
-  return Flatten-GuiIni (Read-GuiIni $iniPath)
+  if (Test-Path -LiteralPath $iniPath -PathType Leaf) {
+    return Flatten-GuiIni (Read-GuiIni $iniPath)
+  }
+  $examplePath = Join-Path $root 'config/gui_config.example.ini'
+  return Flatten-GuiIni (Read-GuiIni $examplePath)
 }
 
 function Merge-GuiConfig([hashtable]$defaults, [hashtable]$saved) {

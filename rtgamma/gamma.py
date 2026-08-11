@@ -1,10 +1,61 @@
+from importlib import metadata
 from typing import Literal, Optional, Tuple
 
 import numba
 import numpy as np
 
+from .settings import DEFAULT_GAMMA_ENGINE, SUPPORTED_PYMEDPHYS_VERSION
+
 GammaType = Literal['global', 'local']
 NormType = Literal['global_max', 'max_ref', 'none']
+GammaEngineName = Literal['numba', 'pymedphys']
+
+
+def resolve_gamma_engine(
+    engine: Optional[str] = None,
+    use_pymedphys: Optional[bool] = None,
+) -> GammaEngineName:
+    """Resolve the public engine name while preserving the legacy boolean API."""
+    if engine is None:
+        if use_pymedphys is None:
+            return DEFAULT_GAMMA_ENGINE
+        return 'pymedphys' if use_pymedphys else 'numba'
+
+    if engine not in ('numba', 'pymedphys'):
+        raise ValueError(f"Unsupported gamma engine: {engine}")
+
+    if use_pymedphys is not None and use_pymedphys != (engine == 'pymedphys'):
+        raise ValueError("Conflicting engine and use_pymedphys values")
+
+    return engine
+
+
+def gamma_engine_version(engine: GammaEngineName) -> str:
+    """Return the installed implementation version for report provenance."""
+    package_name = 'numba' if engine == 'numba' else 'pymedphys'
+    try:
+        return metadata.version(package_name)
+    except metadata.PackageNotFoundError:
+        return 'not-installed'
+
+
+def _validate_pymedphys_grid(
+    axes: Tuple[np.ndarray, ...],
+    dose: np.ndarray,
+    label: str,
+) -> None:
+    if len(axes) != dose.ndim:
+        raise ValueError(f"{label} axes count does not match dose dimensions")
+    for dimension, axis in enumerate(axes):
+        values = np.asarray(axis, dtype=float)
+        if values.ndim != 1 or len(values) != dose.shape[dimension]:
+            raise ValueError(f"{label} axis {dimension} does not match dose shape")
+        if not np.isfinite(values).all():
+            raise ValueError(f"{label} axis {dimension} contains non-finite values")
+        if len(values) > 1:
+            differences = np.diff(values)
+            if not (np.all(differences > 0) or np.all(differences < 0)):
+                raise ValueError(f"{label} axis {dimension} is not strictly monotonic")
 
 
 def _norm_factor(dose_ref: np.ndarray, dose_eval: np.ndarray, norm: NormType) -> float:
@@ -338,22 +389,59 @@ def compute_gamma(
     cutoff_percent: float,
     gamma_type: GammaType = 'global',
     norm: NormType = 'global_max',
-    use_pymedphys: bool = False, # Default to False now
+    use_pymedphys: Optional[bool] = None,
     norm_factor_override: Optional[float] = None,
     interp_fraction: int = 1,
+    engine: Optional[GammaEngineName] = None,
 ) -> Tuple[np.ndarray, float, dict]:
 
+    resolved_engine = resolve_gamma_engine(engine, use_pymedphys)
     nf = float(norm_factor_override) if (norm_factor_override is not None) else _norm_factor(dose_ref, dose_eval, norm)
 
-    if use_pymedphys:
-        import pymedphys
-        ref_pct = (dose_ref / nf) * 100.0
-        eval_pct = (dose_eval / nf) * 100.0
-        g = pymedphys.gamma(axes_ref_mm, ref_pct, axes_eval_mm, eval_pct,
-                                dose_percent_threshold=dd_percent,
-                                distance_mm_threshold=dta_mm,
-                                lower_percent_dose_cutoff=cutoff_percent)
+    if resolved_engine == 'pymedphys':
+        if interp_fraction < 1:
+            raise ValueError("PyMedPhys interp_fraction must be at least 1")
+        if norm == 'none':
+            raise ValueError(
+                "PyMedPhys engine does not support norm=none until its absolute-dose "
+                "semantics and cutoff behavior are approved."
+            )
+        _validate_pymedphys_grid(axes_ref_mm, dose_ref, 'reference')
+        _validate_pymedphys_grid(axes_eval_mm, dose_eval, 'evaluation')
+        try:
+            import pymedphys
+        except ImportError as exc:
+            raise RuntimeError(
+                "PyMedPhys engine requested but pymedphys is not installed. "
+                "Install the Python 3.12 runtime requirements."
+            ) from exc
+
+        engine_version = gamma_engine_version('pymedphys')
+        if engine_version != SUPPORTED_PYMEDPHYS_VERSION:
+            raise RuntimeError(
+                "The standard engine requires exactly PyMedPhys "
+                f"{SUPPORTED_PYMEDPHYS_VERSION}, but {engine_version} is installed. "
+                "Install the pinned runtime requirements before calculation."
+            )
+
+        g = pymedphys.gamma(
+            axes_ref_mm,
+            dose_ref,
+            axes_eval_mm,
+            dose_eval,
+            dose_percent_threshold=dd_percent,
+            distance_mm_threshold=dta_mm,
+            lower_percent_dose_cutoff=cutoff_percent,
+            interp_fraction=interp_fraction,
+            local_gamma=(gamma_type == 'local'),
+            global_normalisation=nf,
+            max_gamma=np.inf,
+            skip_once_passed=False,
+            random_subset=None,
+            interp_algo='pymedphys',
+        )
     else:
+        engine_version = gamma_engine_version('numba')
         if dose_ref.ndim != 3:
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
 
@@ -409,6 +497,9 @@ def compute_gamma(
 
     has_finite = np.isfinite(g).any()
     stats = {
+        'gamma_engine': resolved_engine,
+        'gamma_engine_version': engine_version,
+        'resolved_normalisation': nf,
         'gamma_mean': float(np.nanmean(g)) if has_finite else float('nan'),
         'gamma_median': float(np.nanmedian(g)) if has_finite else float('nan'),
         'gamma_max': float(np.nanmax(g)) if has_finite else float('nan'),

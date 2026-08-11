@@ -1,201 +1,210 @@
-# rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
+# GPR-comparing
 
-![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml)
 
-DICOM RTDOSE ペアに対する高速で再現性の高いガンマ解析ツールです。堅牢なジオメトリ処理、CLI/GUI サポート、軽量なドキュメントと仕様を備えています。
+GPR-comparing is a research and education tool for comparing two DICOM RT Dose distributions with two-dimensional or three-dimensional gamma analysis. The Python package is currently named `rtgamma`.
 
-## 主な機能
-- **高精度な空間整合**: DICOMタグ (IPP/IOP/PixelSpacing/GFOV) に厳密に基づく座標投影。ROIマスクも線量グリッドに正確にマッピングします。
-- **2D/3Dガンマ解析**: 高速な3Dカーネル (Numba) および特定スライスのみを計算する軽量な2D経路。
-- **Sub-voxel Interpolation**: 金標準 (SunNuclear 3DVH等) に匹敵する精度を実現する、trilinear内挿ベースの Expanding shell サブボクセル探索アルゴリズム (`--interp-fraction` 対応)。
-- **3D ガンマビューア**: CT、線量分布、ガンママップ、Structure輪郭線を重ねて1つのインターフェースで確認できるインタラクティブビューア。Pass/Fail表示やDose Ratio表示にも対応。
-- **Fast 3D Viewer**: PyQtGraph + PySide6 による高速ビューア。GUIの3D Viewer起動経路はFast固定です。
-- **RTPLAN 統合ヘッダ比較**: RTDOSE に加え、RTPLAN から Isocenter 座標や SAD/SSD を読み取り、プラン間のズレを客観的に出力可能。
-- **シフト最適化**: 計算領域を粗密2段階で自動走査し、最適な空間シフト（位置ズレ）を探索。
-- **ROI 限定解析**: RTSTRUCT ファイルと ROI 名を指定することで、特定構造（PTV, GTV など）内のガンマパス率（GPR）や統計値を算出可能。
-- **Global / Local ガンマ**: 基準線量最大値（Global）または各ボクセル値（Local）に基づくガンマ計算の切り替え。
-- **使いやすい GUI**: PowerShell / WinForms ベースの GUI サポート（ダークテーマ、直接数値入力対応）。
+> **Safety notice — not for clinical use.** This software must not be used for patient-specific QA, clinical commissioning, diagnosis, treatment decisions, treatment planning, or any other clinical decision. It is not a certified medical device and does not replace a commercial QA system, treatment planning system, phantom, or measurement device. It has no vendor approval, certification, or endorsement. Every user must perform an independent, purpose-specific verification before relying on any result. Do not place patient DICOM or protected health information in this repository or a public report.
 
-## インストール
-- 要件: Python 3.9 以上
-- 依存ライブラリ:
-  ```bash
-  pip install pydicom numpy scipy matplotlib numba
-  ```
-- Fast 3D Viewer をSource/Python環境で使う場合:
-  ```bash
-  pip install -r requirements-fast-viewer.txt
-  ```
+The canonical public documentation is English. The former Japanese README is preserved in [README.ja.md](README.ja.md).
 
-## クイックスタート (CLI)
-- **3D 解析 (レポートのみ出力)**
-  ```bash
-  python -m rtgamma.main --ref dicom/Reference.dcm --eval dicom/Evaluate.dcm --mode 3d --report output/run3d
-  ```
-- **ROI 限定の 3D 解析**
-  ```bash
-  python -m rtgamma.main --ref dicom/Ref.dcm --eval dicom/Eval.dcm --rtstruct dicom/Struct.dcm --roi GTV --mode 3d --report output/run3d_gtv
-  ```
+## 1. Overview
 
-## 臨床プリセットとスレッド数
-- **プリセット**: `--profile {clinical_abs, clinical_rel, clinical_2x2, clinical_3x3}` (デフォルトではシフト最適化が無効化されます)
-- **スレッド数**: `--threads <N>` で Numba 並列スレッド数を指定 (0=自動)
+The command-line pipeline loads a reference RTDOSE and an evaluation RTDOSE, interprets their DICOM geometry, calculates gamma on reference-grid points, and can write summary reports, images, arrays, and a SQLite record. A Windows PowerShell/WinForms GUI exposes the main analysis options and launches the Fast 3D Viewer.
 
-## Global / Local ガンマ
-- `--gamma-type {global,local}` で選択可能 (デフォルト: global)
-- 詳細な仕様と挙動については、`docs/openspec/Global_Local_Illustrated_JA.md` を参照してください。
+PyMedPhys 0.41.0 is the standard gamma engine and the omitted-value default in the CLI, batch runner, and GUI. The repository's Numba implementation remains available only through explicit selection for legacy reproduction and engine research. See the [PyMedPhys standardization change](docs/openspec/changes/pymedphys-standard-engine/proposal.md).
 
-## 出力形式
-- **レポート**: CSV / JSON / Markdown (`--report <basepath>`) 。ROIごとの統計情報 (`per_structure`) を含みます。
-- **2D 画像**: PNG形式でのガンママップと線量差分 (`--save-gamma-map`, `--save-dose-diff`)
-- **3D 配列**: NPZ形式での生データ出力（オプション）
+## 2. Intended use and limitations
 
-## GUI (グラフィカル・ユーザー・インターフェース)
-- **起動**: `run_gui_python.bat` をダブルクリック（または PowerShell から `scripts/run_gui.ps1` を実行）
-- 3D Viewer は `Fast` 固定で起動します。保存済み設定に `viewer_type=legacy` が残っていてもFast Viewerを起動します。
-- Fast Viewer起動に失敗した場合は、依存関係やログパスを含む診断メッセージを表示します。Legacy fallbackは提示しません。
+GPR-comparing is intended for reproducible software research, education, method development, and non-patient phantom studies. A gamma pass rate is conditional on the input order, grids, coordinate handling, normalization, dose and distance criteria, cutoff, interpolation, and optional shift search. It is not a universal clinical acceptance result.
 
-### 基本的な使い方
-1. **必須項目の選択**
-   - **Ref RTDOSE / Eval RTDOSE**: 比較したい基準線量と評価線量のDICOMファイルを選択します。
-   - **Output Folder**: 結果（レポート、CSV、画像等）の保存先フォルダを指定します。
-2. **ROI 限定解析 (オプション)**
-   - **RTSTRUCT**: 輪郭情報が含まれる DICOM ファイルを選択します。
-   - **ROI Name**: 評価対象の ROI 名を入力します（例: `PTV` や `GTV,Rectum` のようにカンマ区切りで複数指定が可能。空欄の場合は含まれる全ROIが抽出されます）。
-3. **解析設定の選択**
-   - **Action**: 全体の3D解析、特定の2D断面解析、3Dガンマビューアの起動、またはヘッダ情報の比較から実行モードを選択します。
-   - **Viewer**: 3D ViewerはFast Viewer固定で起動します。
-   - **Clinical Preset (旧)**: 現在は DTA (mm), DD (%), Cutoff (%) の各評価基準を直接テキストボックスに入力する方式です。
-4. **オプション設定**
-   - **Optimize shift**: チェックを入れると、位置ズレを補正して最も合格率が高くなる「シフト量」を自動探索します。
-   - **Local gamma**: 各ボクセルの線量値を基準とする Local ガンマで計算します（オフの場合は Global ガンマ）。
-   - **Sub-voxel Interp**: 高精度な trilinear サブボクセル内挿を行うための分割数（デフォルトおよび推奨: 10）。解像度計算をスキップする場合は1に設定します。
-5. **解析の実行**
-   - 「Run」ボタンをクリックすると計算が始まり、プログレスバーとリアルタイムログで進捗が確認できます。
-   - 計算完了後、自動的に Markdown 形式のサマリレポートが開きます。
-   - 💡 よく使う設定は「Save Settings」ボタンで保存し、次回起動時に復元できます。
+The labels `TG218_IMRT`, `TG218_Stereotactic`, and other preset names in [config/presets.json](config/presets.json) are compatibility labels for parameter sets. They do not establish clinical suitability, commissioning, certification, or compliance with any protocol.
 
-### GUI 実行例
+The PDF report presents the observed numeric GPR without assigning a clinical PASS/FAIL decision. Interpret it only under a prospectively defined research protocol.
 
-![rtgamma GUI after successful 3D gamma analysis](docs/openspec/images/Gui-screenshot.png)
+## 3. Features
 
-上の例では、合成RTDOSE/RTSTRUCTデータで3D Gammaを実行し、PDF/NPZ/SQLite DBの保存まで完了しています。
+Implemented features include:
 
-### 3D Viewer
+- 2D axial, sagittal, and coronal gamma outputs, and full 3D gamma analysis;
+- global and local dose-difference terms;
+- reference-dose cutoff and selectable normalization;
+- Numba voxel and trilinear sub-voxel search;
+- explicit CLI, batch, and GUI selection of the PyMedPhys or Numba gamma engine;
+- optional coarse-to-fine shift optimization;
+- RTDOSE loading with IPP, IOP, Pixel Spacing, GFOV, and Dose Grid Scaling;
+- RTSTRUCT contour masks, per-ROI gamma statistics, and per-ROI DVH statistics;
+- CSV, JSON, Markdown, PDF, PNG, NPZ, SQLite, and search-log outputs;
+- RTDOSE header comparison;
+- a Windows GUI and a PySide6/PyQtGraph Fast 3D Viewer;
+- an offline Windows bundle builder and a synthetic, non-patient installation smoke test.
 
-![Fast 3D Viewer showing synchronized axial, sagittal, and coronal gamma views](docs/openspec/images/Fast-3d-viewer-screenshot.png)
+The PyMedPhys default, GUI selection, versioned runtime provenance, controlled local PyMedPhys-versus-Numba characterization, geometry safety gates, and analytical regression tests are implemented. The current standardization scope fixes PyMedPhys at 0.41.0; changing that version requires a separately reviewed validation cycle. Cross-engine numerical equality is not a release criterion because Numba remains a legacy/experimental comparator. Release approval remains open, and a 3DVH comparison is not required for PyMedPhys standardization.
 
-Fast 3D Viewerでは、Axial / Sagittal / Coronalの3断面、共有cursor、ROI別GPR、Gamma overlay、現在点readoutを1画面で確認できます。
+## 4. Supported environment
 
-- **Fast Viewer**: PyQtGraph + PySide6版。描画が高速で、CT、Structure、Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratio overlay、ROI別GPR、現在点のHU/Ref/Eval/Diff/Gamma/Pass-Fail readoutに対応します。
-- Legacy Viewer実装と配布スクリプトは互換性維持のため残っていますが、GUIの3D Viewer起動経路では使用しません。
-- 3断面は共通のcursor stateを共有します。Sagittal / Coronalも物理mmスケールで表示し、HFS前提の orientation label (`L/R`, `A/P`, `S/I`) を各断面に表示します。
-- 右下パネルでは、読み込みデータ、CT/Structure/Info表示、ROI visibility、overlay mode、zoom操作をコンパクトに確認・変更できます。`File` / `View` / `Help` メニューから読み込み情報、表示切替、操作Helpも確認できます。
-- Fast Viewerの基本操作:
-  - クリック: 共有cursorをクリック位置のvoxelへ移動
-  - ホイール / slice slider: 各断面のslice移動、`Shift + ホイール`: 高速slice移動
-  - `Ctrl + ホイール` / `+` / `-`: 拡大 / 縮小
-  - 中ボタンドラッグ: Pan
-  - `0` / `F`: 全断面の表示範囲reset / fit
-  - `H` / `?`: 操作Help表示
-  - `I`: 現在点情報の表示/非表示
-  - カーソルキー: active plane上でcursorを移動
-  - `O`: overlay表示切替、`C`: CT表示切替、`S`: Structure表示切替
-  - `G/P/R/E/X/D`: Gamma / Pass-Fail / Ref Dose / Eval Dose / Dose Diff / Dose Ratioへ切替
-- Fast Viewerの表示方向補正は表示変換で行い、voxel readoutやRTSTRUCT座標変換は変更しません。現在点の値は表示補間ではなくsource voxel arraysから取得します。
+The CI workflow tests the CLI package on Windows and Ubuntu with Python 3.10, 3.11, and 3.12. The current Windows offline bundle is specifically constrained to 64-bit CPython 3.12.10 on 64-bit Windows 10/11. The WinForms GUI is Windows-specific. The Fast Viewer additionally requires PySide6 Essentials and PyQtGraph.
 
-## 配布パッケージ
-- **Source/Python**: `run_gui_python.bat` で起動。3D ViewerはFast固定です。
-- **Fast ZIP**: `run_gui_fast_exe.bat` で起動する大容量EXE配布。`gamma_viewer_fast`、PySide6/Qt、pyqtgraphを同梱します。
-- **Legacy ZIP / Legacy Viewer**: 既存資産として残っていますが、今後のGUI 3D Viewer運用では主対象外です。
-- Fast ZIPはPyInstaller `onedir` で作成し、Qt/PySide6バイナリは改変しません。`NOTICE.txt`、`THIRD_PARTY_LICENSES/`、`bundled_manifest.txt` を同梱します。
-- アプリケーションソースコードはMITライセンスですが、同梱第三者コンポーネントは各ライセンスに従います。PySide6/QtはMITではありません。
+Python 3.9 has been mentioned in older project material but is not part of the current CI matrix. The PyMedPhys standardization target is CPython 3.12; other CI versions do not define the standardization acceptance environment.
 
-## 🛠 外部ツールとの連携
-本ツールの GUI は起動時に `config/gui_config.ini` を読み込みます。外部スクリプト（`dicom-phits_inp` など）からこの INI ファイルを事前に書き換えることで、特定の DICOM ファイルや解析結果を選択した状態でシームレスにビュアーを起動することが可能です。
+## 5. Installation
 
-**主な設定項目 (`[Paths]` セクション):**
-- `ref_dose`: 参照線量のパス
-- `eval_dose`: 評価線量のパス
-- `ct_dir`: CT 画像ディレクトリのパス
-- `output_dir`: 解析結果（`gamma_map.npz` 等）が含まれるディレクトリのパス
+For source use, create an isolated environment and install the tracked requirements:
 
-### 💡 ガンマパス率が低い場合の推奨ワークフロー
-パス率が著しく低い場合、座標系やセットアップの違いが原因であるケースがあります。
-1. **Header Compare**: `Action` を `Header Compare` にし、RTDOSE (可能なら RTPLAN も) のヘッダを比較します。Isocenter のズレや、**SSD (Source-to-Surface Distance) vs SAD (Source-to-Axis Distance) の定義の違い**により、初期座標(IPP)が数十mm〜100mm規模でズレて出力されているケース（例: `-114mm` のズレ等）を発見できます。
-2. **Absolute**: `Optimize shift` OFF でそのまま実行し、座標差を把握します。
-3. **Optimize Shift**: ズレが判明している場合は `Optimize shift` を ON にして補正計算を行います。
-*(詳細は [TEST_PLAN.md](TEST_PLAN.md) の Recommended Workflow を参照してください)*
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r REQUIREMENTS.txt
+```
 
-## テストと検証
-- 座標系丸め誤差（Round-trip）テストや、合成データを用いた単体テストを完備しています。
-  ```bash
-  pytest -q
-  ```
+For the Fast Viewer:
 
-## 最近のアップデート
-- **2026-03**: Sub-voxel Interpolation の独自実装を追加し、SunNuclear 3DVH と遜色ない解析精度（±1pp圏内）を達成。
-- **2026-03**: 3D ガンマビューアの大幅強化（Ref/Eval/Ratio線量重畳、カラーバー、UI刷新など）。
-- **2026-03**: RTPLAN DICOM の統合ヘッダ比較をサポート。
-- **2026-03**: RTSTRUCT読込機能および ROI (ポリゴンマスク) 限定のガンマ解析機能を完全統合。GUIからのROI指定に対応。
-- **2026-03**: DICOM 世界座標 (LPS) と画像インデックス間の変換ロジックを刷新し、斜めスライス等に対する座標変換往復テスト (Round-trip tests) を実装しました。
-- **2025-10**: Local gamma オプション (`--gamma-type local`) の追加。OpenSpec ドキュメントの導入。
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-fast-viewer.txt
+```
 
-## ライセンスとオフライン配布
+For tests and document validation:
 
-GPR-comparing のアプリケーションコードと文書は、リポジトリ直下の
-`LICENSE` に記載した MIT License で配布します。同梱する Python、Qt / PySide6、
-Python パッケージなどの第三者コンポーネントは MIT License には移行せず、
-それぞれ固有のライセンスに従います。
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
 
-ライセンスおよび配布に関する連絡先: Hiroki Inata <169@inata169.com>
+These commands install the standard PyMedPhys 0.41.0 engine and the explicit legacy/research Numba engine. Use CPython 3.12 for the standardization work.
 
-Windows オフライン ZIP では、第三者ライセンスを次の場所で確認できます。
+For an offline Windows computer, follow [Windows offline installation](docs/OFFLINE_INSTALL.md). The current bundle pins PyMedPhys 0.41.0 and explicitly smoke-tests PyMedPhys and Numba. Any future engine-version update requires new dependency resolution, integrity and licensing manifests, software tests, controlled verification, and a rebuilt bundle before it enters the supported baseline.
 
-- `NOTICE.txt`: 配布物全体と Qt / PySide6 に関する注意
-- `THIRD_PARTY_MANIFEST.json`: パッケージ名、正確なバージョン、wheel の
-  SHA-256、ライセンス、配布元、収集した資料
-- `THIRD_PARTY_LICENSES/`: wheel の `.dist-info` から収集した原文と、Python / Qt
-  の公式ライセンス資料
+## 6. CLI quick start
 
-PHITS、RT-PHITS、phits2dicom、Sumtally は ZIP に含まれません。必要な利用者は、
-権利者が指定する正規の方法で別途入手してください。患者 DICOM、施設・ベンダーの
-非公開データ、認証情報、ローカル設定、計算結果も配布物には含めません。
+The positional meaning of the inputs is important: `--ref` is the reference distribution whose points are evaluated; `--eval` is the distribution interpolated and searched around each reference point.
 
-本ソフトウェアは教育・研究用です。臨床判断および患者固有 QA には使用しないで
-ください。
+```powershell
+python -m rtgamma.main `
+  --ref C:\data\reference_rtdose.dcm `
+  --eval C:\data\evaluation_rtdose.dcm `
+  --mode 3d `
+  --dd 3 --dta 3 --cutoff 10 `
+  --gamma-type global --norm global_max `
+  --engine pymedphys `
+  --opt-shift off --interp-fraction 10 `
+  --report output\research_example\run3d
+```
 
-オフライン ZIP の作成・導入・検証とライセンス確認の詳細は
-[`docs/OFFLINE_INSTALL_JA.md`](docs/OFFLINE_INSTALL_JA.md) を参照してください。
+The `3% / 3 mm`, global gamma, 10% cutoff settings above are a reproducible research example for comparing a PHITS-derived RT Dose produced by [dicomxphits](https://github.com/inata169/dicomxphits) against a selected comparison RT Dose. They are not a universal clinical threshold, a vendor recommendation, a certification criterion, or proof of GPR-comparing's validity. Define criteria prospectively from the study aim, data, validation plan, and institutional procedure.
 
-## **免責事項 / Disclaimer**
+Run `python -m rtgamma.main --help` for the authoritative option list. Notable current defaults are the PyMedPhys engine, 3D mode, 3% DD, 2 mm DTA, 10% cutoff, global gamma, `global_max` normalization, shift optimization on, linear resampling, and interpolation fraction 10. An omitted engine emits a migration notice. Use `--engine numba` to reproduce a legacy Numba result. An unavailable requested/default PyMedPhys engine fails without falling back.
 
-## **⚠️ 重要：使用上の注意 (Important Notice)**
+## 7. GUI usage
 
-### **1\. 本ソフトウェアの位置づけ (Software Status)**
+On Windows, start source mode with `run_gui_python.bat` or run `scripts/run_gui.ps1`. The GUI accepts reference and evaluation RTDOSE files, an output directory, optional RTSTRUCT/ROI values, DD, DTA, cutoff, normalization, a preset, gamma engine, 2D plane/index, thread count, shift optimization, local gamma, sub-voxel interpolation, PDF/NPZ/SQLite/log options, and the requested action.
 
-本ソフトウェアは、作者個人の研究成果として公開されているものであり、**医療機器としての承認（薬機法等）を受けたものではありません。**
+The actions are Header Compare, 3D Gamma, 2D Gamma, and 3D Viewer. The GUI builds arguments for the same `rtgamma.main` CLI and always passes the selected engine. `PyMedPhys (standard)` is selected initially; `Numba (legacy / experimental)` is available for explicit reproduction work. The value is persisted locally as `Gamma/engine` in the Git-ignored `config/gui_config.ini`. When that file is absent, the GUI reads the tracked `config/gui_config.example.ini`, whose workstation paths are blank. Do not distribute locally saved DICOM paths. An older GUI configuration without the engine key migrates to PyMedPhys and shows a warning. The 3D Viewer launch path uses the Fast Viewer. It can load CT, RTDOSE, RTSTRUCT, and a precomputed `gamma3d.npz` containing the `gamma` array.
 
-標準的な治療計画装置（TPS）や検証用ファントム、測定機器を**置き換えるものではありません。**
+The tracked EXE launcher and PyInstaller builder include the same engine contract, but an already-built executable or offline ZIP is not modified in place. Rebuild and reverify those artifacts before expecting the PyMedPhys runtime to be bundled.
 
-This software is published as a personal research outcome and **is not a certified medical device** under any regulation. It does not replace, and is not intended to replace, any commercial Treatment Planning System (TPS), phantom, or measurement device.
+GUI labels and tooltips identify engine roles only; they are not clinical authorization.
 
-### **2\. 使用の制限と責任 (Limitation of Use and Liability)**
+## 8. 2D and 3D gamma analysis
 
-本ソフトウェアは、その設計上、**研究および教育目的**での利用を意図しています。
+In 3D mode, gamma is calculated for the full reference volume. The final Numba path searches the original evaluation array using one-dimensional coordinate axes adjusted for the projected IPP origin difference.
 
-本ソフトウェアを、**患者の診断、治療計画の立案、あるいは治療の品質保証（QA）など、臨床判断に直接関わるプロセスに使用することはできません。**
+In 2D mode with shift optimization off, only the selected reference slice is built in world coordinates. The evaluation dose is sampled onto that thin reference slice, and gamma is calculated on the resulting singleton-axis 3D array. The global normalization value is taken from the full reference volume. With shift optimization on, the current implementation runs the full-volume search first and then reports/saves the requested slice; it is not the same computational path as the no-shift 2D fast path.
 
-医学物理士などの専門家が、本ソフトウェアを臨床業務の「**参考用**」として（例：セカンドチェックの補助、研究的解析など）使用することもあるかもしれません。その場合であっても、使用者は以下の点に同意する必要があります：
+`--plane-index auto` selects the middle slice along the requested array axis. An explicit index is an array index, not a patient-coordinate value.
 
-1. **使用者の全責任:** ソフトウェアを使用する前に、自身の施設環境で十分な検証（コミッショニング）を行い、その正確性、特性、限界をすべて把握すること。  
-2. **結果の保証の否認:** 本ソフトウェアが出力する計算結果の妥当性、正確性について、作者は一切保証しません。  
-3. **最終責任の所在:** 本ソフトウェアを使用したこと、またはその結果を参照したことにより生じる**すべての臨床判断と、それに伴う一切の結果について、作者は一切の責任を負わず、使用者が単独で全責任を負うものとします。**
+## 9. Global and local gamma
 
-### **3\. 無保証 (No Warranty)**
+`--gamma-type global` uses a single dose normalization denominator. With `global_max` or `max_ref`, the current code uses the maximum finite reference dose; those two names are therefore equivalent in the current implementation.
 
-本ソフトウェアは、MITライセンスに基づき「**現状有姿 (AS IS)**」で提供されます。作者は、本ソフトウェアの正確性、完全性、特定目的への適合性、非侵害について、明示的か黙示的かを問わず、一切の保証を行いません。
+`--gamma-type local` uses the dose at each reference voxel as the dose-difference denominator. It is normally stricter in lower-dose regions. Reference values effectively equal to zero are not evaluated in the local Numba path.
 
-### **4\. 免責 (Limitation of Liability)**
+The PyMedPhys adapter explicitly forwards `local_gamma`, `interp_fraction`, and the resolved global normalization. Local results are not assumed numerically equivalent to Numba. The approved release policy does not require a numerical or mask-agreement threshold between engines; observed differences must still be recorded and reviewed without case-specific tuning.
 
-作者または著作権者は、本ソフトウェアの使用、誤用、または使用不能から生じる、いかなる直接的、間接的、付随的、特別、懲罰的、結果的な損害（データの損失、逸失利益、業務の中断、あるいは患者への危害を含むがこれに限られない）についても、一切の責任を負いません。
+A local migration characterization used two anonymized Monaco phantom RTDOSE distributions (3 x 3 cm and 5 x 5 cm fields) and controlled evaluation variants derived from each source: a uniform +2% dose scale and a +1 mm shift in the positive DICOM column direction. The fixed 2D protocol used axial slices 74, 75, and 76, 3% / 2 mm, a 10% reference cutoff, `global_max`, interpolation fraction 10, linear resampling, and shift optimization off. Across 24 engine comparisons, the finite evaluated masks agreed in every run. Global gamma had no pass/fail disagreements across 41,970 common points. Local gamma had 165 disagreements across 41,970 common points (0.393%), all in the +1 mm shift variants; the uniform +2% variants had none. Disagreements occurred in both directions, so they are recorded as engine-definition and interpolation differences rather than attributed solely to the Numba early exit.
+
+These local results support the PyMedPhys standard while keeping Numba available for explicit legacy reproduction. They do not establish clinical validity, approve a numerical tolerance, or authorize a release. The source and derived DICOM files and numerical result arrays are local-only and are not distributed by this repository.
+
+## 10. Dose-difference criterion
+
+`--dd` is the dose-difference criterion in percent. For global gamma, the Numba dose term is `(evaluation - reference) / normalization * 100`. For local gamma it is `(evaluation - reference) / reference_voxel * 100`.
+
+For the Numba engine, `--norm none` sets the normalization factor to `1.0` dose unit; it does not convert `--dd` into a clearly specified absolute-dose criterion. The approved PyMedPhys scope rejects `norm=none` fail-closed; no absolute-dose mapping is inferred. A future mapping would require a separate specification and validation cycle. Before calculation, the program rejects missing or invalid `DoseUnits` and reference/evaluation unit mismatches.
+
+## 11. Distance-to-agreement criterion
+
+`--dta` is the spatial criterion in millimetres. The Numba engine evaluates candidate points within the DTA sphere and combines squared spatial and dose terms. With interpolation fraction 1 it searches evaluation voxels. With a larger fraction it samples the evaluation grid trilinearly at sub-voxel offsets.
+
+## 12. Dose cutoff
+
+`--cutoff` is applied to the reference dose before gamma evaluation. For `global_max` and `max_ref`, the threshold is the stated percentage of the maximum finite reference dose. Excluded points are represented by `NaN` and are omitted from the pass-rate denominator.
+
+The CLI also exposes `--cutoff-mask`, `--low-dose-exclusion`, and `--tolerance`, but the current main calculation does not use those parsed values. Do not rely on them until implementation and tests exist.
+
+## 13. Sub-voxel interpolation
+
+`--interp-fraction N` controls the current Numba sub-voxel search. For `N > 1`, the nominal sampling step is `DTA / N` millimetres and the evaluation dose is trilinearly sampled. `N = 1` selects voxel-centre search. Runtime and memory use increase with the search density.
+
+The current Numba kernels stop searching a reference point when the first sampled candidate with `gamma <= 1` is found. This preserves the sampled pass/fail decision but does not guarantee the minimum gamma value for a passing point. Consequently, Numba gamma maps, means, and percentiles must not be treated as numerically equivalent to PyMedPhys even when GPR and evaluated masks agree. This is documented legacy behavior; the standardization work does not silently change it.
+
+This parameter is distinct from `--interp`, which selects nearest, linear, or cubic B-spline interpolation when evaluation or CT values are resampled onto another grid. In the current 3D final gamma path, `--interp` does not select the Numba gamma interpolation method.
+
+Do not tune `interp_fraction` case by case to reproduce another system's GPR. A comparison protocol must fix it before external-system evaluation. The existing `config/3dvh_reference.json` and sensitivity script are historical exploratory assets and are not an accepted validation protocol.
+
+## 14. RTSTRUCT/ROI analysis
+
+Supply `--rtstruct` and repeat `--roi` to select structures; omit `--roi` to process all contours found. Masks are generated on the reference RTDOSE grid. Reports include voxel count, evaluated count, ROI GPR, gamma statistics, and reference/evaluation DVH statistics.
+
+Current limitations include exact, case-sensitive ROI-name matching; contour-to-slice matching by world `z`; in-plane polygon conversion using the world `x/y` components; union of multiple contours on a slice without explicit hole semantics; and incomplete evidence for oblique RTSTRUCT geometries. Independently inspect masks before interpreting ROI results. DVH functionality is exploratory and is not evidence of equivalence to a treatment planning system or commercial DVH implementation.
+
+## 15. Output files and reports
+
+With `--report output/run`, the program writes `run.csv`, `run.json`, `run.md`, and, by default, `run.pdf`. Use `--no-pdf` to suppress PDF generation. Shift optimization also writes `run_search_log.json`. Header mode writes exactly the path supplied to `--report` and requires that option.
+
+For 2D mode, `--save-gamma-map` and `--save-dose-diff` write images. For 3D mode they write compressed NPZ files with keys `gamma` and `dose_diff_pct`, respectively. `--db [PATH]` writes a SQLite summary. Output directories are created when needed.
+
+Reports contain input basenames, mode and plane, DD/DTA/cutoff, gamma type, normalization, interpolation fraction, pass rate, shift, selected Frame of Reference values, an orientation similarity value, warnings, gamma statistics, histogram data, optional ROI/DVH data, and the requested gamma-map path. Schema-versioned provenance is included in JSON and SQLite and rendered in CSV, Markdown, and PDF. CSV stores structured values as strict JSON text; JSON is the canonical machine-readable form and emits `null`, never non-standard `NaN`, for non-finite values.
+
+## 16. Reproducibility information
+
+Report schema version 2 records the application version source and Git commit when available, dirty-worktree state, engine and version, Python and operating system, UTC start/end and duration, reference/evaluation basenames and SHA-256 digests, complete effective gamma and shift settings, selected axis/LPS shift and candidate count, ROI selection, and reference/evaluation grid summaries. Parsed legacy controls that are not applied by the current calculation (`threads`, `gpu`, `seed`, `cutoff-mask`, `low-dose-exclusion`, `spacing`, and `tolerance`) are explicitly marked as not applied rather than presented as effective settings.
+
+The provenance privacy policy records basenames and SHA-256 file identity but excludes absolute paths, PatientName, PatientID, birth date, accession numbers, institution fields, and other DICOM demographics.
+
+## 17. Validation and known limitations
+
+The repository includes synthetic unit and integration tests for the PyMedPhys default, explicit legacy Numba selection, Global/Local identity cases, adapter argument mapping, shift-search setting propagation, strict report-schema validation, and report/SQLite provenance. This is software verification, not clinical validation or an approved numerical acceptance package.
+
+Local characterization with controlled derivatives of anonymized 3 x 3 cm and 5 x 5 cm Monaco phantom RTDOSE distributions confirmed that equal GPR can coexist with material voxelwise gamma differences. These local inputs and results are not distributed by the repository and are not acceptance or clinical-validation evidence.
+
+A separate [controlled 5 x 5 cm RTDOSE verification record](docs/PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md) documents two full-volume PyMedPhys 0.41.0 source-GUI runs and Fast 3D Viewer checks: a uniform +2% dose variant and a +1 mm positive-column spatial-shift variant. It records only input hashes, effective settings, summary results, and explicit limitations; the DICOM inputs and numerical outputs remain local and Git-ignored.
+
+The project owner approved the documented validation scope, numerical policy, and known limitations for release preparation on 2026-08-11. This is not clinical-use or release approval. Remaining compatibility-cleanup, clean-candidate, CI, offline-acceptance, and publication gates are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
+
+The RTDOSE loader validates IPP, IOP, Pixel Spacing, GFOV, dimensions, Dose Grid Scaling, Dose Units, and finite dose values before calculation. It accepts strictly ascending or descending GFOV and sorts frames and offsets together into ascending order. Axial absolute-z GFOV is converted to offsets from IPP. Different origins and voxel spacing are supported, but differing reference/evaluation orientations, Dose Units, or present Frame of Reference UIDs fail closed. A missing Frame of Reference UID remains a recorded warning for compatibility with older research data. The interpolating Numba kernel assumes uniform evaluation-axis spacing based on the first interval; PyMedPhys is the standard engine.
+
+Historical 3DVH summaries and PDFs remain archival material only. They are not required for PyMedPhys standardization, are not part of the acceptance plan, and do not support claims of equivalence, clinical validation, or vendor approval.
+
+The Windows offline bundle has automated integrity and licensing checks plus explicit PyMedPhys 0.41.0 and Numba smoke paths. A Python 3.12 x64 wheelhouse/ZIP was rebuilt and passed a local `--no-index` bundle smoke test; its digest and limitations are recorded in the [2026-08-11 progress record](docs/PROGRESS_2026-08-11.md). A physically network-isolated installation and the clean Windows/Python-absent acceptance run remain explicitly pending because no suitable test PC is currently available; this is not a blocker for source development.
+
+## 18. Testing
+
+Install development dependencies, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\ruff.exe check rtgamma tests scripts
+.\.venv\Scripts\python.exe scripts\validate_report.py path\to\run.json
+```
+
+Tests requiring local DICOM fixtures skip when those files are absent. The offline bundle's `RUN_SMOKE_TEST.bat` generates non-patient synthetic CT, RTDOSE, and RTSTRUCT, checks imports and DICOM I/O, and runs header, 2D, and 3D paths. That is an installation smoke test, not clinical validation.
+
+## 19. Companion projects
+
+- [dicomxphits](https://github.com/inata169/dicomxphits) is an independently developed and versioned education/research workflow that can produce a coordinate-corrected PHITS-derived RT Dose and optionally hand it to this repository for external comparison. It is not bundled with GPR-comparing.
+- [rt-dicom-toolkit](https://github.com/inata169/rt-dicom-toolkit) is an independently developed and versioned RT DICOM anonymization and verification toolkit. It is not bundled with GPR-comparing and does not form part of the gamma engine.
+
+`dicom4dicomxphits` is not listed as a public data source or available companion project here.
+
+## 20. License and disclaimer
+
+GPR-comparing application code and documentation are provided under the [MIT License](LICENSE). Bundled Python, Qt/PySide6, and Python packages retain their own licenses; see `offline/NOTICE.txt` and the generated third-party manifest in an offline bundle.
+
+The software is provided "AS IS" without warranty of accuracy, completeness, fitness for a particular purpose, or non-infringement. The authors and copyright holders are not liable for harm or loss arising from use, misuse, or inability to use it. These license terms do not convert the software into a medical device or authorize clinical use.

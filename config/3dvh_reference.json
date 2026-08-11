@@ -9,7 +9,7 @@
         "norm": "global_max",
         "interp_fraction": 3,
         "optimal_interp_fraction": 3,
-        "optimal_interp_note": "interp=3 gives GPR=85.26% (delta=+0.56pp from 3DVH 84.7%). Validated by run_interp_experiment.py 2026-03-05",
+        "optimal_interp_note": "Historical case-tuned exploratory value from 2026-03-05; not a validation result, standard setting, or prospective comparison protocol.",
         "rtstruct": "dicom/PROSTATE",
         "3dvh_gpr": 84.7,
         "label": "Prostate CCC vs MC"
@@ -24,7 +24,7 @@
         "norm": "global_max",
         "interp_fraction": 2,
         "optimal_interp_fraction": 2,
-        "optimal_interp_note": "interp=2 gives GPR=97.73% (delta=+0.13pp from 3DVH 97.6%). Validated by run_interp_experiment.py 2026-03-05",
+        "optimal_interp_note": "Historical case-tuned exploratory value from 2026-03-05; not a validation result, standard setting, or prospective comparison protocol.",
         "rtstruct": "dicom/BreastBolus_CCC",
         "3dvh_gpr": 97.6,
         "label": "BreastBolus CCC vs MC"

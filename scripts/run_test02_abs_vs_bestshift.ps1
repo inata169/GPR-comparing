@@ -21,7 +21,7 @@ New-Item -ItemType Directory -Force -Path $testDir | Out-Null
 # -------------------------
 Write-Host "[A] Absolute geometry (3D)" -ForegroundColor Cyan
 $abs3d = Join-Path $testDir "abs_3d"
-python -m rtgamma.main --mode 3d --opt-shift off --norm none --dd 3 --dta 2 --cutoff 10 `
+python -m rtgamma.main --mode 3d --opt-shift off --norm none --engine numba --dd 3 --dta 2 --cutoff 10 `
   --ref $ref --eval $eval --report $abs3d
 
 Write-Host "[A] Absolute geometry (2D central slices)" -ForegroundColor Cyan
@@ -29,7 +29,7 @@ $planes = @("axial","coronal","sagittal")
 $abs2dResults = @()
 foreach ($p in $planes) {
   $base = Join-Path $testDir ("abs_" + $p)
-  python -m rtgamma.main --mode 2d --plane $p --plane-index auto --opt-shift off --norm none --dd 3 --dta 2 --cutoff 10 `
+  python -m rtgamma.main --mode 2d --plane $p --plane-index auto --opt-shift off --norm none --engine numba --dd 3 --dta 2 --cutoff 10 `
     --ref $ref --eval $eval --save-gamma-map ("{0}_gamma.png" -f $base) --save-dose-diff ("{0}_diff.png" -f $base) --report $base
   if (Test-Path ("{0}.json" -f $base)) {
     $s = Get-Content -Raw -Path ("{0}.json" -f $base) | ConvertFrom-Json
@@ -47,7 +47,7 @@ foreach ($p in $planes) {
 Write-Host "[B] Best-shift search (3D, ±3 mm)" -ForegroundColor Cyan
 $best3d = Join-Path $testDir "best_3d"
 python -m rtgamma.main --mode 3d --opt-shift on --shift-range "x:-3:3:1,y:-3:3:1,z:-3:3:1" --refine coarse2fine `
-  --norm none --dd 3 --dta 2 --cutoff 10 --ref $ref --eval $eval --report $best3d
+  --norm none --engine numba --dd 3 --dta 2 --cutoff 10 --ref $ref --eval $eval --report $best3d
 
 $bestJsonPath = "$best3d.json"
 if (-not (Test-Path $bestJsonPath)) { throw "Best 3D JSON not found: $bestJsonPath" }
@@ -64,7 +64,7 @@ $shiftSpec = ("x:{0}:{0}:1,y:{1}:{1}:1,z:{2}:{2}:1" -f $dxS, $dyS, $dzS)
 Write-Host ("[B] Re-running 2D axial with fixed best shift: ({0}, {1}, {2}) mm" -f $dxS, $dyS, $dzS) -ForegroundColor Cyan
 $bestAx = Join-Path $testDir "best_axial"
 python -m rtgamma.main --mode 2d --plane axial --plane-index auto --opt-shift on --shift-range $shiftSpec --refine none `
-  --norm none --dd 3 --dta 2 --cutoff 10 --ref $ref --eval $eval --save-gamma-map ("{0}_gamma.png" -f $bestAx) `
+  --norm none --engine numba --dd 3 --dta 2 --cutoff 10 --ref $ref --eval $eval --save-gamma-map ("{0}_gamma.png" -f $bestAx) `
   --save-dose-diff ("{0}_diff.png" -f $bestAx) --report $bestAx
 
 # -------------------------

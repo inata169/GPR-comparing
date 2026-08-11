@@ -11,6 +11,7 @@ import struct
 import subprocess
 import sys
 from datetime import datetime
+from importlib.metadata import version
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -40,12 +41,21 @@ def require_file(path: Path) -> None:
         raise RuntimeError(f"Expected output is missing or empty: {path}")
 
 
-def require_pass_rate(path: Path) -> None:
+def require_gamma_report(path: Path, engine: str, engine_version: str) -> None:
     require_file(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     rate = float(data["pass_rate_percent"])
     if rate < 99.99:
         raise RuntimeError(f"Unexpected pass rate in {path.name}: {rate}")
+    if data.get("gamma_engine") != engine:
+        raise RuntimeError(
+            f"Unexpected engine in {path.name}: {data.get('gamma_engine')}"
+        )
+    if data.get("gamma_engine_version") != engine_version:
+        raise RuntimeError(
+            f"Unexpected engine version in {path.name}: "
+            f"{data.get('gamma_engine_version')}"
+        )
 
 
 def check_runtime() -> None:
@@ -61,6 +71,7 @@ def check_runtime() -> None:
         "numba",
         "matplotlib",
         "reportlab",
+        "pymedphys",
         "PySide6",
         "pyqtgraph",
         "rtgamma.main",
@@ -69,6 +80,11 @@ def check_runtime() -> None:
     for name in modules:
         importlib.import_module(name)
         print(f"[OK ] import {name}")
+
+    if version("pymedphys") != "0.41.0":
+        raise RuntimeError(
+            f"PyMedPhys 0.41.0 is required; found {version('pymedphys')}"
+        )
 
     viewer = importlib.import_module("scripts.gamma_viewer_fast")
     qt_core, qt_widgets, pyqtgraph = viewer._import_qtgraph()
@@ -185,6 +201,8 @@ def main() -> int:
             "auto",
             "--opt-shift",
             "off",
+            "--engine",
+            "pymedphys",
             "--interp-fraction",
             "1",
             "--save-gamma-map",
@@ -194,10 +212,10 @@ def main() -> int:
             "--report",
             str(report_2d),
         ],
-        "2D gamma analysis and image/PDF reports",
+        "2D PyMedPhys gamma analysis and image/PDF reports",
         env,
     )
-    require_pass_rate(report_2d.with_suffix(".json"))
+    require_gamma_report(report_2d.with_suffix(".json"), "pymedphys", "0.41.0")
     for path in (report_2d.with_suffix(".md"), report_2d.with_suffix(".pdf"), gamma_png, diff_png):
         require_file(path)
 
@@ -215,16 +233,49 @@ def main() -> int:
             "3d",
             "--opt-shift",
             "off",
+            "--engine",
+            "pymedphys",
             "--interp-fraction",
             "1",
             "--no-pdf",
             "--report",
             str(report_3d),
         ],
-        "3D gamma analysis",
+        "3D PyMedPhys gamma analysis",
         env,
     )
-    require_pass_rate(report_3d.with_suffix(".json"))
+    require_gamma_report(report_3d.with_suffix(".json"), "pymedphys", "0.41.0")
+
+    report_numba = reports / "gamma_3d_numba_legacy"
+    run(
+        [
+            sys.executable,
+            "-m",
+            "rtgamma.main",
+            "--ref",
+            str(ref),
+            "--eval",
+            str(evaluation),
+            "--mode",
+            "3d",
+            "--opt-shift",
+            "off",
+            "--engine",
+            "numba",
+            "--interp-fraction",
+            "1",
+            "--no-pdf",
+            "--report",
+            str(report_numba),
+        ],
+        "3D explicit Numba legacy gamma analysis",
+        env,
+    )
+    require_gamma_report(
+        report_numba.with_suffix(".json"),
+        "numba",
+        version("numba"),
+    )
 
     summary = {
         "status": "PASS",
@@ -236,8 +287,9 @@ def main() -> int:
             "Fast Viewer dependency import",
             "synthetic non-patient CT/RTDOSE/RTSTRUCT generation and load",
             "RTDOSE header comparison",
-            "2D gamma analysis with JSON/Markdown/PDF/PNG outputs",
-            "3D gamma analysis",
+            "2D PyMedPhys 0.41.0 gamma with JSON/Markdown/PDF/PNG outputs",
+            "3D PyMedPhys 0.41.0 gamma analysis",
+            "3D explicit Numba legacy gamma analysis",
         ],
     }
     (output / "SMOKE_TEST_RESULT.json").write_text(

@@ -1,5 +1,7 @@
 # rtgamma — DICOM RTDOSE ガンマ解析 (2D/3D)
 
+> **履歴資料:** 公開文書の正本は英語版 [`README.md`](README.md) です。本ファイルは旧日本語 README の履歴を保持するもので、旧名称、臨床用途を連想させる表現、3DVH 比較表現を現在の検証済み主張として扱わないでください。より新しい旧正本の保存版は [`README.ja.md`](README.ja.md) です。
+
 ![CI](https://github.com/inata169/GPR-comparing/actions/workflows/ci.yml/badge.svg)
 
 本プロジェクトは、DICOM RTDOSE 同士の 2D/3D ガンマ解析を高速かつ再現性高く実行するためのツール群です。幾何整合（IPP/IOP/PixelSpacing/GFOV）を厳密に扱い、CLI と Windows GUI を提供します。エンコーディングは UTF-8（BOMなし）を推奨します。

@@ -22,9 +22,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from rtgamma.gamma import compute_gamma
-from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct
+from rtgamma.io_dicom import (
+    load_ct,
+    load_rtdose,
+    load_rtstruct,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
+from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
-from rtgamma.resample import resample_ct_onto_dose
+from rtgamma.resample import resample_ct_onto_dose, resample_eval_onto_ref
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -722,7 +729,7 @@ class MultiPlaneViewer:
             self.overlay_mode = state.get('overlay_mode', self.overlay_mode)
         except Exception: pass
 
-def main():
+def _parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--ct', required=True)
     parser.add_argument('--ref', required=True)
@@ -735,8 +742,38 @@ def main():
     parser.add_argument('--cutoff', type=float, default=10.0)
     parser.add_argument('--gamma-type', choices=['global', 'local'], default='global')
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
+    parser.add_argument('--engine', choices=['pymedphys', 'numba'], default='pymedphys')
+    parser.add_argument('--interp-fraction', type=int, default=1)
     parser.add_argument('--cache-radius', type=int, default=15)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def _load_and_resample_eval(eval_path, dose_meta):
+    eval_meta = load_rtdose(eval_path)
+    validate_rtdose_pair_geometry(dose_meta, eval_meta)
+    Xw, Yw, Zw = build_ref_world_coords(dose_meta)
+    w2i = lambda pts: world_to_index(
+        eval_meta['ipp'],
+        eval_meta['v_col'],
+        eval_meta['v_row'],
+        eval_meta['v_slice'],
+        eval_meta['s_col'],
+        eval_meta['s_row'],
+        eval_meta['z_offsets'],
+        pts,
+    )
+    eval_on_ref = resample_eval_onto_ref(
+        eval_meta['dose'],
+        w2i,
+        (Xw, Yw, Zw),
+        interp='linear',
+        shift_mm=(0, 0, 0),
+    )
+    return eval_meta, eval_on_ref
+
+
+def main(argv=None):
+    args = _parse_args(argv)
 
     ct_meta = load_ct(args.ct)
     dose_meta = load_rtdose(args.ref)
@@ -747,25 +784,25 @@ def main():
     if args.gamma_npz:
         gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
-            eval_meta = load_rtdose(args.eval)
+            eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
             eval_dose_unit = eval_meta.get('units')
-            from rtgamma.io_dicom import world_to_index
-            from rtgamma.main import build_ref_world_coords
-            from rtgamma.resample import resample_eval_onto_ref
-            Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-            w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
-            eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
     else:
-        eval_meta = load_rtdose(args.eval)
+        eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
         eval_dose_unit = eval_meta.get('units')
-        from rtgamma.io_dicom import world_to_index
-        from rtgamma.main import build_ref_world_coords
-        from rtgamma.resample import resample_eval_onto_ref
-        Xw, Yw, Zw = build_ref_world_coords(dose_meta)
-        w2i = lambda pts: world_to_index(eval_meta['ipp'], eval_meta['v_col'], eval_meta['v_row'], eval_meta['v_slice'], eval_meta['s_col'], eval_meta['s_row'], eval_meta['z_offsets'], pts)
-        eval_on_ref = resample_eval_onto_ref(eval_meta['dose'], w2i, (Xw, Yw, Zw), interp='linear', shift_mm=(0, 0, 0))
         axes = (dose_meta['z_coords_mm'], dose_meta['y_coords_mm'], dose_meta['x_coords_mm'])
-        gamma_map, _, _ = compute_gamma(axes, dose_meta['dose'], axes, eval_on_ref, args.dd, args.dta, args.cutoff, args.gamma_type, args.norm)
+        gamma_map, _, _ = compute_gamma(
+            axes_ref_mm=axes,
+            dose_ref=dose_meta['dose'],
+            axes_eval_mm=axes,
+            dose_eval=eval_on_ref,
+            dd_percent=args.dd,
+            dta_mm=args.dta,
+            cutoff_percent=args.cutoff,
+            gamma_type=args.gamma_type,
+            norm=args.norm,
+            engine=args.engine,
+            interp_fraction=args.interp_fraction,
+        )
 
     rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None
     roi_names = [n.strip() for n in args.roi.split(',')] if args.roi else ([r['name'] for r in rtstruct_meta['roi_list']] if rtstruct_meta else [])

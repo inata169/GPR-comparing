@@ -1,5 +1,20 @@
 # TODO (Next Actions)
 
+Date: 2026-08-11 (PyMedPhys controlled full-volume GUI verification)
+
+High priority
+- [x] **5 x 5 cm Monaco管理入力によるGUI実運用確認**
+  - [x] PyMedPhys 0.41.0 / Python 3.12で、線量一律+2%の3D GammaとFast 3D Viewerを確認する
+  - [x] PyMedPhys 0.41.0 / Python 3.12で、列方向+1 mmシフト（shift optimization off）の3D GammaとFast 3D Viewerを確認する
+  - [x] +1 mmの位置差をFast 3D Viewerで目視確認する
+  - [x] 入力hash、実効条件、結果、`git_dirty`、制限事項のみを公開可能な英語記録へ残し、DICOMと数値生成物はGit除外を維持する
+
+Next pending
+- [ ] Python未導入のクリーンWindows PCが用意できた時点で、オフラインZIPの初回完全導入受入試験を行う
+- [x] PyMedPhys標準化の検証範囲・既知の制限をrelease準備の範囲として人間が承認する（2026-08-11、臨床利用・version/tag/Release承認ではない）
+- [x] PyMedPhys 0.41.0完全固定、version更新時の再検証、`norm=none`拒否、Numba一致をrelease基準にしない方針、peak memory defer、clean-PC pendingを承認する
+- [ ] clean candidate、CI、公開前ゲートを解決する
+
 Date: 2026-06-12 (Dose overlay cache visibility follow-up)
 
 High priority
@@ -126,10 +141,10 @@ High priority
   - [ ] Gamma overlayで `gamma=0` 領域が消えないことを確認する
   - [ ] 古い/別gridの `gamma3d.npz` でもRTSTRUCT付き起動で落ちないことを確認する
   - [ ] 修正後Fast ZIPでAxi左右、Sag/Cor上下、クリック位置、ズーム、キーボード操作を別PCで再確認する
-- [ ] **GUI経由の運用確認**
-  - [ ] `run_gui_python.bat` でGUIを起動する
-  - [ ] Viewerを `Fast` にして3D Viewerを起動する
-  - [ ] Legacy / Fast の切替が期待通り動くことを確認する
+- [x] **GUI経由の運用確認**
+  - [x] `scripts/run_gui.ps1` でsource GUIを起動する
+  - [x] 5 x 5 cm Monaco管理入力2件で3D Gammaを完了する
+  - [x] 現行仕様どおりFast固定の3D Viewerを両ケースで起動する
 - [x] **Fast Viewer運用方針の最終判断**
   - [x] Source/Python と Fast ZIP はFast既定にする
   - [x] Legacy/Fast選択式のまま運用する

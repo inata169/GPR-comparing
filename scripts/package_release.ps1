@@ -22,6 +22,20 @@ function Copy-IfExists([string]$src, [string]$dst) {
     }
 }
 
+function Write-ReleaseApplicationIdentity([string]$targetDir) {
+    $commit = $null
+    $commitOutput = & git -C $ROOT rev-parse HEAD 2>$null
+    if ($LASTEXITCODE -eq 0) { $commit = ([string]$commitOutput).Trim() }
+    $statusOutput = & git -C $ROOT status --porcelain --untracked-files=no 2>$null
+    $dirty = if ($LASTEXITCODE -eq 0) { -not [string]::IsNullOrWhiteSpace(($statusOutput -join "`n")) } else { $null }
+    [ordered]@{
+        schema_version = 1
+        version = $Version
+        git_commit = $commit
+        git_dirty = $dirty
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $targetDir 'application_identity.json') -Encoding UTF8
+}
+
 function Write-FastNotice([string]$targetDir) {
     $notice = @'
 rtgamma Fast Viewer distribution notice
@@ -59,6 +73,7 @@ function Collect-ThirdPartyLicenses([string]$targetDir) {
         'matplotlib',
         'scipy',
         'numba',
+        'pymedphys',
         'PyInstaller'
     )
 
@@ -111,7 +126,7 @@ Manual verification notes
 If automatic collection above is incomplete, add manually verified license text or
 URLs here before publishing the Fast ZIP. Required coverage includes PySide6,
 shiboken6, PySide6_Essentials, PySide6_Addons, Qt, pyqtgraph, numpy, pydicom,
-matplotlib if bundled, and PyInstaller runtime components if applicable.
+matplotlib, numba, PyMedPhys if bundled, and PyInstaller runtime components if applicable.
 '@ | Out-File -FilePath (Join-Path $manualRoot 'README.txt') -Encoding utf8
 
     @'
@@ -247,6 +262,13 @@ if ($DistributionMode -eq 'Fast') {
     Copy-Item -Path $distFastViewerDir -Destination $targetDistDir -Recurse -Force
 }
 
+Write-ReleaseApplicationIdentity $stagingDirPath
+Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'rtgamma_cli')
+Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'gamma_viewer')
+if ($DistributionMode -eq 'Fast') {
+    Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'gamma_viewer_fast')
+}
+
 Write-Host "Copying GUI scripts..."
 $targetScriptsDir = Join-Path $stagingDirPath 'scripts'
 New-Item -ItemType Directory -Path $targetScriptsDir -Force | Out-Null
@@ -261,7 +283,9 @@ if ($DistributionMode -eq 'Fast') {
 Write-Host "Copying configuration files..."
 $targetConfigDir = Join-Path $stagingDirPath 'config'
 New-Item -ItemType Directory -Path $targetConfigDir -Force | Out-Null
-Get-ChildItem -Path (Join-Path $ROOT 'config') -File | ForEach-Object {
+Get-ChildItem -Path (Join-Path $ROOT 'config') -File |
+Where-Object { $_.Name -ne 'gui_config.ini' } |
+ForEach-Object {
     Copy-Item -Path $_.FullName -Destination $targetConfigDir -Force
 }
 
@@ -272,9 +296,9 @@ Copy-IfExists (Join-Path $ROOT 'RUN_INSTRUCTIONS_JA.txt') $stagingDirPath
 
 if ($DistributionMode -eq 'Fast') {
     Write-FastNotice $stagingDirPath
-    Collect-ThirdPartyLicenses $stagingDirPath
     Remove-FastUnneededQtPlugins $stagingDirPath
 }
+Collect-ThirdPartyLicenses $stagingDirPath
 Remove-NonFastQtComponents $stagingDirPath
 
 $manifestPath = Write-BundledManifest $stagingDirPath

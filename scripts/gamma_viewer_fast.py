@@ -18,11 +18,18 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from rtgamma.gamma import compute_gamma
-from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct, world_to_index
+from rtgamma.gamma import compute_gamma, gamma_engine_version
+from rtgamma.io_dicom import (
+    load_ct,
+    load_rtdose,
+    load_rtstruct,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
 from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
 from rtgamma.resample import resample_ct_onto_dose, resample_eval_onto_ref
+from rtgamma.viewer_cache import load_validated_gamma_cache
 
 logger = logging.getLogger(__name__)
 
@@ -245,10 +252,14 @@ def _load_gamma_npz(path: str | None) -> np.ndarray | None:
         return None
 
 
-def _resample_eval(eval_path: str | None, dose_meta: dict) -> tuple[np.ndarray | None, str]:
+def _resample_eval(
+    eval_path: str | None,
+    dose_meta: dict,
+) -> tuple[np.ndarray | None, str, dict | None]:
     if not eval_path:
-        return None, ""
+        return None, "", None
     eval_meta = load_rtdose(eval_path)
+    validate_rtdose_pair_geometry(dose_meta, eval_meta)
     Xw, Yw, Zw = build_ref_world_coords(dose_meta)
     w2i = lambda pts: world_to_index(
         eval_meta["ipp"],
@@ -267,26 +278,74 @@ def _resample_eval(eval_path: str | None, dose_meta: dict) -> tuple[np.ndarray |
         interp="linear",
         shift_mm=(0, 0, 0),
     )
-    return eval_on_ref, eval_meta.get("units", "")
+    return eval_on_ref, eval_meta.get("units", ""), eval_meta
 
 
-def _compute_gamma_if_needed(args, dose_meta: dict, eval_on_ref: np.ndarray | None) -> np.ndarray | None:
-    gamma = _load_gamma_npz(args.gamma_npz)
+def _compute_gamma_if_needed(
+    args,
+    dose_meta: dict,
+    eval_on_ref: np.ndarray | None,
+    eval_meta: dict | None = None,
+) -> np.ndarray | None:
+    if args.gamma_npz and getattr(args, "gamma_report", None):
+        gamma = load_validated_gamma_cache(
+            args.gamma_npz,
+            args.gamma_report,
+            expected_settings={
+                "gamma_engine": args.engine,
+                "gamma_engine_version": gamma_engine_version(args.engine),
+                "dd_percent": args.dd,
+                "dta_mm": args.dta,
+                "cutoff_percent": args.cutoff,
+                "gamma_type": args.gamma_type,
+                "norm": args.norm,
+                "interp_fraction": args.interp_fraction,
+                "opt_shift": getattr(args, "opt_shift", "off") == "on",
+                "shift_range": getattr(
+                    args, "shift_range", "x:-3:3:1,y:-3:3:1,z:-3:3:1"
+                ),
+                "refine": getattr(args, "refine", "coarse2fine"),
+                "fine_range_mm": getattr(args, "fine_range_mm", 10.0),
+                "fine_step_mm": getattr(args, "fine_step_mm", 1.0),
+                "early_stop_epsilon": getattr(args, "early_stop_epsilon", 0.05),
+                "early_stop_patience": getattr(args, "early_stop_patience", 100),
+                "prescan_2d": getattr(args, "prescan_2d", "on") == "on",
+            },
+            ref_source_sha256=dose_meta["source_sha256"],
+            eval_source_sha256=eval_meta["source_sha256"] if eval_meta else "",
+            logger=logger,
+        )
+    else:
+        gamma = _load_gamma_npz(args.gamma_npz)
+    if gamma is not None and gamma.shape != dose_meta["dose"].shape:
+        logger.warning(
+            "Ignoring Gamma cache with shape %s; reference shape is %s",
+            gamma.shape,
+            dose_meta["dose"].shape,
+        )
+        gamma = None
     if gamma is not None:
         return gamma
-    if not args.gamma_npz and eval_on_ref is not None:
-        logger.info("No --gamma-npz supplied. Computing Gamma map for PoC display.")
+    if getattr(args, "opt_shift", "off") == "on":
+        raise ValueError(
+            "No compatible shift-optimized Gamma cache is available. "
+            "Run 3D Gamma with Optimize Shift enabled before opening the Viewer."
+        )
+    if eval_on_ref is not None:
+        logger.info("No compatible Gamma cache. Computing Gamma map for display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])
         gamma_map, _, _ = compute_gamma(
-            axes,
-            dose_meta["dose"],
-            axes,
-            eval_on_ref,
-            args.dd,
-            args.dta,
-            args.cutoff,
-            args.gamma_type,
-            args.norm,
+            axes_ref_mm=axes,
+            dose_ref=dose_meta["dose"],
+            axes_eval_mm=axes,
+            dose_eval=eval_on_ref,
+            dd_percent=args.dd,
+            dta_mm=args.dta,
+            cutoff_percent=args.cutoff,
+            gamma_type=args.gamma_type,
+            norm=args.norm,
+            engine=args.engine,
+            interp_fraction=args.interp_fraction,
         )
         return gamma_map
     return None
@@ -1689,6 +1748,7 @@ def _parse_args(argv=None):
     parser.add_argument("--ref", required=True)
     parser.add_argument("--eval")
     parser.add_argument("--gamma-npz")
+    parser.add_argument("--gamma-report")
     parser.add_argument("--rtstruct")
     parser.add_argument("--roi")
     parser.add_argument("--dd", type=float, default=3.0)
@@ -1696,6 +1756,19 @@ def _parse_args(argv=None):
     parser.add_argument("--cutoff", type=float, default=10.0)
     parser.add_argument("--gamma-type", choices=["global", "local"], default="global")
     parser.add_argument("--norm", choices=["global_max", "max_ref", "none"], default="global_max")
+    parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
+    parser.add_argument("--interp-fraction", type=int, default=1)
+    parser.add_argument("--opt-shift", choices=["on", "off"], default="off")
+    parser.add_argument(
+        "--shift-range",
+        default="x:-3:3:1,y:-3:3:1,z:-3:3:1",
+    )
+    parser.add_argument("--refine", choices=["none", "coarse2fine"], default="coarse2fine")
+    parser.add_argument("--fine-range-mm", type=float, default=10.0)
+    parser.add_argument("--fine-step-mm", type=float, default=1.0)
+    parser.add_argument("--early-stop-epsilon", type=float, default=0.05)
+    parser.add_argument("--early-stop-patience", type=int, default=100)
+    parser.add_argument("--prescan-2d", choices=["on", "off"], default="on")
     return parser.parse_args(argv)
 
 
@@ -1711,8 +1784,12 @@ def main(argv=None) -> int:
     logger.info("Loading reference dose: %s", args.ref)
     dose_meta = load_rtdose(args.ref)
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
-    eval_on_ref, eval_unit = _resample_eval(args.eval, dose_meta)
-    gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref)
+    try:
+        eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
+        gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
     rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None
     if args.roi:
         roi_names = [name.strip() for name in args.roi.split(",") if name.strip()]
