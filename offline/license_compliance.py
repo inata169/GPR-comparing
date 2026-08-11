@@ -63,6 +63,7 @@ FORBIDDEN_SECRET_SUFFIXES = (".key", ".p12", ".pem", ".pfx")
 FORBIDDEN_ARCHIVE_SUFFIXES = (
     ".7z",
     ".bz2",
+    ".cab",
     ".gz",
     ".rar",
     ".tar",
@@ -207,6 +208,7 @@ def archive_kind(path: Path, data: bytes) -> str | None:
         (b"\xfd7zXZ\x00", "xz"),
         (b"7z\xbc\xaf'\x1c", "7z"),
         (b"Rar!\x1a\x07", "rar"),
+        (b"MSCF", "cab"),
     )
     for signature, kind in signatures:
         if data.startswith(signature):

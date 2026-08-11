@@ -178,6 +178,27 @@ def test_verify_bundle_rejects_zip_with_prepended_bytes(tmp_path):
         compliance.verify_bundle(bundle)
 
 
+@pytest.mark.parametrize(
+    ("filename", "payload"),
+    (("patient_export.cab", b"opaque"), ("patient_export.bin", b"MSCFopaque")),
+)
+def test_verify_bundle_rejects_cab_by_suffix_or_signature(
+    tmp_path, filename, payload
+):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    (bundle / filename).write_bytes(payload)
+
+    with pytest.raises(compliance.ComplianceError, match=r"nested archive \(cab\)"):
+        compliance.verify_bundle(bundle)
+
+
 def test_verify_bundle_rejects_unverified_wheel_outside_wheelhouse(tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "wheelhouse").mkdir(parents=True)
