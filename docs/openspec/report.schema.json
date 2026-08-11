@@ -219,6 +219,8 @@
             "mode": { "type": "string", "enum": ["2d", "3d"] },
             "plane": { "type": ["string", "null"], "enum": ["axial", "sagittal", "coronal", null] },
             "plane_index": { "type": ["integer", "null"] },
+            "opt_shift_requested": { "type": "boolean" },
+            "identity_comparison_shortcut": { "type": "boolean" },
             "gamma": {
               "type": "object",
               "additionalProperties": false,
@@ -282,7 +284,7 @@
               "required": ["cutoff_mask", "low_dose_exclusion", "spacing_override", "tolerance"]
             }
           },
-          "required": ["mode", "plane", "plane_index", "gamma", "resolved_normalisation", "selected_shift_axis_mm", "selected_shift_lps_mm", "shift_candidate_count", "execution_controls", "parsed_but_not_applied"]
+          "required": ["mode", "plane", "plane_index", "opt_shift_requested", "identity_comparison_shortcut", "gamma", "resolved_normalisation", "selected_shift_axis_mm", "selected_shift_lps_mm", "shift_candidate_count", "execution_controls", "parsed_but_not_applied"]
         },
         "geometry": {
           "type": "object",

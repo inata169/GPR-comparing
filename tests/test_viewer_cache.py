@@ -36,6 +36,8 @@ def _write_cache(tmp_path, report_settings):
                 "save_gamma_map_sha256": sha256_file(npz),
                 "provenance": {
                     "analysis": {
+                        "opt_shift_requested": report_settings["opt_shift"],
+                        "identity_comparison_shortcut": False,
                         "gamma": {"opt_shift": report_settings["opt_shift"]}
                     },
                     "inputs": {
@@ -133,6 +135,47 @@ def test_validated_gamma_cache_rejects_shift_policy_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=selected,
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_accepts_requested_shift_identity_shortcut(tmp_path):
+    settings = _settings()
+    settings["opt_shift"] = True
+    ref, _, npz, report = _write_cache(tmp_path, settings)
+    report_data = json.loads(report.read_text(encoding="utf-8"))
+    report_data["provenance"]["analysis"]["gamma"]["opt_shift"] = False
+    report_data["provenance"]["analysis"]["identity_comparison_shortcut"] = True
+    report_data["provenance"]["inputs"]["evaluation"]["sha256"] = sha256_file(ref)
+    report.write_text(json.dumps(report_data), encoding="utf-8")
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=settings,
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(ref),
+    )
+
+    np.testing.assert_array_equal(gamma, np.full((1, 2, 2), 0.5))
+
+
+def test_validated_gamma_cache_rejects_false_identity_shortcut(tmp_path):
+    settings = _settings()
+    settings["opt_shift"] = True
+    ref, evaluation, npz, report = _write_cache(tmp_path, settings)
+    report_data = json.loads(report.read_text(encoding="utf-8"))
+    report_data["provenance"]["analysis"]["gamma"]["opt_shift"] = False
+    report_data["provenance"]["analysis"]["identity_comparison_shortcut"] = True
+    report.write_text(json.dumps(report_data), encoding="utf-8")
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=settings,
         ref_source_sha256=sha256_file(ref),
         eval_source_sha256=sha256_file(evaluation),
     )

@@ -204,6 +204,7 @@ def main(argv=None):
                              'at dta/interp_fraction mm resolution. 1 disables sub-voxel interpolation.')
 
     args = parser.parse_args(raw_argv)
+    requested_opt_shift = args.opt_shift == 'on'
     # Add console (stdout) logging handler for on-screen feedback
     try:
         root_logger = logging.getLogger()
@@ -337,11 +338,16 @@ def main(argv=None):
     best_shift = (0.0, 0.0, 0.0)
     di_axis = dj_axis = dk_axis = 0.0
     search_log = None
+    identity_comparison_shortcut = False
 
     # Bypass optimization if Ref and Eval are the same file
     if os.path.exists(args.ref) and os.path.exists(args.eval):
-        if os.path.abspath(args.ref) == os.path.abspath(args.eval):
+        if (
+            requested_opt_shift
+            and os.path.abspath(args.ref) == os.path.abspath(args.eval)
+        ):
             logging.info("Identity comparison detected (Ref==Eval). Bypassing shift optimization.")
+            identity_comparison_shortcut = True
             args.opt_shift = 'off'
 
     if args.opt_shift == 'on':
@@ -652,6 +658,8 @@ def main(argv=None):
         meta_ref=meta_ref,
         meta_eval=meta_eval,
         settings=settings,
+        requested_opt_shift=requested_opt_shift,
+        identity_comparison_shortcut=identity_comparison_shortcut,
         engine_version=gstats.get('gamma_engine_version', 'unknown'),
         mode=args.mode,
         plane=getattr(args, 'plane', None),

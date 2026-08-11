@@ -11,6 +11,7 @@ import pytest
 from jsonschema import validate
 
 from rtgamma.provenance import sha256_file
+from rtgamma.viewer_cache import load_validated_gamma_cache
 from tests.test_batch import _make_synthetic_rtdose
 
 
@@ -233,6 +234,64 @@ def test_cli_explicit_pymedphys_engine_records_provenance(synthetic_doses, tmp_p
     assert data['pass_rate_percent'] == 100.0
     assert data['gamma_engine'] == 'pymedphys'
     assert data['gamma_engine_version'] == '0.41.0'
+
+
+def test_identity_shortcut_cache_preserves_requested_shift(synthetic_doses, tmp_path):
+    ref_path, _ = synthetic_doses
+    report_base = tmp_path / 'identity_shortcut'
+    gamma_path = tmp_path / 'gamma3d.npz'
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            ref_path,
+            '--eval',
+            ref_path,
+            '--report',
+            str(report_base),
+            '--save-gamma-map',
+            str(gamma_path),
+            '--opt-shift',
+            'on',
+            '--mode',
+            '3d',
+            '--interp-fraction',
+            '1',
+            '--no-pdf',
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f'CLI failed: {result.stderr}'
+    report_path = report_base.with_suffix('.json')
+    data = json.loads(report_path.read_text(encoding='utf-8'))
+    analysis = data['provenance']['analysis']
+    assert analysis['opt_shift_requested'] is True
+    assert analysis['gamma']['opt_shift'] is False
+    assert analysis['identity_comparison_shortcut'] is True
+    assert analysis['shift_candidate_count'] == 0
+
+    gamma = load_validated_gamma_cache(
+        str(gamma_path),
+        str(report_path),
+        expected_settings={
+            'gamma_engine': 'pymedphys',
+            'gamma_engine_version': '0.41.0',
+            'dd_percent': 3.0,
+            'dta_mm': 2.0,
+            'cutoff_percent': 10.0,
+            'gamma_type': 'global',
+            'norm': 'global_max',
+            'interp_fraction': 1,
+            'opt_shift': True,
+        },
+        ref_source_sha256=sha256_file(ref_path),
+        eval_source_sha256=sha256_file(ref_path),
+    )
+    assert gamma is not None
 
 
 def test_cli_directory_inputs_hash_resolved_rtdose(synthetic_doses, tmp_path):

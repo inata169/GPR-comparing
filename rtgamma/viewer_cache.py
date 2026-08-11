@@ -19,7 +19,7 @@ _SETTING_PATHS = {
     "gamma_type": ("gamma_type",),
     "norm": ("norm",),
     "interp_fraction": ("interp_fraction",),
-    "opt_shift": ("provenance", "analysis", "gamma", "opt_shift"),
+    "opt_shift": ("provenance", "analysis", "opt_shift_requested"),
 }
 
 
@@ -65,6 +65,19 @@ def load_validated_gamma_cache(
                 )
                 return None
 
+        analysis = report["provenance"]["analysis"]
+        opt_shift_requested = analysis["opt_shift_requested"]
+        opt_shift_effective = analysis["gamma"]["opt_shift"]
+        identity_shortcut = analysis["identity_comparison_shortcut"]
+        valid_shift_state = (
+            (not opt_shift_requested and not opt_shift_effective and not identity_shortcut)
+            or (opt_shift_requested and opt_shift_effective and not identity_shortcut)
+            or (opt_shift_requested and not opt_shift_effective and identity_shortcut)
+        )
+        if not valid_shift_state:
+            log.warning("Ignoring stale Gamma cache: inconsistent shift provenance")
+            return None
+
         inputs = report["provenance"]["inputs"]
         expected_hashes = {
             "reference": ref_source_sha256,
@@ -74,6 +87,11 @@ def load_validated_gamma_cache(
             if inputs[name].get("sha256") != expected_hash:
                 log.warning("Ignoring stale Gamma cache: %s RTDOSE differs", name)
                 return None
+        if identity_shortcut and ref_source_sha256 != eval_source_sha256:
+            log.warning(
+                "Ignoring stale Gamma cache: identity shortcut inputs differ"
+            )
+            return None
 
         npz_bytes = Path(npz_path).read_bytes()
         actual_npz_sha256 = hashlib.sha256(npz_bytes).hexdigest()

@@ -80,6 +80,8 @@
       "mode": "3d",
       "plane": null,
       "plane_index": null,
+      "opt_shift_requested": false,
+      "identity_comparison_shortcut": false,
       "gamma": {
         "dd_percent": 3.0,
         "dta_mm": 3.0,
