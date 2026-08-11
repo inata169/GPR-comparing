@@ -143,6 +143,22 @@ def test_verify_bundle_rejects_preambleless_dicom_with_unknown_suffix(tmp_path):
         compliance.verify_bundle(bundle)
 
 
+def test_verify_bundle_rejects_nested_archive_with_disguised_suffix(tmp_path):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    with zipfile.ZipFile(bundle / "patient_export.bin", "w") as archive:
+        archive.writestr("patient.dcm", b"\0" * 128 + b"DICM")
+
+    with pytest.raises(compliance.ComplianceError, match=r"nested archive \(zip\)"):
+        compliance.verify_bundle(bundle)
+
+
 def test_verify_bundle_rejects_secret_material(tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "wheelhouse").mkdir(parents=True)

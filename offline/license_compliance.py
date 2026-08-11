@@ -59,6 +59,18 @@ FORBIDDEN_BUNDLE_NAMES = (
     "gui_config.ini",
 )
 FORBIDDEN_SECRET_SUFFIXES = (".key", ".p12", ".pem", ".pfx")
+FORBIDDEN_ARCHIVE_SUFFIXES = (
+    ".7z",
+    ".bz2",
+    ".gz",
+    ".rar",
+    ".tar",
+    ".tbz2",
+    ".tgz",
+    ".txz",
+    ".xz",
+    ".zip",
+)
 FORBIDDEN_APP_DIRECTORIES = (
     "app/dicom/",
     "app/output/",
@@ -175,6 +187,30 @@ def looks_like_dicom(data: bytes) -> bool:
         for little_endian in (True, False)
         for explicit_vr in (True, False)
     )
+
+
+def archive_kind(path: Path, data: bytes) -> str | None:
+    """Identify nested archive containers by suffix or file signature."""
+    lower_name = path.name.lower()
+    for suffix in FORBIDDEN_ARCHIVE_SUFFIXES:
+        if lower_name.endswith(suffix):
+            return suffix.removeprefix(".")
+    signatures = (
+        (b"PK\x03\x04", "zip"),
+        (b"PK\x05\x06", "zip"),
+        (b"PK\x07\x08", "zip"),
+        (b"\x1f\x8b", "gzip"),
+        (b"BZh", "bzip2"),
+        (b"\xfd7zXZ\x00", "xz"),
+        (b"7z\xbc\xaf'\x1c", "7z"),
+        (b"Rar!\x1a\x07", "rar"),
+    )
+    for signature, kind in signatures:
+        if data.startswith(signature):
+            return kind
+    if len(data) >= 262 and data[257:262] == b"ustar":
+        return "tar"
+    return None
 
 
 def field_text(value) -> str:
@@ -516,12 +552,18 @@ def verify_bundle(bundle: Path) -> None:
             raise ComplianceError(f"unexpected executable in bundle: {relative}")
         if any(token in name for token in ("phits.exe", "sumtally.exe", "phits2dicom.exe")):
             raise ComplianceError(f"forbidden PHITS-related executable: {relative}")
-        if path.suffix.lower() not in {".whl", ".exe", ".png", ".jpg", ".pdf"}:
-            data = path.read_bytes()
-            if looks_like_dicom(data):
-                raise ComplianceError(f"DICOM payload found in bundle: {relative}")
-            if any(marker in data for marker in SECRET_MARKERS):
-                raise ComplianceError(f"secret marker found in bundle: {relative}")
+        if path.suffix.lower() in {".whl", ".exe"}:
+            continue
+        data = path.read_bytes()
+        nested_archive = archive_kind(path, data)
+        if nested_archive:
+            raise ComplianceError(
+                f"nested archive ({nested_archive}) found in bundle: {relative}"
+            )
+        if looks_like_dicom(data):
+            raise ComplianceError(f"DICOM payload found in bundle: {relative}")
+        if any(marker in data for marker in SECRET_MARKERS):
+            raise ComplianceError(f"secret marker found in bundle: {relative}")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
