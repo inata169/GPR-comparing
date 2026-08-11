@@ -619,6 +619,14 @@ function Build-Command(){
     if ($preset.cutoff -ne $null) { $viewerCutoff = [double]$preset.cutoff }
     if ($preset.norm) { $viewerNormVal = [string]$preset.norm }
   }
+  if (($cbAction.SelectedIndex -eq 1 -or $cbAction.SelectedIndex -eq 2) -and
+      $engineVal -eq 'pymedphys' -and $viewerNormVal -eq 'none') {
+    [System.Windows.Forms.MessageBox]::Show(
+      "PyMedPhys (standard) does not support Norm 'none'. Select global_max or max_ref, or explicitly select Numba (legacy / experimental).",
+      'Unsupported Gamma Settings','OK','Warning'
+    )
+    return $null
+  }
 
   # Common gamma args
   $interpVal = [int]$nudInterp.Value

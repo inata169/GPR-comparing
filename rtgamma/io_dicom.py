@@ -238,6 +238,7 @@ def load_rtdose(path: str) -> Dict:
     k_mm = gfov.copy()
 
     meta = {
+        'source_path': os.path.abspath(target_path),
         'dose': dose.astype(np.float32),  # (z,y,x) -> (k,j,i)
         'ipp': ipp,
         'v_col': v_col, # i-axis (horizontal in 2D)

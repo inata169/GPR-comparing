@@ -120,6 +120,8 @@ def build_provenance(
     tolerance: float,
     orientation_min_dot: float,
 ) -> dict[str, Any]:
+    resolved_ref_path = meta_ref.get('source_path', ref_path)
+    resolved_eval_path = meta_eval.get('source_path', eval_path)
     return {
         'schema_version': REPORT_SCHEMA_VERSION,
         'application': _application_identity(),
@@ -139,13 +141,13 @@ def build_provenance(
         'inputs': {
             'reference': {
                 'role': 'reference',
-                'basename': Path(ref_path).name,
-                'sha256': sha256_file(ref_path),
+                'basename': Path(resolved_ref_path).name,
+                'sha256': sha256_file(resolved_ref_path),
             },
             'evaluation': {
                 'role': 'evaluation',
-                'basename': Path(eval_path).name,
-                'sha256': sha256_file(eval_path),
+                'basename': Path(resolved_eval_path).name,
+                'sha256': sha256_file(resolved_eval_path),
             },
             'rtstruct_supplied': bool(rtstruct_supplied),
             'roi_names': list(roi_names) if roi_names else [],

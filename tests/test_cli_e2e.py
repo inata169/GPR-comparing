@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from jsonschema import validate
 
+from rtgamma.provenance import sha256_file
 from tests.test_batch import _make_synthetic_rtdose
 
 # Define the expected JSON report schema
@@ -174,3 +175,45 @@ def test_cli_explicit_pymedphys_engine_records_provenance(synthetic_doses, tmp_p
     assert data['pass_rate_percent'] == 100.0
     assert data['gamma_engine'] == 'pymedphys'
     assert data['gamma_engine_version'] == '0.41.0'
+
+
+def test_cli_directory_inputs_hash_resolved_rtdose(synthetic_doses, tmp_path):
+    ref_path, eval_path = (Path(path) for path in synthetic_doses)
+    ref_dir = tmp_path / 'reference_input'
+    eval_dir = tmp_path / 'evaluation_input'
+    ref_dir.mkdir()
+    eval_dir.mkdir()
+    resolved_ref = ref_path.replace(ref_dir / ref_path.name)
+    resolved_eval = eval_path.replace(eval_dir / eval_path.name)
+    report_base = tmp_path / 'directory_input_report'
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            str(ref_dir),
+            '--eval',
+            str(eval_dir),
+            '--report',
+            str(report_base),
+            '--opt-shift',
+            'off',
+            '--mode',
+            '3d',
+            '--interp-fraction',
+            '1',
+            '--no-pdf',
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f'CLI failed: {result.stderr}'
+    data = json.loads(report_base.with_suffix('.json').read_text(encoding='utf-8'))
+    inputs = data['provenance']['inputs']
+    assert inputs['reference']['basename'] == resolved_ref.name
+    assert inputs['reference']['sha256'] == sha256_file(resolved_ref)
+    assert inputs['evaluation']['basename'] == resolved_eval.name
+    assert inputs['evaluation']['sha256'] == sha256_file(resolved_eval)

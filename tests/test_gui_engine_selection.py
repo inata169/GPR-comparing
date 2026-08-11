@@ -14,6 +14,8 @@ def test_gui_launchers_expose_persist_and_forward_engine():
         assert 'engine           = $engineVal' in script
         assert "$savedCfg.ContainsKey('engine')" in script
         assert 'using pymedphys. Save Settings to persist it.' in script
+        assert "$engineVal -eq 'pymedphys' -and $viewerNormVal -eq 'none'" in script
+        assert "does not support Norm 'none'" in script
 
 
 def test_gui_default_and_saved_config_select_pymedphys():

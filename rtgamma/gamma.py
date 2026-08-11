@@ -4,7 +4,7 @@ from typing import Literal, Optional, Tuple
 import numba
 import numpy as np
 
-from .settings import DEFAULT_GAMMA_ENGINE
+from .settings import DEFAULT_GAMMA_ENGINE, SUPPORTED_PYMEDPHYS_VERSION
 
 GammaType = Literal['global', 'local']
 NormType = Literal['global_max', 'max_ref', 'none']
@@ -416,6 +416,14 @@ def compute_gamma(
                 "Install the Python 3.12 runtime requirements."
             ) from exc
 
+        engine_version = gamma_engine_version('pymedphys')
+        if engine_version != SUPPORTED_PYMEDPHYS_VERSION:
+            raise RuntimeError(
+                "The standard engine requires exactly PyMedPhys "
+                f"{SUPPORTED_PYMEDPHYS_VERSION}, but {engine_version} is installed. "
+                "Install the pinned runtime requirements before calculation."
+            )
+
         g = pymedphys.gamma(
             axes_ref_mm,
             dose_ref,
@@ -433,6 +441,7 @@ def compute_gamma(
             interp_algo='pymedphys',
         )
     else:
+        engine_version = gamma_engine_version('numba')
         if dose_ref.ndim != 3:
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
 
@@ -489,7 +498,7 @@ def compute_gamma(
     has_finite = np.isfinite(g).any()
     stats = {
         'gamma_engine': resolved_engine,
-        'gamma_engine_version': gamma_engine_version(resolved_engine),
+        'gamma_engine_version': engine_version,
         'resolved_normalisation': nf,
         'gamma_mean': float(np.nanmean(g)) if has_finite else float('nan'),
         'gamma_median': float(np.nanmedian(g)) if has_finite else float('nan'),

@@ -264,6 +264,34 @@ def test_requested_pymedphys_does_not_fall_back(monkeypatch):
         )
 
 
+def test_pymedphys_rejects_unapproved_installed_version(monkeypatch):
+    axes, dose = _case()
+    monkeypatch.setitem(
+        sys.modules,
+        'pymedphys',
+        SimpleNamespace(gamma=lambda *args, **kwargs: np.zeros_like(dose)),
+    )
+    monkeypatch.setattr(
+        'rtgamma.gamma.metadata.version',
+        lambda package: '0.40.0' if package == 'pymedphys' else 'unknown',
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match='requires exactly PyMedPhys 0.41.0, but 0.40.0 is installed',
+    ):
+        compute_gamma(
+            axes_ref_mm=axes,
+            dose_ref=dose,
+            axes_eval_mm=axes,
+            dose_eval=dose,
+            dd_percent=3.0,
+            dta_mm=2.0,
+            cutoff_percent=10.0,
+            engine='pymedphys',
+        )
+
+
 def test_engine_resolution_rejects_conflicting_legacy_flag():
     assert resolve_gamma_engine() == 'pymedphys'
     assert resolve_gamma_engine(use_pymedphys=True) == 'pymedphys'

@@ -7,6 +7,7 @@ from typing import Any
 
 DEFAULT_GAMMA_ENGINE = 'pymedphys'
 LEGACY_GAMMA_ENGINE = 'numba'
+SUPPORTED_PYMEDPHYS_VERSION = '0.41.0'
 REPORT_SCHEMA_VERSION = 2
 
 
