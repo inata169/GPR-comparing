@@ -73,6 +73,7 @@ function Collect-ThirdPartyLicenses([string]$targetDir) {
         'matplotlib',
         'scipy',
         'numba',
+        'pymedphys',
         'PyInstaller'
     )
 
@@ -125,7 +126,7 @@ Manual verification notes
 If automatic collection above is incomplete, add manually verified license text or
 URLs here before publishing the Fast ZIP. Required coverage includes PySide6,
 shiboken6, PySide6_Essentials, PySide6_Addons, Qt, pyqtgraph, numpy, pydicom,
-matplotlib if bundled, and PyInstaller runtime components if applicable.
+matplotlib, numba, PyMedPhys if bundled, and PyInstaller runtime components if applicable.
 '@ | Out-File -FilePath (Join-Path $manualRoot 'README.txt') -Encoding utf8
 
     @'

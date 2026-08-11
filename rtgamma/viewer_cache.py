@@ -8,8 +8,6 @@ from typing import Any
 
 import numpy as np
 
-from .provenance import sha256_file
-
 _SETTING_PATHS = {
     "gamma_engine": ("gamma_engine",),
     "gamma_engine_version": ("gamma_engine_version",),
@@ -46,8 +44,8 @@ def load_validated_gamma_cache(
     report_path: str,
     *,
     expected_settings: dict[str, Any],
-    ref_source_path: str,
-    eval_source_path: str,
+    ref_source_sha256: str,
+    eval_source_sha256: str,
     logger: logging.Logger | None = None,
 ) -> np.ndarray | None:
     """Load a GUI-discovered cache only when its report matches this run."""
@@ -67,8 +65,8 @@ def load_validated_gamma_cache(
 
         inputs = report["provenance"]["inputs"]
         expected_hashes = {
-            "reference": sha256_file(ref_source_path),
-            "evaluation": sha256_file(eval_source_path),
+            "reference": ref_source_sha256,
+            "evaluation": eval_source_sha256,
         }
         for name, expected_hash in expected_hashes.items():
             if inputs[name].get("sha256") != expected_hash:

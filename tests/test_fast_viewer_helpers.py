@@ -103,12 +103,13 @@ def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
     )
     dose_meta = {
         'source_path': 'reference.dcm',
+        'source_sha256': '1' * 64,
         'dose': dose,
         'z_coords_mm': axes,
         'y_coords_mm': axes,
         'x_coords_mm': axes,
     }
-    eval_meta = {'source_path': 'evaluation.dcm'}
+    eval_meta = {'source_path': 'evaluation.dcm', 'source_sha256': '2' * 64}
 
     gamma = _compute_gamma_if_needed(args, dose_meta, dose.copy(), eval_meta)
 
@@ -137,6 +138,7 @@ def test_missing_optimized_cache_fails_closed(monkeypatch):
     )
     dose_meta = {
         'source_path': 'reference.dcm',
+        'source_sha256': '1' * 64,
         'dose': dose,
         'z_coords_mm': axes,
         'y_coords_mm': axes,
@@ -151,7 +153,7 @@ def test_missing_optimized_cache_fails_closed(monkeypatch):
             args,
             dose_meta,
             dose.copy(),
-            {'source_path': 'evaluation.dcm'},
+            {'source_path': 'evaluation.dcm', 'source_sha256': '2' * 64},
         )
 
 

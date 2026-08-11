@@ -19,6 +19,15 @@ def test_offline_constraints_pin_pymedphys_and_required_dependencies():
     assert any(line.startswith('typing_extensions==') for line in active)
 
 
+def test_release_license_collection_includes_pymedphys():
+    package_script = (ROOT / 'scripts' / 'package_release.ps1').read_text(
+        encoding='utf-8-sig'
+    )
+
+    assert "'pymedphys'," in package_script
+    assert 'numba, PyMedPhys if bundled' in package_script
+
+
 def test_offline_builder_verifies_standard_engine_version():
     builder = (
         ROOT / 'offline' / 'build_offline_bundle.ps1'

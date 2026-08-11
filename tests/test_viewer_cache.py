@@ -56,8 +56,8 @@ def test_validated_gamma_cache_loads_matching_report(tmp_path):
         str(npz),
         str(report),
         expected_settings=_settings(),
-        ref_source_path=str(ref),
-        eval_source_path=str(evaluation),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
     )
 
     np.testing.assert_array_equal(gamma, np.full((1, 2, 2), 0.5))
@@ -70,23 +70,39 @@ def test_validated_gamma_cache_rejects_engine_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=_settings("numba"),
-        ref_source_path=str(ref),
-        eval_source_path=str(evaluation),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
     )
 
     assert gamma is None
 
 
-def test_validated_gamma_cache_rejects_input_change(tmp_path):
+def test_validated_gamma_cache_uses_loaded_digest_after_path_change(tmp_path):
     ref, evaluation, npz, report = _write_cache(tmp_path, _settings())
+    ref_digest = sha256_file(ref)
+    evaluation_digest = sha256_file(evaluation)
     evaluation.write_bytes(b"changed evaluation")
 
     gamma = load_validated_gamma_cache(
         str(npz),
         str(report),
         expected_settings=_settings(),
-        ref_source_path=str(ref),
-        eval_source_path=str(evaluation),
+        ref_source_sha256=ref_digest,
+        eval_source_sha256=evaluation_digest,
+    )
+
+    np.testing.assert_array_equal(gamma, np.full((1, 2, 2), 0.5))
+
+
+def test_validated_gamma_cache_rejects_loaded_digest_mismatch(tmp_path):
+    ref, evaluation, npz, report = _write_cache(tmp_path, _settings())
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=_settings(),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256="0" * 64,
     )
 
     assert gamma is None
@@ -101,8 +117,8 @@ def test_validated_gamma_cache_rejects_shift_policy_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=selected,
-        ref_source_path=str(ref),
-        eval_source_path=str(evaluation),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
     )
 
     assert gamma is None
@@ -117,8 +133,8 @@ def test_validated_gamma_cache_rejects_engine_version_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=selected,
-        ref_source_path=str(ref),
-        eval_source_path=str(evaluation),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
     )
 
     assert gamma is None

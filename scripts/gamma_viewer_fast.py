@@ -295,8 +295,8 @@ def _compute_gamma_if_needed(
                 "interp_fraction": args.interp_fraction,
                 "opt_shift": getattr(args, "opt_shift", "off") == "on",
             },
-            ref_source_path=dose_meta["source_path"],
-            eval_source_path=eval_meta["source_path"] if eval_meta else "",
+            ref_source_sha256=dose_meta["source_sha256"],
+            eval_source_sha256=eval_meta["source_sha256"] if eval_meta else "",
             logger=logger,
         )
     else:
