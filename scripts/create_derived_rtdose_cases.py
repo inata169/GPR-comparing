@@ -129,16 +129,23 @@ def _write_shift_variant(
     col_spacing_mm = float(source.PixelSpacing[1])
     shift_columns = shift_mm / col_spacing_mm
     physical_dose = source.pixel_array.astype(np.float64) * float(source.DoseGridScaling)
+    shift_vector = [0.0] * physical_dose.ndim
+    shift_vector[-1] = shift_columns
     shifted_dose = ndimage_shift(
         physical_dose,
-        shift=(0.0, 0.0, shift_columns),
+        shift=shift_vector,
         order=1,
         mode="constant",
         cval=0.0,
         prefilter=False,
     )
     stored = np.rint(shifted_dose / float(source.DoseGridScaling))
-    stored = np.clip(stored, 0, np.iinfo(np.uint16).max).astype("<u2")
+    stored_byte_order = (
+        "<" if source.file_meta.TransferSyntaxUID.is_little_endian else ">"
+    )
+    stored = np.clip(stored, 0, np.iinfo(np.uint16).max).astype(
+        f"{stored_byte_order}u2"
+    )
 
     variant = f"shift_col_plus_{shift_mm:.3f}mm"
     ds = _prepare_derived(source, source_sha256, case_label, variant)
