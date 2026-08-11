@@ -159,6 +159,39 @@ def test_verify_bundle_rejects_nested_archive_with_disguised_suffix(tmp_path):
         compliance.verify_bundle(bundle)
 
 
+def test_verify_bundle_rejects_unverified_wheel_outside_wheelhouse(tmp_path):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "app").mkdir()
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    with zipfile.ZipFile(bundle / "app" / "patient_export.whl", "w") as archive:
+        archive.writestr("patient.dcm", b"\0" * 128 + b"DICM")
+
+    with pytest.raises(compliance.ComplianceError, match="unverified wheel"):
+        compliance.verify_bundle(bundle)
+
+
+def test_verify_bundle_rejects_executable_outside_pinned_python_path(tmp_path):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "app" / "python").mkdir(parents=True)
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    (bundle / "app" / "python" / "untrusted.exe").write_bytes(b"MZ")
+
+    with pytest.raises(compliance.ComplianceError, match="unexpected executable"):
+        compliance.verify_bundle(bundle)
+
+
 def test_verify_bundle_rejects_secret_material(tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "wheelhouse").mkdir(parents=True)

@@ -50,6 +50,7 @@ REQUIRED_ROOT_FILES = (
     "THIRD_PARTY_LICENSES",
     "THIRD_PARTY_MANIFEST.json",
 )
+PYTHON_INSTALLER_RELATIVE = "python/python-3.12.10-amd64.exe"
 FORBIDDEN_BUNDLE_SUFFIXES = (".dcm", ".dcm30", ".nii", ".nii.gz")
 FORBIDDEN_BUNDLE_NAMES = (
     ".env",
@@ -548,11 +549,15 @@ def verify_bundle(bundle: Path) -> None:
             )
         ):
             raise ComplianceError(f"forbidden patient/local-data file: {relative}")
-        if name.endswith(".exe") and path.parent.name.lower() != "python":
+        if name.endswith(".exe") and relative != PYTHON_INSTALLER_RELATIVE:
             raise ComplianceError(f"unexpected executable in bundle: {relative}")
         if any(token in name for token in ("phits.exe", "sumtally.exe", "phits2dicom.exe")):
             raise ComplianceError(f"forbidden PHITS-related executable: {relative}")
-        if path.suffix.lower() in {".whl", ".exe"}:
+        if path.suffix.lower() == ".whl":
+            if path in wheels:
+                continue
+            raise ComplianceError(f"unverified wheel outside wheelhouse: {relative}")
+        if path.suffix.lower() == ".exe":
             continue
         data = path.read_bytes()
         nested_archive = archive_kind(path, data)
