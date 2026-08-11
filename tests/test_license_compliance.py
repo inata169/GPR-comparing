@@ -90,6 +90,27 @@ def test_collect_wheels_fails_closed_when_license_file_is_missing(tmp_path):
         )
 
 
+def test_wheel_metadata_ignores_nested_vendored_dist_info(tmp_path):
+    wheel = tmp_path / "example-1.0-py3-none-any.whl"
+    _wheel(
+        wheel,
+        extra={
+            "example/_vendor/vendor-2.0.dist-info/METADATA": (
+                b"Metadata-Version: 2.4\nName: Vendor\nVersion: 2.0\n"
+            ),
+        },
+    )
+
+    with zipfile.ZipFile(wheel) as archive:
+        metadata, metadata_path = compliance.metadata_from_wheel(
+            archive,
+            compliance.safe_members(archive),
+        )
+
+    assert metadata["Name"] == "Example"
+    assert metadata_path.filename == "Example-1.0.dist-info/METADATA"
+
+
 def test_wheel_path_traversal_is_rejected(tmp_path):
     wheel = tmp_path / "bad.whl"
     with zipfile.ZipFile(wheel, "w") as archive:

@@ -255,7 +255,16 @@ def safe_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
 def metadata_from_wheel(
     archive: zipfile.ZipFile, members: list[zipfile.ZipInfo]
 ):
-    paths = [m for m in members if m.filename.endswith(".dist-info/METADATA")]
+    # Only the wheel's top-level distribution metadata identifies the wheel.
+    # Some packages (notably setuptools) bundle vendored *.dist-info/METADATA
+    # below package directories; those are not additional wheel identities.
+    paths = [
+        member
+        for member in members
+        if len(PurePosixPath(member.filename).parts) == 2
+        and PurePosixPath(member.filename).parts[0].endswith(".dist-info")
+        and PurePosixPath(member.filename).parts[1] == "METADATA"
+    ]
     if len(paths) != 1:
         raise ComplianceError(
             f"wheel must contain exactly one .dist-info/METADATA; found {len(paths)}"
