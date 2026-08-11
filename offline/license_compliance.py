@@ -65,6 +65,7 @@ FORBIDDEN_ARCHIVE_SUFFIXES = (
     ".bz2",
     ".cab",
     ".gz",
+    ".iso",
     ".rar",
     ".tar",
     ".tbz2",
@@ -215,6 +216,8 @@ def archive_kind(path: Path, data: bytes) -> str | None:
             return kind
     if len(data) >= 262 and data[257:262] == b"ustar":
         return "tar"
+    if len(data) >= 32774 and data[32769:32774] == b"CD001":
+        return "iso"
     return None
 
 
