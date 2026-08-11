@@ -51,7 +51,15 @@ REQUIRED_ROOT_FILES = (
     "THIRD_PARTY_MANIFEST.json",
 )
 PYTHON_INSTALLER_RELATIVE = "python/python-3.12.10-amd64.exe"
-FORBIDDEN_BUNDLE_SUFFIXES = (".dcm", ".dcm30", ".nii", ".nii.gz")
+FORBIDDEN_BUNDLE_SUFFIXES = (
+    ".db",
+    ".dcm",
+    ".dcm30",
+    ".nii",
+    ".nii.gz",
+    ".sqlite",
+    ".sqlite3",
+)
 FORBIDDEN_BUNDLE_NAMES = (
     ".env",
     "credentials.json",
@@ -574,6 +582,8 @@ def verify_bundle(bundle: Path) -> None:
             )
         if looks_like_dicom(data):
             raise ComplianceError(f"DICOM payload found in bundle: {relative}")
+        if data.startswith(b"SQLite format 3\0"):
+            raise ComplianceError(f"SQLite database found in bundle: {relative}")
         if any(marker in data for marker in SECRET_MARKERS):
             raise ComplianceError(f"secret marker found in bundle: {relative}")
 

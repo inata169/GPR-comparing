@@ -224,6 +224,31 @@ def test_verify_bundle_rejects_iso_by_suffix_or_signature(
         compliance.verify_bundle(bundle)
 
 
+@pytest.mark.parametrize(
+    ("filename", "payload", "message"),
+    (
+        ("rtgamma.db", b"opaque", "forbidden patient/local-data file"),
+        ("rtgamma.bin", b"SQLite format 3\0" + b"opaque", "SQLite database"),
+    ),
+    ids=("suffix", "signature"),
+)
+def test_verify_bundle_rejects_sqlite_by_suffix_or_signature(
+    tmp_path, filename, payload, message
+):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    (bundle / filename).write_bytes(payload)
+
+    with pytest.raises(compliance.ComplianceError, match=message):
+        compliance.verify_bundle(bundle)
+
+
 def test_verify_bundle_rejects_unverified_wheel_outside_wheelhouse(tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "wheelhouse").mkdir(parents=True)
