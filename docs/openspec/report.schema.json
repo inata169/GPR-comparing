@@ -42,7 +42,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "role": { "type": "string", "enum": ["reference", "evaluation"] },
+        "role": { "type": "string", "enum": ["reference", "evaluation", "rtstruct"] },
         "basename": { "type": "string", "minLength": 1 },
         "sha256": { "$ref": "#/definitions/sha256" }
       },
@@ -195,9 +195,16 @@
             "reference": { "$ref": "#/definitions/inputIdentity" },
             "evaluation": { "$ref": "#/definitions/inputIdentity" },
             "rtstruct_supplied": { "type": "boolean" },
-            "roi_names": { "type": "array", "items": { "type": "string" } }
+            "rtstruct": {
+              "oneOf": [
+                { "$ref": "#/definitions/inputIdentity" },
+                { "type": "null" }
+              ]
+            },
+            "roi_names": { "type": "array", "items": { "type": "string" } },
+            "effective_roi_names": { "type": "array", "items": { "type": "string" } }
           },
-          "required": ["reference", "evaluation", "rtstruct_supplied", "roi_names"]
+          "required": ["reference", "evaluation", "rtstruct_supplied", "rtstruct", "roi_names", "effective_roi_names"]
         },
         "analysis": {
           "type": "object",

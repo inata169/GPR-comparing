@@ -25,6 +25,11 @@ def sha256_file(path: str | os.PathLike[str]) -> str:
     return digest.hexdigest()
 
 
+def _loaded_source_sha256(metadata: dict[str, Any], fallback_path: str) -> str:
+    """Return the digest captured from the file snapshot used by the loader."""
+    return str(metadata.get('source_sha256') or sha256_file(fallback_path))
+
+
 def _git_value(root: Path, *arguments: str) -> str | None:
     try:
         result = subprocess.run(
@@ -143,7 +148,9 @@ def build_provenance(
     shift_candidate_count: int,
     warnings: list[str],
     rtstruct_supplied: bool,
+    rtstruct_meta: dict[str, Any] | None,
     roi_names: list[str] | None,
+    effective_roi_names: list[str],
     threads: int | None,
     gpu: str,
     seed: int | None,
@@ -155,6 +162,17 @@ def build_provenance(
 ) -> dict[str, Any]:
     resolved_ref_path = meta_ref.get('source_path', ref_path)
     resolved_eval_path = meta_eval.get('source_path', eval_path)
+    rtstruct_identity = None
+    if rtstruct_meta is not None:
+        resolved_rtstruct_path = rtstruct_meta['source_path']
+        rtstruct_identity = {
+            'role': 'rtstruct',
+            'basename': Path(resolved_rtstruct_path).name,
+            'sha256': _loaded_source_sha256(
+                rtstruct_meta,
+                resolved_rtstruct_path,
+            ),
+        }
     return {
         'schema_version': REPORT_SCHEMA_VERSION,
         'application': _application_identity(),
@@ -175,15 +193,17 @@ def build_provenance(
             'reference': {
                 'role': 'reference',
                 'basename': Path(resolved_ref_path).name,
-                'sha256': sha256_file(resolved_ref_path),
+                'sha256': _loaded_source_sha256(meta_ref, resolved_ref_path),
             },
             'evaluation': {
                 'role': 'evaluation',
                 'basename': Path(resolved_eval_path).name,
-                'sha256': sha256_file(resolved_eval_path),
+                'sha256': _loaded_source_sha256(meta_eval, resolved_eval_path),
             },
             'rtstruct_supplied': bool(rtstruct_supplied),
+            'rtstruct': rtstruct_identity,
             'roi_names': list(roi_names) if roi_names else [],
+            'effective_roi_names': list(effective_roi_names),
         },
         'analysis': {
             'mode': mode,

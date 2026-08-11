@@ -13,6 +13,47 @@ from jsonschema import validate
 from rtgamma.provenance import sha256_file
 from tests.test_batch import _make_synthetic_rtdose
 
+
+def _make_synthetic_rtstruct(path):
+    import pydicom
+    from pydicom.dataset import Dataset, FileDataset
+    from pydicom.uid import ExplicitVRLittleEndian
+
+    dataset = FileDataset(
+        str(path),
+        Dataset(),
+        preamble=b'\0' * 128,
+        is_implicit_VR=False,
+    )
+    dataset.file_meta = Dataset()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.481.3'
+    dataset.file_meta.MediaStorageSOPInstanceUID = pydicom.uid.generate_uid()
+    dataset.SOPClassUID = dataset.file_meta.MediaStorageSOPClassUID
+    dataset.SOPInstanceUID = dataset.file_meta.MediaStorageSOPInstanceUID
+    dataset.Modality = 'RTSTRUCT'
+
+    roi = Dataset()
+    roi.ROINumber = 1
+    roi.ROIName = 'PTV'
+    dataset.StructureSetROISequence = [roi]
+
+    contour = Dataset()
+    contour.ContourGeometricType = 'CLOSED_PLANAR'
+    contour.NumberOfContourPoints = 4
+    contour.ContourData = [
+        2.5, 2.5, 0.0,
+        17.5, 2.5, 0.0,
+        17.5, 17.5, 0.0,
+        2.5, 17.5, 0.0,
+    ]
+    roi_contour = Dataset()
+    roi_contour.ReferencedROINumber = 1
+    roi_contour.ContourSequence = [contour]
+    dataset.ROIContourSequence = [roi_contour]
+    dataset.save_as(path, write_like_original=False)
+    return path
+
 # Define the expected JSON report schema
 REPORT_SCHEMA = {
     'type': 'object',
@@ -61,6 +102,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     ref_path, eval_path = synthetic_doses
     out_dir = tmp_path / 'e2e_output'
     out_dir.mkdir()
+    rtstruct_path = _make_synthetic_rtstruct(tmp_path / 'structures.dcm')
 
     report_base = str(out_dir / 'e2e_report')
 
@@ -83,6 +125,10 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         str(out_dir / 'results.db'),
         '--save-gamma-map',
         str(out_dir / 'gamma3d.npz'),
+        '--rtstruct',
+        str(rtstruct_path),
+        '--roi',
+        'PTV',
     ]
 
     # We use subprocess to simulate true CLI invocation
@@ -128,6 +174,13 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     assert data['save_gamma_map_path'] == 'gamma3d.npz'
     assert str(out_dir / 'gamma3d.npz') not in json.dumps(data)
     assert provenance['inputs']['reference']['sha256']
+    assert provenance['inputs']['rtstruct'] == {
+        'role': 'rtstruct',
+        'basename': 'structures.dcm',
+        'sha256': sha256_file(rtstruct_path),
+    }
+    assert provenance['inputs']['roi_names'] == ['PTV']
+    assert provenance['inputs']['effective_roi_names'] == ['PTV']
     assert ref_path not in json.dumps(data)
     assert eval_path not in json.dumps(data)
     assert provenance['analysis']['execution_controls'] == {

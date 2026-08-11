@@ -1,3 +1,5 @@
+import hashlib
+import io
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -8,6 +10,14 @@ GEOMETRY_TOLERANCE = 1e-5
 
 class RTDoseGeometryError(ValueError):
     """Raised when RTDOSE geometry is invalid or unsupported."""
+
+
+def _read_dicom_snapshot(path: str):
+    """Hash and parse exactly the same immutable byte snapshot."""
+    with open(path, 'rb') as stream:
+        source_bytes = stream.read()
+    dataset = pydicom.dcmread(io.BytesIO(source_bytes), force=True)
+    return dataset, hashlib.sha256(source_bytes).hexdigest()
 
 
 def _geometry_error(message: str) -> RTDoseGeometryError:
@@ -160,7 +170,7 @@ def load_rtdose(path: str) -> Dict:
         else:
             raise FileNotFoundError(f"No RTDOSE found in directory: {path}")
 
-    ds = pydicom.dcmread(target_path, force=True)
+    ds, source_sha256 = _read_dicom_snapshot(target_path)
 
     # Workaround for files with missing TransferSyntaxUID
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
@@ -239,6 +249,7 @@ def load_rtdose(path: str) -> Dict:
 
     meta = {
         'source_path': os.path.abspath(target_path),
+        'source_sha256': source_sha256,
         'dose': dose.astype(np.float32),  # (z,y,x) -> (k,j,i)
         'ipp': ipp,
         'v_col': v_col, # i-axis (horizontal in 2D)
@@ -431,7 +442,7 @@ def load_rtstruct(path: str) -> Dict:
         else:
             raise FileNotFoundError(f"No RTSTRUCT found in directory: {path}")
 
-    ds = pydicom.dcmread(target_path, force=True)
+    ds, source_sha256 = _read_dicom_snapshot(target_path)
 
     if not hasattr(ds.file_meta, 'TransferSyntaxUID'):
         ds.file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
@@ -479,6 +490,8 @@ def load_rtstruct(path: str) -> Dict:
             for_uid = str(getattr(ref_for_seq[0], 'FrameOfReferenceUID', ''))
 
     return {
+        'source_path': os.path.abspath(target_path),
+        'source_sha256': source_sha256,
         'roi_list': roi_list,
         'for_uid': for_uid,
         'dataset': ds,

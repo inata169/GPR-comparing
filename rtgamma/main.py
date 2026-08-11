@@ -440,11 +440,14 @@ def main(argv=None):
 
     # --- Per-structure gamma analysis ---
     per_structure = []
+    rtstruct_meta = None
+    effective_roi_names = []
     if args.rtstruct:
         logging.info(f"Loading RTSTRUCT: {args.rtstruct}")
         rtstruct_meta = load_rtstruct(args.rtstruct)
         logging.info(f"RTSTRUCT loaded. ROIs: {[r['name'] for r in rtstruct_meta['roi_list']]}")
         roi_masks = build_roi_masks(rtstruct_meta, meta_ref, roi_names=args.roi_names)
+        effective_roi_names = list(roi_masks)
         for roi_name, roi_mask in roi_masks.items():
             # In 2D fast path, gamma_map is a thin slice (1, Y, X), etc.
             # We must slice the 3D roi_mask to match.
@@ -634,7 +637,9 @@ def main(argv=None):
         shift_candidate_count=len(search_log) if search_log is not None else 0,
         warnings=warnings_list,
         rtstruct_supplied=bool(args.rtstruct),
+        rtstruct_meta=rtstruct_meta,
         roi_names=args.roi_names,
+        effective_roi_names=effective_roi_names,
         threads=args.threads,
         gpu=args.gpu,
         seed=args.seed,

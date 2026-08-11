@@ -11,6 +11,7 @@ from rtgamma.io_dicom import (
     load_rtdose,
     validate_rtdose_pair_geometry,
 )
+from rtgamma.provenance import sha256_file
 
 
 def _write_rtdose(
@@ -69,6 +70,17 @@ def test_descending_gfov_sorts_frames_and_offsets_together(tmp_path):
     np.testing.assert_array_equal(meta['z_offsets'], [0.0, 3.0, 6.0])
     assert meta['dose'][0, 0, 0] == pytest.approx(40 * 0.001)
     assert meta['dose'][2, 0, 0] == pytest.approx(0.0)
+
+
+def test_loader_retains_digest_of_loaded_snapshot(tmp_path):
+    path = _write_rtdose(tmp_path / 'snapshot.dcm')
+    meta = load_rtdose(str(path))
+    loaded_digest = meta['source_sha256']
+
+    assert loaded_digest == sha256_file(path)
+    path.write_bytes(b'replaced after loading')
+    assert meta['source_sha256'] == loaded_digest
+    assert meta['source_sha256'] != sha256_file(path)
 
 
 def test_absolute_axial_gfov_is_converted_to_offsets(tmp_path):

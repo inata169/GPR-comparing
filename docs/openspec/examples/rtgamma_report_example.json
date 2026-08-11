@@ -71,7 +71,9 @@
         "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
       },
       "rtstruct_supplied": false,
-      "roi_names": []
+      "rtstruct": null,
+      "roi_names": [],
+      "effective_roi_names": []
     },
     "analysis": {
       "mode": "3d",
