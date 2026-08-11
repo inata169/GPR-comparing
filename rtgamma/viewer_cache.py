@@ -22,6 +22,26 @@ _SETTING_PATHS = {
     "opt_shift": ("provenance", "analysis", "opt_shift_requested"),
 }
 
+_SHIFT_SEARCH_SETTING_PATHS = {
+    "shift_range": ("provenance", "analysis", "gamma", "shift_range"),
+    "refine": ("provenance", "analysis", "gamma", "refine"),
+    "fine_range_mm": ("provenance", "analysis", "gamma", "fine_range_mm"),
+    "fine_step_mm": ("provenance", "analysis", "gamma", "fine_step_mm"),
+    "early_stop_epsilon": (
+        "provenance",
+        "analysis",
+        "gamma",
+        "early_stop_epsilon",
+    ),
+    "early_stop_patience": (
+        "provenance",
+        "analysis",
+        "gamma",
+        "early_stop_patience",
+    ),
+    "prescan_2d": ("provenance", "analysis", "gamma", "prescan_2d"),
+}
+
 
 def _same_setting(actual: Any, expected: Any) -> bool:
     if isinstance(expected, float):
@@ -77,6 +97,18 @@ def load_validated_gamma_cache(
         if not valid_shift_state:
             log.warning("Ignoring stale Gamma cache: inconsistent shift provenance")
             return None
+        if opt_shift_effective:
+            for key, path in _SHIFT_SEARCH_SETTING_PATHS.items():
+                actual = _nested_value(report, path)
+                if not _same_setting(actual, expected_settings[key]):
+                    log.warning(
+                        "Ignoring stale Gamma cache: %s differs "
+                        "(report=%r, selected=%r)",
+                        key,
+                        actual,
+                        expected_settings[key],
+                    )
+                    return None
 
         inputs = report["provenance"]["inputs"]
         expected_hashes = {

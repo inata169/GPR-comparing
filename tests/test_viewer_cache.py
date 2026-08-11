@@ -18,6 +18,13 @@ def _settings(engine="pymedphys"):
         "norm": "global_max",
         "interp_fraction": 10,
         "opt_shift": False,
+        "shift_range": "x:-3:3:1,y:-3:3:1,z:-3:3:1",
+        "refine": "coarse2fine",
+        "fine_range_mm": 10.0,
+        "fine_step_mm": 1.0,
+        "early_stop_epsilon": 0.05,
+        "early_stop_patience": 100,
+        "prescan_2d": True,
     }
 
 
@@ -38,7 +45,19 @@ def _write_cache(tmp_path, report_settings):
                     "analysis": {
                         "opt_shift_requested": report_settings["opt_shift"],
                         "identity_comparison_shortcut": False,
-                        "gamma": {"opt_shift": report_settings["opt_shift"]}
+                        "gamma": {
+                            key: report_settings[key]
+                            for key in (
+                                "opt_shift",
+                                "shift_range",
+                                "refine",
+                                "fine_range_mm",
+                                "fine_step_mm",
+                                "early_stop_epsilon",
+                                "early_stop_patience",
+                                "prescan_2d",
+                            )
+                        },
                     },
                     "inputs": {
                         "reference": {"sha256": sha256_file(ref)},
@@ -130,6 +149,23 @@ def test_validated_gamma_cache_rejects_shift_policy_change(tmp_path):
     settings = _settings()
     ref, evaluation, npz, report = _write_cache(tmp_path, settings)
     selected = {**settings, "opt_shift": True}
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=selected,
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_rejects_shift_search_change(tmp_path):
+    settings = _settings()
+    settings["opt_shift"] = True
+    ref, evaluation, npz, report = _write_cache(tmp_path, settings)
+    selected = {**settings, "fine_step_mm": 0.5}
 
     gamma = load_validated_gamma_cache(
         str(npz),

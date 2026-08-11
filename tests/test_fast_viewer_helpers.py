@@ -36,6 +36,13 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
     assert args.engine == 'numba'
     assert args.interp_fraction == 4
     assert args.opt_shift == 'off'
+    assert args.shift_range == 'x:-3:3:1,y:-3:3:1,z:-3:3:1'
+    assert args.refine == 'coarse2fine'
+    assert args.fine_range_mm == 10.0
+    assert args.fine_step_mm == 1.0
+    assert args.early_stop_epsilon == 0.05
+    assert args.early_stop_patience == 100
+    assert args.prescan_2d == 'on'
 
 
 def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):

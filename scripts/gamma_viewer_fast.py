@@ -301,6 +301,15 @@ def _compute_gamma_if_needed(
                 "norm": args.norm,
                 "interp_fraction": args.interp_fraction,
                 "opt_shift": getattr(args, "opt_shift", "off") == "on",
+                "shift_range": getattr(
+                    args, "shift_range", "x:-3:3:1,y:-3:3:1,z:-3:3:1"
+                ),
+                "refine": getattr(args, "refine", "coarse2fine"),
+                "fine_range_mm": getattr(args, "fine_range_mm", 10.0),
+                "fine_step_mm": getattr(args, "fine_step_mm", 1.0),
+                "early_stop_epsilon": getattr(args, "early_stop_epsilon", 0.05),
+                "early_stop_patience": getattr(args, "early_stop_patience", 100),
+                "prescan_2d": getattr(args, "prescan_2d", "on") == "on",
             },
             ref_source_sha256=dose_meta["source_sha256"],
             eval_source_sha256=eval_meta["source_sha256"] if eval_meta else "",
@@ -1750,6 +1759,16 @@ def _parse_args(argv=None):
     parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
     parser.add_argument("--interp-fraction", type=int, default=1)
     parser.add_argument("--opt-shift", choices=["on", "off"], default="off")
+    parser.add_argument(
+        "--shift-range",
+        default="x:-3:3:1,y:-3:3:1,z:-3:3:1",
+    )
+    parser.add_argument("--refine", choices=["none", "coarse2fine"], default="coarse2fine")
+    parser.add_argument("--fine-range-mm", type=float, default=10.0)
+    parser.add_argument("--fine-step-mm", type=float, default=1.0)
+    parser.add_argument("--early-stop-epsilon", type=float, default=0.05)
+    parser.add_argument("--early-stop-patience", type=int, default=100)
+    parser.add_argument("--prescan-2d", choices=["on", "off"], default="on")
     return parser.parse_args(argv)
 
 

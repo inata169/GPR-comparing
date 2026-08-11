@@ -65,6 +65,8 @@ def grid_search_best_shift(
         )
         return pass_rate
 
+    log: List[Dict] = []
+
     # Optional 2D prescan on central axial slice to narrow XY range
     xs_coarse, ys_coarse, zs_coarse = parse_shift_range(shift_spec)
     if prescan_2d:
@@ -79,7 +81,7 @@ def grid_search_best_shift(
 
             def eval2d(dx, dy):
                 shifted = (eval_axes_2d[0], eval_axes_2d[1] + dy, eval_axes_2d[2] + dx)
-                _, pr, _ = compute_gamma(
+                _, pr, gstats = compute_gamma(
                     axes_ref_mm=ref_axes_2d,
                     dose_ref=dose_ref_2d,
                     axes_eval_mm=shifted,
@@ -92,6 +94,14 @@ def grid_search_best_shift(
                     engine=engine,
                     interp_fraction=interp_fraction,
                 )
+                log.append({
+                    'dx': dx,
+                    'dy': dy,
+                    'dz': 0.0,
+                    'pass_rate': pr,
+                    'type': 'prescan_2d',
+                    'n_eval': gstats.get('valid_points', 0),
+                })
                 return pr
 
             best_xy = (0.0, 0.0)
@@ -129,7 +139,6 @@ def grid_search_best_shift(
     ref_n_eval = 0 # Points at (0,0,0)
     last_significant_pass = -1.0
 
-    log: List[Dict] = []
     noimp = 0
 
     for x, y, z in coarse_shifts:

@@ -360,3 +360,32 @@ def test_shift_optimization_routes_selected_engine(monkeypatch):
 
     assert selected_engines == ['pymedphys']
     assert interpolation_fractions == [7]
+
+
+def test_shift_optimization_logs_prescan_evaluations(monkeypatch):
+    axes, dose = _case()
+
+    def fake_compute_gamma(*args, **kwargs):
+        return np.zeros_like(dose), 50.0, {'valid_points': dose.size}
+
+    monkeypatch.setattr('rtgamma.optimize.compute_gamma', fake_compute_gamma)
+    _, _, extras = grid_search_best_shift(
+        ref_axes_mm_1d=axes,
+        dose_ref=dose,
+        eval_axes_mm_1d=axes,
+        dose_eval=dose,
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        norm='global_max',
+        shift_spec='x:-1:1:1,y:-1:1:1,z:0:0:1',
+        refine=False,
+        prescan_2d=True,
+        engine='pymedphys',
+        interp_fraction=1,
+    )
+
+    search_log = extras['search_log']
+    assert [entry['type'] for entry in search_log].count('prescan_2d') == 9
+    assert [entry['type'] for entry in search_log].count('coarse') == 9
+    assert len(search_log) == 18
