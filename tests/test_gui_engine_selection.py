@@ -60,8 +60,12 @@ def test_executable_builds_collect_pymedphys_and_metadata():
 
     assert build_script.count("'--collect-all', 'pymedphys'") == 2
     assert build_script.count("'--copy-metadata', 'pymedphys'") == 2
+    assert build_script.count("'--copy-metadata', 'numba'") == 2
+    assert 'Write-ApplicationIdentity' in build_script
+    assert 'application_identity.json' in build_script
     assert "collect_all('pymedphys')" in fast_spec
     assert "copy_metadata('pymedphys')" in fast_spec
+    assert "copy_metadata('numba')" in fast_spec
 
 
 def test_viewers_accept_and_route_explicit_engine():

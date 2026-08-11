@@ -20,7 +20,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from rtgamma.gamma import compute_gamma  # noqa: E402
-from rtgamma.io_dicom import load_rtdose, world_to_index  # noqa: E402
+from rtgamma.io_dicom import (  # noqa: E402
+    load_rtdose,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
 from rtgamma.main import build_plane_world_coords  # noqa: E402
 from rtgamma.resample import resample_eval_onto_ref  # noqa: E402
 
@@ -186,6 +190,7 @@ def run_comparison(args: argparse.Namespace) -> dict:
 
     meta_ref = load_rtdose(str(ref_path))
     meta_eval = load_rtdose(str(eval_path))
+    validate_rtdose_pair_geometry(meta_ref, meta_eval)
     dose_ref = meta_ref["dose"]
     dose_eval = meta_eval["dose"]
     plane_index = _resolve_index(dose_ref.shape, args.plane, args.plane_index)

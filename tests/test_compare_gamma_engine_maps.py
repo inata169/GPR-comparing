@@ -1,7 +1,10 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
-from scripts.compare_gamma_engine_maps import compare_gamma_maps
+from rtgamma.io_dicom import RTDoseGeometryError
+from scripts.compare_gamma_engine_maps import compare_gamma_maps, run_comparison
 
 
 def test_compare_gamma_maps_reports_masks_differences_and_confusion():
@@ -60,3 +63,22 @@ def test_compare_gamma_maps_rejects_shape_mismatch():
             np.zeros((2, 2, 2)),
             (np.array([0.0]), np.arange(2), np.arange(2)),
         )
+
+
+def test_run_comparison_rejects_dose_unit_mismatch(monkeypatch, tmp_path):
+    loaded = iter([
+        {'units': 'GY'},
+        {'units': 'RELATIVE'},
+    ])
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.load_rtdose',
+        lambda _path: next(loaded),
+    )
+    args = SimpleNamespace(
+        ref='reference.dcm',
+        eval='evaluation.dcm',
+        out=str(tmp_path / 'comparison'),
+    )
+
+    with pytest.raises(RTDoseGeometryError, match='DoseUnits mismatch'):
+        run_comparison(args)

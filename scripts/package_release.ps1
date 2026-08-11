@@ -22,6 +22,20 @@ function Copy-IfExists([string]$src, [string]$dst) {
     }
 }
 
+function Write-ReleaseApplicationIdentity([string]$targetDir) {
+    $commit = $null
+    $commitOutput = & git -C $ROOT rev-parse HEAD 2>$null
+    if ($LASTEXITCODE -eq 0) { $commit = ([string]$commitOutput).Trim() }
+    $statusOutput = & git -C $ROOT status --porcelain --untracked-files=no 2>$null
+    $dirty = if ($LASTEXITCODE -eq 0) { -not [string]::IsNullOrWhiteSpace(($statusOutput -join "`n")) } else { $null }
+    [ordered]@{
+        schema_version = 1
+        version = $Version
+        git_commit = $commit
+        git_dirty = $dirty
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $targetDir 'application_identity.json') -Encoding UTF8
+}
+
 function Write-FastNotice([string]$targetDir) {
     $notice = @'
 rtgamma Fast Viewer distribution notice
@@ -245,6 +259,13 @@ Copy-Item -Path $distCliDir -Destination $targetDistDir -Recurse -Force
 Copy-Item -Path $distViewerDir -Destination $targetDistDir -Recurse -Force
 if ($DistributionMode -eq 'Fast') {
     Copy-Item -Path $distFastViewerDir -Destination $targetDistDir -Recurse -Force
+}
+
+Write-ReleaseApplicationIdentity $stagingDirPath
+Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'rtgamma_cli')
+Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'gamma_viewer')
+if ($DistributionMode -eq 'Fast') {
+    Write-ReleaseApplicationIdentity (Join-Path $targetDistDir 'gamma_viewer_fast')
 }
 
 Write-Host "Copying GUI scripts..."

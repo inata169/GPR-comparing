@@ -39,3 +39,10 @@ def test_release_package_excludes_local_gui_settings() -> None:
     script = PACKAGE_RELEASE.read_text(encoding="utf-8-sig")
 
     assert "Where-Object { $_.Name -ne 'gui_config.ini' }" in script
+
+
+def test_release_package_embeds_application_identity() -> None:
+    script = PACKAGE_RELEASE.read_text(encoding="utf-8-sig")
+
+    assert "Write-ReleaseApplicationIdentity" in script
+    assert "application_identity.json" in script

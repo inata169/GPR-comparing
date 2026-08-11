@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
+import json
 import os
 import platform
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -40,10 +42,14 @@ def _git_value(root: Path, *arguments: str) -> str | None:
 
 def _application_identity() -> dict[str, Any]:
     root = Path(__file__).resolve().parents[1]
+    packaged = _packaged_application_identity(root)
     explicit_version = os.environ.get('GPR_COMPARING_VERSION', '').strip()
     if explicit_version:
         version = explicit_version
         version_source = 'environment'
+    elif packaged is not None:
+        version = packaged['version']
+        version_source = 'packaged-build'
     else:
         try:
             version = importlib.metadata.version('GPR-comparing')
@@ -52,14 +58,41 @@ def _application_identity() -> dict[str, Any]:
             version = _git_value(root, 'describe', '--tags', '--always') or 'unknown'
             version_source = 'git-describe' if version != 'unknown' else 'unavailable'
 
-    status = _git_value(root, 'status', '--porcelain', '--untracked-files=no')
+    if packaged is not None:
+        git_commit = packaged.get('git_commit')
+        git_dirty = packaged.get('git_dirty')
+    else:
+        status = _git_value(root, 'status', '--porcelain', '--untracked-files=no')
+        git_commit = _git_value(root, 'rev-parse', 'HEAD')
+        git_dirty = bool(status) if status is not None else None
     return {
         'name': 'GPR-comparing',
         'version': version,
         'version_source': version_source,
-        'git_commit': _git_value(root, 'rev-parse', 'HEAD'),
-        'git_dirty': bool(status) if status is not None else None,
+        'git_commit': git_commit,
+        'git_dirty': git_dirty,
     }
+
+
+def _packaged_application_identity(root: Path) -> dict[str, Any] | None:
+    candidates = [root / 'application_identity.json']
+    if getattr(sys, 'frozen', False):
+        candidates.insert(0, Path(sys.executable).resolve().parent / 'application_identity.json')
+
+    for path in candidates:
+        try:
+            data = json.loads(path.read_text(encoding='utf-8-sig'))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        version = str(data.get('version', '')).strip()
+        if not version:
+            continue
+        commit = str(data.get('git_commit', '')).strip() or None
+        dirty = data.get('git_dirty')
+        if not isinstance(dirty, bool):
+            dirty = None
+        return {'version': version, 'git_commit': commit, 'git_dirty': dirty}
+    return None
 
 
 def _float_list(values: Any) -> list[float]:

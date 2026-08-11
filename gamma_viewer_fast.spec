@@ -21,6 +21,7 @@ hiddenimports += collect_submodules('scipy')
 datas += collect_data_files('pyqtgraph', excludes=['examples/**', 'tests/**'])
 pymedphys_datas, pymedphys_binaries, pymedphys_hiddenimports = collect_all('pymedphys')
 datas += pymedphys_datas + copy_metadata('pymedphys')
+datas += copy_metadata('numba')
 binaries += pymedphys_binaries
 hiddenimports += pymedphys_hiddenimports
 
