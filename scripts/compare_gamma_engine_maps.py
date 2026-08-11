@@ -7,7 +7,6 @@ artifacts. It does not copy DICOM data or emit DICOM demographics.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import time
@@ -30,18 +29,13 @@ from rtgamma.report import sanitize_for_json  # noqa: E402
 from rtgamma.resample import resample_eval_onto_ref  # noqa: E402
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def _input_identity(original_path: Path, metadata: dict) -> dict[str, str]:
     """Describe the RTDOSE file actually selected by ``load_rtdose``."""
     resolved_path = Path(metadata.get("source_path", original_path)).resolve()
-    return {"basename": resolved_path.name, "sha256": _sha256(resolved_path)}
+    return {
+        "basename": resolved_path.name,
+        "sha256": metadata["source_sha256"],
+    }
 
 
 def _write_strict_json(path: Path, payload: dict) -> None:

@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 
+from rtgamma.gamma import gamma_engine_version
 from rtgamma.provenance import sha256_file
 from rtgamma.viewer_cache import load_validated_gamma_cache
 
@@ -9,6 +10,7 @@ from rtgamma.viewer_cache import load_validated_gamma_cache
 def _settings(engine="pymedphys"):
     return {
         "gamma_engine": engine,
+        "gamma_engine_version": gamma_engine_version(engine),
         "dd_percent": 3.0,
         "dta_mm": 2.0,
         "cutoff_percent": 10.0,
@@ -94,6 +96,22 @@ def test_validated_gamma_cache_rejects_shift_policy_change(tmp_path):
     settings = _settings()
     ref, evaluation, npz, report = _write_cache(tmp_path, settings)
     selected = {**settings, "opt_shift": True}
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=selected,
+        ref_source_path=str(ref),
+        eval_source_path=str(evaluation),
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_rejects_engine_version_change(tmp_path):
+    settings = _settings("numba")
+    ref, evaluation, npz, report = _write_cache(tmp_path, settings)
+    selected = {**settings, "gamma_engine_version": "future-numba"}
 
     gamma = load_validated_gamma_cache(
         str(npz),

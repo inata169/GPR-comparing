@@ -12,6 +12,7 @@ from .provenance import sha256_file
 
 _SETTING_PATHS = {
     "gamma_engine": ("gamma_engine",),
+    "gamma_engine_version": ("gamma_engine_version",),
     "dd_percent": ("dd_percent",),
     "dta_mm": ("dta_mm",),
     "cutoff_percent": ("cutoff_percent",),

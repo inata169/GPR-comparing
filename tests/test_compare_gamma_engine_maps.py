@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from rtgamma.io_dicom import RTDoseGeometryError
+from rtgamma.provenance import sha256_file
 from scripts.compare_gamma_engine_maps import (
     _input_identity,
     _write_strict_json,
@@ -95,10 +96,18 @@ def test_input_identity_hashes_resolved_rtdose_not_directory(tmp_path):
     resolved = input_dir / "selected-rtdose.dcm"
     resolved.write_bytes(b"resolved dose bytes")
 
-    identity = _input_identity(input_dir, {"source_path": str(resolved)})
+    loaded_digest = sha256_file(resolved)
+    metadata = {
+        "source_path": str(resolved),
+        "source_sha256": loaded_digest,
+    }
+    resolved.write_bytes(b"replacement after load")
+
+    identity = _input_identity(input_dir, metadata)
 
     assert identity["basename"] == resolved.name
-    assert len(identity["sha256"]) == 64
+    assert identity["sha256"] == loaded_digest
+    assert identity["sha256"] != sha256_file(resolved)
 
 
 def test_write_strict_json_replaces_nonfinite_values(tmp_path):

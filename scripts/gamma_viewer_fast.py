@@ -18,7 +18,7 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from rtgamma.gamma import compute_gamma
+from rtgamma.gamma import compute_gamma, gamma_engine_version
 from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct, world_to_index
 from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
@@ -286,6 +286,7 @@ def _compute_gamma_if_needed(
             args.gamma_report,
             expected_settings={
                 "gamma_engine": args.engine,
+                "gamma_engine_version": gamma_engine_version(args.engine),
                 "dd_percent": args.dd,
                 "dta_mm": args.dta,
                 "cutoff_percent": args.cutoff,
