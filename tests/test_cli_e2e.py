@@ -11,6 +11,7 @@ import pytest
 from jsonschema import validate
 
 from rtgamma.provenance import sha256_file
+from rtgamma.settings import GAMMA_CACHE_CONTRACT_VERSION
 from rtgamma.viewer_cache import load_validated_gamma_cache
 from tests.test_batch import _make_synthetic_rtdose
 
@@ -164,6 +165,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     assert data['gamma_engine'] == 'pymedphys'
     provenance = data['provenance']
     assert provenance['schema_version'] == 2
+    assert provenance['gamma_cache_contract_version'] == GAMMA_CACHE_CONTRACT_VERSION
     assert provenance['engine'] == {
         'name': 'pymedphys',
         'version': '0.41.0',

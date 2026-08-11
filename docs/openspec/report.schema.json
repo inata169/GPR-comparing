@@ -151,6 +151,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": { "type": "integer", "const": 2 },
+        "gamma_cache_contract_version": { "type": "integer", "minimum": 1 },
         "application": {
           "type": "object",
           "additionalProperties": false,
@@ -308,7 +309,7 @@
           "required": ["absolute_paths_recorded", "dicom_demographics_recorded", "input_identity"]
         }
       },
-      "required": ["schema_version", "application", "execution", "runtime", "engine", "inputs", "analysis", "geometry", "warnings", "privacy"]
+      "required": ["schema_version", "gamma_cache_contract_version", "application", "execution", "runtime", "engine", "inputs", "analysis", "geometry", "warnings", "privacy"]
     },
     "per_structure": {
       "type": "array",

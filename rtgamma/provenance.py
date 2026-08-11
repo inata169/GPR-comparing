@@ -14,7 +14,11 @@ from typing import Any
 
 import numpy as np
 
-from .settings import REPORT_SCHEMA_VERSION, GammaSettings
+from .settings import (
+    GAMMA_CACHE_CONTRACT_VERSION,
+    REPORT_SCHEMA_VERSION,
+    GammaSettings,
+)
 
 
 def sha256_file(path: str | os.PathLike[str]) -> str:
@@ -177,6 +181,7 @@ def build_provenance(
         }
     return {
         'schema_version': REPORT_SCHEMA_VERSION,
+        'gamma_cache_contract_version': GAMMA_CACHE_CONTRACT_VERSION,
         'application': _application_identity(),
         'execution': {
             'started_utc': started_utc,

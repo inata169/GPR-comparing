@@ -9,6 +9,9 @@ DEFAULT_GAMMA_ENGINE = 'pymedphys'
 LEGACY_GAMMA_ENGINE = 'numba'
 SUPPORTED_PYMEDPHYS_VERSION = '0.41.0'
 REPORT_SCHEMA_VERSION = 2
+# Increment whenever calculation, coordinate, resampling, or optimization code
+# can change a cached Gamma array without changing its recorded inputs/settings.
+GAMMA_CACHE_CONTRACT_VERSION = 1
 
 
 @dataclass(frozen=True)

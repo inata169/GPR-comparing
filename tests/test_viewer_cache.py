@@ -4,6 +4,7 @@ import numpy as np
 
 from rtgamma.gamma import gamma_engine_version
 from rtgamma.provenance import sha256_file
+from rtgamma.settings import GAMMA_CACHE_CONTRACT_VERSION
 from rtgamma.viewer_cache import load_validated_gamma_cache
 
 
@@ -42,6 +43,7 @@ def _write_cache(tmp_path, report_settings):
                 **report_settings,
                 "save_gamma_map_sha256": sha256_file(npz),
                 "provenance": {
+                    "gamma_cache_contract_version": GAMMA_CACHE_CONTRACT_VERSION,
                     "analysis": {
                         "opt_shift_requested": report_settings["opt_shift"],
                         "identity_comparison_shortcut": False,
@@ -92,6 +94,24 @@ def test_validated_gamma_cache_rejects_engine_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=_settings("numba"),
+        ref_source_sha256=sha256_file(ref),
+        eval_source_sha256=sha256_file(evaluation),
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_rejects_calculation_contract_change(tmp_path):
+    settings = _settings()
+    ref, evaluation, npz, report = _write_cache(tmp_path, settings)
+    report_data = json.loads(report.read_text(encoding="utf-8"))
+    report_data["provenance"]["gamma_cache_contract_version"] += 1
+    report.write_text(json.dumps(report_data), encoding="utf-8")
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=settings,
         ref_source_sha256=sha256_file(ref),
         eval_source_sha256=sha256_file(evaluation),
     )

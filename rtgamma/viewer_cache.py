@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy as np
 
+from .settings import GAMMA_CACHE_CONTRACT_VERSION
+
 _SETTING_PATHS = {
     "gamma_engine": ("gamma_engine",),
     "gamma_engine_version": ("gamma_engine_version",),
@@ -74,6 +76,15 @@ def load_validated_gamma_cache(
     log = logger or logging.getLogger(__name__)
     try:
         report = json.loads(Path(report_path).read_text(encoding="utf-8-sig"))
+        report_contract = report["provenance"].get("gamma_cache_contract_version")
+        if report_contract != GAMMA_CACHE_CONTRACT_VERSION:
+            log.warning(
+                "Ignoring stale Gamma cache: calculation contract differs "
+                "(report=%r, current=%r)",
+                report_contract,
+                GAMMA_CACHE_CONTRACT_VERSION,
+            )
+            return None
         for key, path in _SETTING_PATHS.items():
             actual = _nested_value(report, path)
             if not _same_setting(actual, expected_settings[key]):
