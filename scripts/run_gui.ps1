@@ -708,8 +708,9 @@ function Build-Command(){
       # If a pre-computed NPZ exists in output folder, use it
       if (-not [string]::IsNullOrWhiteSpace($out) -and (Test-Path $out -PathType Container)) {
         $npzPath = Join-Path $out 'gamma3d.npz'
-        if (Test-Path $npzPath) {
-          $viewerCmd += @('--gamma-npz', $npzPath)
+        $reportPath = Join-Path $out 'run3d.json'
+        if ((Test-Path $npzPath) -and (Test-Path $reportPath)) {
+          $viewerCmd += @('--gamma-npz', $npzPath, '--gamma-report', $reportPath)
         }
       }
       return $viewerCmd

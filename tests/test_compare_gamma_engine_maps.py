@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from rtgamma.io_dicom import RTDoseGeometryError
-from scripts.compare_gamma_engine_maps import compare_gamma_maps, run_comparison
+from scripts.compare_gamma_engine_maps import (
+    _input_identity,
+    _write_strict_json,
+    compare_gamma_maps,
+    run_comparison,
+)
 
 
 def test_compare_gamma_maps_reports_masks_differences_and_confusion():
@@ -82,3 +87,25 @@ def test_run_comparison_rejects_dose_unit_mismatch(monkeypatch, tmp_path):
 
     with pytest.raises(RTDoseGeometryError, match='DoseUnits mismatch'):
         run_comparison(args)
+
+
+def test_input_identity_hashes_resolved_rtdose_not_directory(tmp_path):
+    input_dir = tmp_path / "dose-directory"
+    input_dir.mkdir()
+    resolved = input_dir / "selected-rtdose.dcm"
+    resolved.write_bytes(b"resolved dose bytes")
+
+    identity = _input_identity(input_dir, {"source_path": str(resolved)})
+
+    assert identity["basename"] == resolved.name
+    assert len(identity["sha256"]) == 64
+
+
+def test_write_strict_json_replaces_nonfinite_values(tmp_path):
+    output = tmp_path / "comparison.json"
+
+    _write_strict_json(output, {"mean": float("nan"), "maximum": float("inf")})
+
+    assert output.read_text(encoding="utf-8") == (
+        '{\n  "mean": null,\n  "maximum": null\n}'
+    )

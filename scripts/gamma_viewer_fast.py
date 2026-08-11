@@ -23,6 +23,7 @@ from rtgamma.io_dicom import load_ct, load_rtdose, load_rtstruct, world_to_index
 from rtgamma.main import build_ref_world_coords
 from rtgamma.mask import build_roi_masks
 from rtgamma.resample import resample_ct_onto_dose, resample_eval_onto_ref
+from rtgamma.viewer_cache import load_validated_gamma_cache
 
 logger = logging.getLogger(__name__)
 
@@ -245,9 +246,12 @@ def _load_gamma_npz(path: str | None) -> np.ndarray | None:
         return None
 
 
-def _resample_eval(eval_path: str | None, dose_meta: dict) -> tuple[np.ndarray | None, str]:
+def _resample_eval(
+    eval_path: str | None,
+    dose_meta: dict,
+) -> tuple[np.ndarray | None, str, dict | None]:
     if not eval_path:
-        return None, ""
+        return None, "", None
     eval_meta = load_rtdose(eval_path)
     Xw, Yw, Zw = build_ref_world_coords(dose_meta)
     w2i = lambda pts: world_to_index(
@@ -267,15 +271,45 @@ def _resample_eval(eval_path: str | None, dose_meta: dict) -> tuple[np.ndarray |
         interp="linear",
         shift_mm=(0, 0, 0),
     )
-    return eval_on_ref, eval_meta.get("units", "")
+    return eval_on_ref, eval_meta.get("units", ""), eval_meta
 
 
-def _compute_gamma_if_needed(args, dose_meta: dict, eval_on_ref: np.ndarray | None) -> np.ndarray | None:
-    gamma = _load_gamma_npz(args.gamma_npz)
+def _compute_gamma_if_needed(
+    args,
+    dose_meta: dict,
+    eval_on_ref: np.ndarray | None,
+    eval_meta: dict | None = None,
+) -> np.ndarray | None:
+    if args.gamma_npz and getattr(args, "gamma_report", None):
+        gamma = load_validated_gamma_cache(
+            args.gamma_npz,
+            args.gamma_report,
+            expected_settings={
+                "gamma_engine": args.engine,
+                "dd_percent": args.dd,
+                "dta_mm": args.dta,
+                "cutoff_percent": args.cutoff,
+                "gamma_type": args.gamma_type,
+                "norm": args.norm,
+                "interp_fraction": args.interp_fraction,
+            },
+            ref_source_path=dose_meta["source_path"],
+            eval_source_path=eval_meta["source_path"] if eval_meta else "",
+            logger=logger,
+        )
+    else:
+        gamma = _load_gamma_npz(args.gamma_npz)
+    if gamma is not None and gamma.shape != dose_meta["dose"].shape:
+        logger.warning(
+            "Ignoring Gamma cache with shape %s; reference shape is %s",
+            gamma.shape,
+            dose_meta["dose"].shape,
+        )
+        gamma = None
     if gamma is not None:
         return gamma
-    if not args.gamma_npz and eval_on_ref is not None:
-        logger.info("No --gamma-npz supplied. Computing Gamma map for PoC display.")
+    if eval_on_ref is not None:
+        logger.info("No compatible Gamma cache. Computing Gamma map for display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])
         gamma_map, _, _ = compute_gamma(
             axes_ref_mm=axes,
@@ -1691,6 +1725,7 @@ def _parse_args(argv=None):
     parser.add_argument("--ref", required=True)
     parser.add_argument("--eval")
     parser.add_argument("--gamma-npz")
+    parser.add_argument("--gamma-report")
     parser.add_argument("--rtstruct")
     parser.add_argument("--roi")
     parser.add_argument("--dd", type=float, default=3.0)
@@ -1715,8 +1750,8 @@ def main(argv=None) -> int:
     logger.info("Loading reference dose: %s", args.ref)
     dose_meta = load_rtdose(args.ref)
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
-    eval_on_ref, eval_unit = _resample_eval(args.eval, dose_meta)
-    gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref)
+    eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
+    gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
     rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None
     if args.roi:
         roi_names = [name.strip() for name in args.roi.split(",") if name.strip()]

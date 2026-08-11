@@ -18,6 +18,7 @@ def test_gui_launchers_expose_persist_and_forward_engine():
         assert "does not support Norm 'none'" in script
         assert "'--engine',$engineVal,'--interp-fraction',$interpVal" in script
         assert "$viewerCmd += @('--gamma-type','local')" in script
+        assert "'--gamma-npz', $npzPath, '--gamma-report', $reportPath" in script
 
 
 def test_gui_default_and_saved_config_select_pymedphys():

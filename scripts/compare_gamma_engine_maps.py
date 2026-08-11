@@ -26,6 +26,7 @@ from rtgamma.io_dicom import (  # noqa: E402
     world_to_index,
 )
 from rtgamma.main import build_plane_world_coords  # noqa: E402
+from rtgamma.report import sanitize_for_json  # noqa: E402
 from rtgamma.resample import resample_eval_onto_ref  # noqa: E402
 
 
@@ -35,6 +36,19 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _input_identity(original_path: Path, metadata: dict) -> dict[str, str]:
+    """Describe the RTDOSE file actually selected by ``load_rtdose``."""
+    resolved_path = Path(metadata.get("source_path", original_path)).resolve()
+    return {"basename": resolved_path.name, "sha256": _sha256(resolved_path)}
+
+
+def _write_strict_json(path: Path, payload: dict) -> None:
+    path.write_text(
+        json.dumps(sanitize_for_json(payload), indent=2, allow_nan=False),
+        encoding="utf-8",
+    )
 
 
 def _selected_slice(dose: np.ndarray, plane: str, index: int) -> np.ndarray:
@@ -319,8 +333,8 @@ def run_comparison(args: argparse.Namespace) -> dict:
     report = {
         "status": "preliminary_characterization_not_acceptance",
         "inputs": {
-            "reference": {"basename": ref_path.name, "sha256": _sha256(ref_path)},
-            "evaluation": {"basename": eval_path.name, "sha256": _sha256(eval_path)},
+            "reference": _input_identity(ref_path, meta_ref),
+            "evaluation": _input_identity(eval_path, meta_eval),
         },
         "settings": {
             "mode": "2d",
@@ -342,11 +356,8 @@ def run_comparison(args: argparse.Namespace) -> dict:
         "array_file": "gamma_map_comparison.npz",
     }
     np.savez_compressed(output_dir / "gamma_map_comparison.npz", **arrays)
-    (output_dir / "gamma_map_comparison.json").write_text(
-        json.dumps(report, indent=2, allow_nan=False),
-        encoding="utf-8",
-    )
-    return report
+    _write_strict_json(output_dir / "gamma_map_comparison.json", report)
+    return sanitize_for_json(report)
 
 
 def main() -> int:

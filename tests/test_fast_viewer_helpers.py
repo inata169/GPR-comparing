@@ -72,6 +72,47 @@ def test_on_demand_gamma_routes_selected_engine(monkeypatch):
     assert captured['interp_fraction'] == 4
 
 
+def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
+    captured = {}
+    dose = np.ones((2, 2, 2), dtype=float)
+    axes = np.arange(2, dtype=float)
+
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_validated_gamma_cache',
+        lambda *args, **kwargs: None,
+    )
+
+    def fake_compute_gamma(**kwargs):
+        captured.update(kwargs)
+        return np.full_like(dose, 0.25), 100.0, {}
+
+    monkeypatch.setattr('scripts.gamma_viewer_fast.compute_gamma', fake_compute_gamma)
+    args = SimpleNamespace(
+        gamma_npz='stale-gamma3d.npz',
+        gamma_report='run3d.json',
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='global',
+        norm='global_max',
+        engine='numba',
+        interp_fraction=4,
+    )
+    dose_meta = {
+        'source_path': 'reference.dcm',
+        'dose': dose,
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
+    eval_meta = {'source_path': 'evaluation.dcm'}
+
+    gamma = _compute_gamma_if_needed(args, dose_meta, dose.copy(), eval_meta)
+
+    np.testing.assert_array_equal(gamma, np.full_like(dose, 0.25))
+    assert captured['engine'] == 'numba'
+
+
 def test_pass_fail_treats_zero_gamma_as_pass():
     assert _pass_fail_text(0.0) == "Pass"
 
