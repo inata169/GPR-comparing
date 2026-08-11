@@ -142,6 +142,12 @@ All 24 runs had identical finite masks between engines. The 12 global runs had z
 
 This characterization does not use Numba agreement as the definition of PyMedPhys correctness. PyMedPhys is the selected standard, while Numba preserves legacy behavior. The local matrix establishes reproducibility and identifies migration-visible differences; human approval of thresholds and release readiness remain separate gates. Source DICOM, derived DICOM, result arrays, and absolute local paths are excluded from version control.
 
+### Local full-volume GUI workflow verification
+
+On 2026-08-11, the Windows source GUI ran two controlled 5 x 5 cm phantom cases through the PyMedPhys 0.41.0 3D path and opened their saved Gamma arrays in the Fast 3D Viewer. Both used 3% / 2 mm global gamma, a 10% reference cutoff, `global_max`, linear resampling, and interpolation fraction 3. The uniform +2% run had shift optimization enabled but selected 0 mm and produced 100.0000% GPR with maximum gamma 0.666669 over 121,904 evaluated voxels. The positive-column +1 mm run disabled shift optimization and produced 99.8925% GPR, maximum gamma 1.022724, and 131 failing voxels over the same evaluated count. The operator confirmed successful Viewer startup for both and a visible positional displacement in the shifted case.
+
+The canonical summary, input SHA-256 digests, exact setting difference, dirty-worktree disclosure, and limitations are recorded in [the 2026-08-11 controlled RTDOSE verification record](../../../PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md). This is local workflow characterization, not clinical validation or a release-gate result. DICOM inputs and generated numerical artifacts remain excluded from version control.
+
 ## 10. External proprietary-system comparisons
 
 A 3DVH comparison is not required for this standardization. PyMedPhys 0.41.0 is the fixed standard engine, while software tests, controlled inputs, input hashes, settings, and runtime provenance establish reproducibility of this application's use of that engine. Historical proprietary-system comparisons remain archival and must not determine standard parameters or be presented as current validation evidence.

@@ -7,8 +7,10 @@ This directory contains project specifications, report schemas, change proposals
 - [PyMedPhys as the standard gamma engine](changes/pymedphys-standard-engine/proposal.md)
   - [Design](changes/pymedphys-standard-engine/design.md)
   - [Tasks](changes/pymedphys-standard-engine/tasks.md)
+  - [Controlled RTDOSE verification record — 2026-08-11](../PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md)
+  - [Release-readiness checkpoint — 2026-08-11](../RELEASE_READINESS_2026-08-11.md)
 
-The Python 3.12 source implementation now uses PyMedPhys as the CLI, batch, and GUI default; preserves Numba through explicit legacy/research selection; and writes strict-JSON schema-versioned provenance across report formats and SQLite. Controlled local characterization is recorded without approving clinical or cross-engine acceptance thresholds. Offline PyMedPhys packaging remains open; a 3DVH comparison is not required for this standardization.
+The Python 3.12 source implementation now uses PyMedPhys as the CLI, batch, and GUI default; preserves Numba through explicit legacy/research selection; and writes strict-JSON schema-versioned provenance across report formats and SQLite. Controlled local characterization and a full-volume source-GUI/Fast-Viewer workflow check are recorded without approving clinical or cross-engine acceptance thresholds. The project owner approved this validation scope and its limitations for release preparation on 2026-08-11. A rebuilt offline bundle passed local `--no-index` smoke testing; clean-machine and physically network-isolated acceptance remain open. A 3DVH comparison is not required for this standardization.
 
 ## Current report contract
 

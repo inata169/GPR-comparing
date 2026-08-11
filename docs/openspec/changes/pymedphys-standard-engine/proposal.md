@@ -1,8 +1,8 @@
 # Change proposal: PyMedPhys as the standard gamma engine
 
-Status: In progress — source CLI/GUI and offline bundle definition implemented; clean-machine and release gates pending
+Status: In progress — validation scope approved for release preparation; source CLI/GUI, controlled full-volume GUI verification, and a locally smoke-tested offline bundle are complete; clean-candidate, policy, CI, and release gates remain pending
 Priority: Primary development track
-Public interfaces affected: CLI, batch CSV, GUI, configuration, reports, tests, executable builder, and offline bundle builder; rebuilt artifact verification remains pending
+Public interfaces affected: CLI, batch CSV, GUI, configuration, reports, tests, executable builder, and offline bundle builder; clean-machine artifact acceptance remains pending
 
 ## Why
 
@@ -22,7 +22,9 @@ A local audit using PyMedPhys 0.41.0 confirmed the wrapper gap: requesting `gamm
 
 ## Phase-one implementation status
 
-The Python 3.12 source implementation activates PyMedPhys 0.41.0 in requirements; makes it the CLI, batch, and GUI default; preserves explicit Numba legacy selection; and routes shift optimization through the selected engine with the same interpolation fraction as the final calculation. The source and EXE GUI launchers expose and persist the engine. Schema version 2 records privacy-conscious runtime, input, settings, geometry, and engine provenance in strict JSON and renders it through CSV, Markdown, PDF, SQLite, and batch outputs. A fixed local 24-run, multi-slice global/local characterization records masks, GPR, voxelwise differences, confusion, coordinates, and runtime for controlled variants derived from anonymized phantom RTDOSE. The offline definition now pins PyMedPhys and explicitly smoke-tests both engines. Approved numerical criteria, a rebuilt clean-machine-verified bundle, peak-memory characterization, and release approval remain open. A 3DVH comparison is not an acceptance requirement.
+The Python 3.12 source implementation activates PyMedPhys 0.41.0 in requirements; makes it the CLI, batch, and GUI default; preserves explicit Numba legacy selection; and routes shift optimization through the selected engine with the same interpolation fraction as the final calculation. The source and EXE GUI launchers expose and persist the engine. Schema version 2 records privacy-conscious runtime, input, settings, geometry, and engine provenance in strict JSON and renders it through CSV, Markdown, PDF, SQLite, and batch outputs. A fixed local 24-run, multi-slice global/local characterization records masks, GPR, voxelwise differences, confusion, coordinates, and runtime for controlled variants derived from anonymized phantom RTDOSE. A separate full-volume 5 x 5 cm source-GUI check exercised uniform +2% and positive-column +1 mm evaluation variants through 3D PyMedPhys calculation, saved reports/NPZ, and the Fast 3D Viewer. The DICOM and numerical artifacts remain non-distributed. The rebuilt Python 3.12 offline bundle passed local `--no-index` smoke testing of PyMedPhys, explicit Numba, reports, DICOM I/O, and Fast Viewer imports. Approved numerical criteria, clean-machine/network-isolated installation, peak-memory characterization, and release approval remain open. A 3DVH comparison is not an acceptance requirement.
+
+On 2026-08-11, the project owner approved the implemented validation scope and known limitations for release preparation. This approval fixes CPython 3.12 and PyMedPhys 0.41.0 as the present source baseline and accepts that 3DVH comparison and clean-machine testing are not prerequisites for continued source development. It does not approve clinical use, numerical cross-engine thresholds, a dependency update policy, a version change, tag, or GitHub Release. Remaining gates are enumerated in the [release-readiness checkpoint](../../../RELEASE_READINESS_2026-08-11.md).
 
 ## Proposed outcome
 

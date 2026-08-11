@@ -4,7 +4,8 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 
 ## A. Decisions and protocol freeze
 
-- [ ] Approve supported Python and PyMedPhys versions and the lock/update policy.
+- [x] Approve the current source baseline: CPython 3.12 and PyMedPhys 0.41.0.
+- [ ] Approve the dependency lock/update policy and any future PyMedPhys compatibility range.
 - [x] Approve staged versus direct default-engine migration.
 - [ ] Approve `norm=none` mapping or rejection.
 - [x] Use fail-closed rejection for differing orientations; do not claim arbitrary-orientation resampling support.
@@ -25,6 +26,7 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 - [x] Add `--engine {numba,pymedphys}` and help text.
 - [x] Add GUI engine selection and persistence.
 - [x] Add batch CSV engine selection.
+- [x] Exercise the source GUI 3D PyMedPhys path and Fast 3D Viewer with controlled full-volume 5 x 5 cm +2% and +1 mm phantom variants; record the local, non-clinical result without distributing DICOM.
 - [ ] Add migration warnings for legacy configuration/report files without engine identity.
 - [x] Update source/EXE GUI launchers and the executable builder. Offline bundle verification remains separate.
 - [x] Document how to reproduce a legacy Numba result explicitly.
@@ -58,6 +60,7 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 - [ ] Record runtime and peak memory.
 - [ ] Review every threshold failure without case-specific tuning.
 - [ ] Publish the complete non-patient reproducibility package or document why it cannot be public.
+- [x] Record the local full-volume GUI workflow check with input hashes, exact effective settings, results, dirty-worktree status, operator observations, and limitations.
 
 ## G. External proprietary-system comparisons
 
@@ -67,19 +70,19 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 ## H. Offline Windows delivery
 
 - [x] Pin PyMedPhys 0.41.0 and its required dependencies in the Windows constraints.
-- [ ] Build the Windows wheelhouse and confirm every pinned wheel is available.
-- [ ] Extend license and SHA-256 manifests.
+- [x] Build the Windows wheelhouse and confirm every pinned wheel is available.
+- [x] Extend license and SHA-256 manifests.
 - [x] Add explicit PyMedPhys and Numba smoke paths.
 - [x] Assert report engine/version fields in the offline smoke test.
 - [ ] Build and verify with network-disabled installation.
 - [ ] Pending (test environment unavailable): complete the clean Windows x64/Python-absent installation test when a suitable PC becomes available. This does not block source development.
-- [ ] Record the exact bundle digest, environment, output, and limitations.
+- [x] Record the exact bundle digest, environment, output, and limitations in the [2026-08-11 progress record](../../../PROGRESS_2026-08-11.md). The local candidate ZIP SHA-256 is `f1d0ee2af6508b3c61d1590d83f65e818b96e07cb0e2d4248cb1d97c9ccc7048`; clean-machine acceptance remains pending.
 
 ## I. Release gate
 
 - [ ] Full CI and local test suite pass on every supported Python/OS combination.
-- [x] CLI help, source/EXE GUI launchers, batch, config, schema, and public documentation agree. Rebuilt distribution artifacts remain pending.
+- [x] CLI help, source/EXE GUI launchers, batch, config, schema, and public documentation agree. A rebuilt bundle passed local `--no-index` smoke testing; clean-machine artifact acceptance remains pending.
 - [x] No silent engine fallback exists.
 - [x] No unsupported clinical, 3DVH-equivalence, precision-guarantee, or vendor claim remains in the canonical public documentation.
-- [ ] Validation scope and known limitations receive human approval.
+- [x] Validation scope and known limitations received project-owner approval on 2026-08-11 for release preparation; this is not clinical-use or release approval.
 - [ ] Only after all gates: separately consider version, tag, and release actions.

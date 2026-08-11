@@ -174,11 +174,15 @@ The repository includes synthetic unit and integration tests for the PyMedPhys d
 
 Local characterization with controlled derivatives of anonymized 3 x 3 cm and 5 x 5 cm Monaco phantom RTDOSE distributions confirmed that equal GPR can coexist with material voxelwise gamma differences. These local inputs and results are not distributed by the repository and are not acceptance or clinical-validation evidence.
 
+A separate [controlled 5 x 5 cm RTDOSE verification record](docs/PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md) documents two full-volume PyMedPhys 0.41.0 source-GUI runs and Fast 3D Viewer checks: a uniform +2% dose variant and a +1 mm positive-column spatial-shift variant. It records only input hashes, effective settings, summary results, and explicit limitations; the DICOM inputs and numerical outputs remain local and Git-ignored.
+
+The project owner approved the documented validation scope and known limitations for release preparation on 2026-08-11. This is not clinical-use or release approval. Remaining policy, clean-candidate, CI, offline-acceptance, and publication gates are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
+
 The RTDOSE loader validates IPP, IOP, Pixel Spacing, GFOV, dimensions, Dose Grid Scaling, Dose Units, and finite dose values before calculation. It accepts strictly ascending or descending GFOV and sorts frames and offsets together into ascending order. Axial absolute-z GFOV is converted to offsets from IPP. Different origins and voxel spacing are supported, but differing reference/evaluation orientations, Dose Units, or present Frame of Reference UIDs fail closed. A missing Frame of Reference UID remains a recorded warning for compatibility with older research data. The interpolating Numba kernel assumes uniform evaluation-axis spacing based on the first interval; PyMedPhys is the standard engine.
 
 Historical 3DVH summaries and PDFs remain archival material only. They are not required for PyMedPhys standardization, are not part of the acceptance plan, and do not support claims of equivalence, clinical validation, or vendor approval.
 
-The Windows offline bundle definition has automated integrity and licensing checks plus explicit PyMedPhys 0.41.0 and Numba smoke paths. The source-environment smoke test passes. A new wheelhouse/ZIP build remains active work; the clean Windows/Python-absent acceptance run is explicitly pending because no suitable test PC is currently available and is not a blocker for source development.
+The Windows offline bundle has automated integrity and licensing checks plus explicit PyMedPhys 0.41.0 and Numba smoke paths. A Python 3.12 x64 wheelhouse/ZIP was rebuilt and passed a local `--no-index` bundle smoke test; its digest and limitations are recorded in the [2026-08-11 progress record](docs/PROGRESS_2026-08-11.md). A physically network-isolated installation and the clean Windows/Python-absent acceptance run remain explicitly pending because no suitable test PC is currently available; this is not a blocker for source development.
 
 ## 18. Testing
 
