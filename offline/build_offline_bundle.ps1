@@ -89,11 +89,7 @@ $wheelhouseDir = Join-Path $bundleRoot 'wheelhouse'
 New-Item -ItemType Directory -Path $appDir, $pythonDir, $wheelhouseDir -Force | Out-Null
 
 Write-Host '[RUN] copy Git-tracked application files'
-$trackedFiles = if ($AllowDirty) {
-    @(git -c core.quotepath=false -C $repoRoot ls-files --cached --others --exclude-standard | Sort-Object -Unique)
-} else {
-    @(git -c core.quotepath=false -C $repoRoot ls-files)
-}
+$trackedFiles = @(git -c core.quotepath=false -C $repoRoot ls-files)
 if ($LASTEXITCODE -ne 0 -or $trackedFiles.Count -eq 0) {
     throw 'Could not list Git-tracked files.'
 }
@@ -113,12 +109,10 @@ $trackedFiles = @($trackedFiles | Where-Object {
         $candidate.StartsWith($_, [StringComparison]::OrdinalIgnoreCase)
     })
 })
-if ($AllowDirty) {
-    $trackedFiles = @($trackedFiles | Where-Object {
-        $worktreePath = Join-Path $repoRoot ($_ -replace '/', '\')
-        Test-Path -LiteralPath $worktreePath -PathType Leaf
-    })
-}
+$trackedFiles = @($trackedFiles | Where-Object {
+    $worktreePath = Join-Path $repoRoot ($_ -replace '/', '\')
+    Test-Path -LiteralPath $worktreePath -PathType Leaf
+})
 if ($trackedFiles.Count -eq 0) {
     throw 'No application files remain after applying bundle exclusions.'
 }
