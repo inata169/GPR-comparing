@@ -159,6 +159,25 @@ def test_verify_bundle_rejects_nested_archive_with_disguised_suffix(tmp_path):
         compliance.verify_bundle(bundle)
 
 
+def test_verify_bundle_rejects_zip_with_prepended_bytes(tmp_path):
+    bundle = tmp_path / "bundle"
+    (bundle / "wheelhouse").mkdir(parents=True)
+    (bundle / "THIRD_PARTY_LICENSES").mkdir()
+    (bundle / "LICENSE").write_text("MIT", encoding="utf-8")
+    (bundle / "NOTICE.txt").write_text("notice", encoding="utf-8")
+    (bundle / "THIRD_PARTY_MANIFEST.json").write_text(
+        json.dumps({"packages": []}), encoding="utf-8"
+    )
+    payload = bundle / "prefixed_payload.bin"
+    with zipfile.ZipFile(payload, "w") as archive:
+        archive.writestr("patient.dcm", b"\0" * 128 + b"DICM")
+    payload.write_bytes(b"arbitrary-prefix" + payload.read_bytes())
+    assert zipfile.is_zipfile(payload)
+
+    with pytest.raises(compliance.ComplianceError, match=r"nested archive \(zip\)"):
+        compliance.verify_bundle(bundle)
+
+
 def test_verify_bundle_rejects_unverified_wheel_outside_wheelhouse(tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "wheelhouse").mkdir(parents=True)

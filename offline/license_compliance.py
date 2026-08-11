@@ -192,6 +192,8 @@ def looks_like_dicom(data: bytes) -> bool:
 
 def archive_kind(path: Path, data: bytes) -> str | None:
     """Identify nested archive containers by suffix or file signature."""
+    if zipfile.is_zipfile(path):
+        return "zip"
     lower_name = path.name.lower()
     for suffix in FORBIDDEN_ARCHIVE_SUFFIXES:
         if lower_name.endswith(suffix):
