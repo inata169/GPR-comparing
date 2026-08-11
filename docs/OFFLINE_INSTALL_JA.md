@@ -146,3 +146,50 @@ Python 3.12未導入のクリーンWindows PCが現在ないため、初回完�
 - Visual C++ランタイム: Pythonおよび一部wheelがOSのMicrosoft Visual C++ランタイムに依存する場合があります。対象TPS PCの標準構成で不足する場合は、施設承認済みのランタイムを別途導入してください。
 
 本スモークテストは導入健全性の確認であり、臨床受入試験や施設固有のコミッショニングを代替しません。臨床使用前に、施設承認済みの非患者QAデータと期待値で別途検証してください。
+
+## ライセンスと配布前監査
+
+GPR-comparing のアプリケーションコードと文書は MIT License です。ZIP 直下の
+`LICENSE` で全文を確認できます。Python、Qt / PySide6、wheelhouse 内の Python
+パッケージはそれぞれ固有の第三者ライセンスに従います。
+
+ライセンスおよび配布に関する連絡先: Hiroki Inata <169@inata169.com>
+
+配布前にはビルド処理が次を自動確認します。
+
+1. CPython 3.12.10 x64 公式インストーラーの Python Software Foundation による
+   Authenticode 署名と、Python 公式 SPDX 文書に記載された SHA-256
+2. すべての wheel の `.dist-info/METADATA` にある名前、正確なバージョン、
+   ライセンス情報、依存関係、配布元 URL
+3. すべての wheel に空でないライセンス・著作権・NOTICE 等の資料があること
+4. PySide6 メタパッケージと PySide6_Addons がなく、実際に使用する
+   PySide6_Essentials、shiboken6、pyqtgraph のみに縮小されていること
+5. 未使用の GPL 専用 Qt モジュールが wheelhouse に残っていないこと
+6. 患者 DICOM、ローカルの `config/gui_config.ini`、計算結果、PHITS 関連実行
+   ファイル、秘密情報が ZIP にないこと
+
+1件でもライセンス情報を確認できない場合、ZIP 作成は対象 wheel を表示して失敗
+します。パッケージ名からライセンスを推測したり、不明な項目を黙って無視したり
+しません。wheel は ZIP アーカイブとして読み取り、収集処理ではコードを実行しません。
+
+ZIP 直下の確認場所は次のとおりです。
+
+- `LICENSE`: GPR-comparing の MIT License
+- `NOTICE.txt`: Python、Qt / PySide6、除外対象、用途制限に関する配布通知
+- `THIRD_PARTY_MANIFEST.json`: 全 wheel の名称、バージョン、ライセンス、配布元、
+  SHA-256、ライセンス資料への対応
+- `THIRD_PARTY_LICENSES/`: wheel 内から収集した原文、PSF License、Python 公式
+  SPDX、Qt / PySide6 の LGPLv3・GPLv3・GPLv2・Qt GPL Exception
+
+Fast Viewer は Qt for Python / PySide6 Community Edition の QtCore、QtGui、
+QtWidgets を使用します。個々の Qt / PySide6 ライブラリバイナリは改変しません。
+上流 PySide6_Essentials wheel のアーカイブから未使用の GPL 専用モジュールのみを
+除き、`RECORD` を再生成します。元 wheel と同梱 wheel の SHA-256、除外した全パス、
+バイナリ非改変の記録は `THIRD_PARTY_MANIFEST.json` に残ります。この配布物は、
+LGPL 対象ライブラリの差し替えや、変更したライブラリをデバッグするためのリバース
+エンジニアリングを禁止する追加条件を設けません。
+
+PHITS、RT-PHITS、phits2dicom、Sumtally は同梱しません。利用者自身が権利者の
+指定する正規の方法で取得してください。患者 DICOM、施設・ベンダーの非公開
+データ、認証情報、ローカル設定、計算結果も同梱しません。本ソフトウェアは教育・
+研究用であり、臨床判断や患者固有 QA に使用しないでください。
