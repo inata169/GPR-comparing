@@ -51,10 +51,10 @@ The approved scope is software verification for research and education:
 
 - Commit only the intended source and public-documentation changes.
 - Keep `config/gui_config.ini` local and Git-ignored. Distributions and fresh checkouts fall back to the tracked, path-free `config/gui_config.example.ini`; packaging must exclude locally saved DICOM paths.
-- Preserve the user's unrelated `AGENTS.md` change without staging it as part of the release work.
+- Resolved 2026-08-11: preserve the unrelated `AGENTS.md` change outside the release commit, then commit it separately after tagging as `e085b97`; the v0.9.3 tag was not moved.
 - Confirm that `test_data_local/`, `dist/`, DICOM, NPZ, reports, logs, databases, and local absolute paths are absent from the publication diff.
 - Resolved 2026-08-11: the project owner selected and approved v0.9.3, its tag, and a source-only GitHub Release.
 
 ## Current disposition
 
-The v0.9.3 source release is approved. Publication remains conditional on the final local checks and the supported CI matrix passing on the release revision. The release must contain no DICOM, NPZ, local reports, databases, absolute paths, or locally saved GUI configuration. The clean Windows/Python-absent installation test remains pending, so v0.9.3 makes no clean-machine-verified offline-installation claim and attaches no offline binary bundle.
+The v0.9.3 source release was published on 2026-08-11 from commit `8b6a16ba24676ad02c310e56bfe369e46c233ea2` after final local checks and all six supported CI jobs passed. The GitHub Release is neither a draft nor a prerelease and has no attached binary assets. No DICOM, NPZ, local reports, databases, absolute paths, or locally saved GUI configuration were included. The clean Windows/Python-absent installation test remains pending, so v0.9.3 makes no clean-machine-verified offline-installation claim.

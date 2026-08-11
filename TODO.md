@@ -1,6 +1,6 @@
 # TODO (Next Actions)
 
-Date: 2026-08-11 (PyMedPhys controlled full-volume GUI verification)
+Date: 2026-08-11 (PyMedPhys v0.9.3 source release completed)
 
 High priority
 - [x] **5 x 5 cm Monaco管理入力によるGUI実運用確認**
@@ -13,7 +13,8 @@ Next pending
 - [ ] Python未導入のクリーンWindows PCが用意できた時点で、オフラインZIPの初回完全導入受入試験を行う
 - [x] PyMedPhys標準化の検証範囲・既知の制限をrelease準備の範囲として人間が承認する（2026-08-11、臨床利用・version/tag/Release承認ではない）
 - [x] PyMedPhys 0.41.0完全固定、version更新時の再検証、`norm=none`拒否、Numba一致をrelease基準にしない方針、peak memory defer、clean-PC pendingを承認する
-- [ ] clean candidate、CI、公開前ゲートを解決する
+- [x] clean candidate、Windows/Ubuntu × Python 3.10/3.11/3.12 CI、公開前ゲートを解決する
+- [x] v0.9.3をsource-only GitHub Releaseとして公開し、DICOM・数値生成物・offline binaryを添付しない
 
 Date: 2026-06-12 (Dose overlay cache visibility follow-up)
 
