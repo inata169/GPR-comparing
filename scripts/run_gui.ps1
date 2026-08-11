@@ -699,7 +699,7 @@ function Build-Command(){
       $baseArgs = @('-u', 'scripts/gamma_viewer_fast.py')
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal,
-        '--engine',$engineVal,'--interp-fraction',$interpVal)
+        '--engine',$engineVal,'--interp-fraction',$interpVal,'--opt-shift',$optVal)
       if ($cbLocal.Checked) { $viewerCmd += @('--gamma-type','local') }
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {

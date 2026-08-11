@@ -292,6 +292,7 @@ def _compute_gamma_if_needed(
                 "gamma_type": args.gamma_type,
                 "norm": args.norm,
                 "interp_fraction": args.interp_fraction,
+                "opt_shift": getattr(args, "opt_shift", "off") == "on",
             },
             ref_source_path=dose_meta["source_path"],
             eval_source_path=eval_meta["source_path"] if eval_meta else "",
@@ -308,6 +309,11 @@ def _compute_gamma_if_needed(
         gamma = None
     if gamma is not None:
         return gamma
+    if getattr(args, "opt_shift", "off") == "on":
+        raise ValueError(
+            "No compatible shift-optimized Gamma cache is available. "
+            "Run 3D Gamma with Optimize Shift enabled before opening the Viewer."
+        )
     if eval_on_ref is not None:
         logger.info("No compatible Gamma cache. Computing Gamma map for display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])
@@ -1735,6 +1741,7 @@ def _parse_args(argv=None):
     parser.add_argument("--norm", choices=["global_max", "max_ref", "none"], default="global_max")
     parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
     parser.add_argument("--interp-fraction", type=int, default=1)
+    parser.add_argument("--opt-shift", choices=["on", "off"], default="off")
     return parser.parse_args(argv)
 
 
@@ -1751,7 +1758,11 @@ def main(argv=None) -> int:
     dose_meta = load_rtdose(args.ref)
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
     eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
-    gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
+    try:
+        gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 1
     rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None
     if args.roi:
         roi_names = [name.strip() for name in args.roi.split(",") if name.strip()]

@@ -34,6 +34,7 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
 
     assert args.engine == 'numba'
     assert args.interp_fraction == 4
+    assert args.opt_shift == 'off'
 
 
 def test_on_demand_gamma_routes_selected_engine(monkeypatch):
@@ -55,6 +56,7 @@ def test_on_demand_gamma_routes_selected_engine(monkeypatch):
         norm='none',
         engine='numba',
         interp_fraction=4,
+        opt_shift='off',
     )
     dose_meta = {
         'dose': dose,
@@ -97,6 +99,7 @@ def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
         norm='global_max',
         engine='numba',
         interp_fraction=4,
+        opt_shift='off',
     )
     dose_meta = {
         'source_path': 'reference.dcm',
@@ -111,6 +114,45 @@ def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
 
     np.testing.assert_array_equal(gamma, np.full_like(dose, 0.25))
     assert captured['engine'] == 'numba'
+
+
+def test_missing_optimized_cache_fails_closed(monkeypatch):
+    dose = np.ones((2, 2, 2), dtype=float)
+    axes = np.arange(2, dtype=float)
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.load_validated_gamma_cache',
+        lambda *args, **kwargs: None,
+    )
+    args = SimpleNamespace(
+        gamma_npz='stale-gamma3d.npz',
+        gamma_report='run3d.json',
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='global',
+        norm='global_max',
+        engine='pymedphys',
+        interp_fraction=4,
+        opt_shift='on',
+    )
+    dose_meta = {
+        'source_path': 'reference.dcm',
+        'dose': dose,
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
+
+    with np.testing.assert_raises_regex(
+        ValueError,
+        'No compatible shift-optimized Gamma cache',
+    ):
+        _compute_gamma_if_needed(
+            args,
+            dose_meta,
+            dose.copy(),
+            {'source_path': 'evaluation.dcm'},
+        )
 
 
 def test_pass_fail_treats_zero_gamma_as_pass():

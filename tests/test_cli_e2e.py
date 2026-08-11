@@ -81,6 +81,8 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         '3d',
         '--db',
         str(out_dir / 'results.db'),
+        '--save-gamma-map',
+        str(out_dir / 'gamma3d.npz'),
     ]
 
     # We use subprocess to simulate true CLI invocation
@@ -123,6 +125,8 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         str(part) for part in sys.version_info[:3]
     )
     assert provenance['privacy']['absolute_paths_recorded'] is False
+    assert data['save_gamma_map_path'] == 'gamma3d.npz'
+    assert str(out_dir / 'gamma3d.npz') not in json.dumps(data)
     assert provenance['inputs']['reference']['sha256']
     assert ref_path not in json.dumps(data)
     assert eval_path not in json.dumps(data)

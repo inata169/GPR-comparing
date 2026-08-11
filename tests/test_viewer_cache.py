@@ -15,6 +15,7 @@ def _settings(engine="pymedphys"):
         "gamma_type": "global",
         "norm": "global_max",
         "interp_fraction": 10,
+        "opt_shift": False,
     }
 
 
@@ -31,6 +32,9 @@ def _write_cache(tmp_path, report_settings):
             {
                 **report_settings,
                 "provenance": {
+                    "analysis": {
+                        "gamma": {"opt_shift": report_settings["opt_shift"]}
+                    },
                     "inputs": {
                         "reference": {"sha256": sha256_file(ref)},
                         "evaluation": {"sha256": sha256_file(evaluation)},
@@ -79,6 +83,22 @@ def test_validated_gamma_cache_rejects_input_change(tmp_path):
         str(npz),
         str(report),
         expected_settings=_settings(),
+        ref_source_path=str(ref),
+        eval_source_path=str(evaluation),
+    )
+
+    assert gamma is None
+
+
+def test_validated_gamma_cache_rejects_shift_policy_change(tmp_path):
+    settings = _settings()
+    ref, evaluation, npz, report = _write_cache(tmp_path, settings)
+    selected = {**settings, "opt_shift": True}
+
+    gamma = load_validated_gamma_cache(
+        str(npz),
+        str(report),
+        expected_settings=selected,
         ref_source_path=str(ref),
         eval_source_path=str(evaluation),
     )

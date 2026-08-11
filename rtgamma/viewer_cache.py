@@ -10,15 +10,16 @@ import numpy as np
 
 from .provenance import sha256_file
 
-_SETTING_KEYS = (
-    "gamma_engine",
-    "dd_percent",
-    "dta_mm",
-    "cutoff_percent",
-    "gamma_type",
-    "norm",
-    "interp_fraction",
-)
+_SETTING_PATHS = {
+    "gamma_engine": ("gamma_engine",),
+    "dd_percent": ("dd_percent",),
+    "dta_mm": ("dta_mm",),
+    "cutoff_percent": ("cutoff_percent",),
+    "gamma_type": ("gamma_type",),
+    "norm": ("norm",),
+    "interp_fraction": ("interp_fraction",),
+    "opt_shift": ("provenance", "analysis", "gamma", "opt_shift"),
+}
 
 
 def _same_setting(actual: Any, expected: Any) -> bool:
@@ -28,6 +29,15 @@ def _same_setting(actual: Any, expected: Any) -> bool:
         except (TypeError, ValueError):
             return False
     return actual == expected
+
+
+def _nested_value(payload: dict[str, Any], path: tuple[str, ...]) -> Any:
+    value: Any = payload
+    for key in path:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+    return value
 
 
 def load_validated_gamma_cache(
@@ -43,12 +53,13 @@ def load_validated_gamma_cache(
     log = logger or logging.getLogger(__name__)
     try:
         report = json.loads(Path(report_path).read_text(encoding="utf-8-sig"))
-        for key in _SETTING_KEYS:
-            if not _same_setting(report.get(key), expected_settings[key]):
+        for key, path in _SETTING_PATHS.items():
+            actual = _nested_value(report, path)
+            if not _same_setting(actual, expected_settings[key]):
                 log.warning(
                     "Ignoring stale Gamma cache: %s differs (report=%r, selected=%r)",
                     key,
-                    report.get(key),
+                    actual,
                     expected_settings[key],
                 )
                 return None

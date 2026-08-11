@@ -676,7 +676,9 @@ def main(argv=None):
         'gamma_p95': gstats.get('gamma_p95', float('nan')),
         'gamma_p99': gstats.get('gamma_p99', float('nan')),
         'histogram': gstats.get('histogram', None),
-        'save_gamma_map_path': args.save_gamma_map,
+        'save_gamma_map_path': (
+            os.path.basename(args.save_gamma_map) if args.save_gamma_map else None
+        ),
         'provenance': provenance,
     }
     if per_structure:
@@ -690,7 +692,9 @@ def main(argv=None):
         save_summary_markdown(base + '.md', summary)
         if not args.no_pdf:
             try:
-                save_summary_pdf(base + '.pdf', summary)
+                pdf_summary = dict(summary)
+                pdf_summary['save_gamma_map_path'] = args.save_gamma_map
+                save_summary_pdf(base + '.pdf', pdf_summary)
                 logging.info(f"Saved PDF report to {base}.pdf")
             except Exception as e:
                 logging.error(f"Failed to save PDF report: {e}")
