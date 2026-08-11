@@ -1,7 +1,9 @@
 # rtgamma OpenSpec (v0.9.1 - 2026-06-07版)
 
+> **履歴仕様:** この文書は v0.9.1 までの設計・観測記録を保存しています。現在の公開正本は `README.md`、PyMedPhys標準化の現行提案は `docs/openspec/changes/pymedphys-standard-engine/` です。本文中の臨床用途を連想させる表現、3DVHの合否、症例別パラメータ調整、および商用化表現は、現在の検証済み主張または受入基準ではありません。
+
 ## 1. Overview
-- Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、臨床QAで再現性高く実行するための仕様。
+- Purpose: DICOM RTDOSE の幾何整合とガンマ解析（2D/3D）を、研究・教育用途で再現可能に実行するための履歴仕様。
 - Scope: RTDOSE×RTDOSE比較、3D/2Dガンマ解析、シフト最適化、RTSTRUCT/ROIマスクによる部位別集計、**DVH（線量体積ヒストグラム）計算・比較**、3Dインタラクティブビューア、CSVによるバッチ一括処理、PDF帳票自動生成、解析結果のSQLite DB永続化、JSONプリセット管理、EXE実行環境の自動構成・統合。
 - Future: GPU/CuPy 実装、ローカル探索、WebベースGUI、クリーンvenvによるEXE軽量化（200〜250MB目標）、PDF主軸レポート。
 - PoC: Matplotlib/TkAgg 版3D Viewerの描画限界検証として、PyQtGraph + PySide6 のFast 3D Viewer PoCを追加する。既存3D Viewerの置換ではない。
@@ -150,18 +152,18 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
   - 方針: 2D fast path の Global/MaxRef 正規化は全体の最大値を使用（3D と揃える）
   - 補助スクリプト: `scripts/compare_slice_gpr.py`（3D NPZ の特定スライスと 2D レポートの GPR を比較）
 
-## 9.3 外部商用機システム (SunNuclear 3DVH) との相互検証成果
+## 9.3 外部商用システム (Sun Nuclear 3DVH) との過去の探索的比較
 
 **実施日**: 2026-03-05 / **パラメータ**: 3.0% / 2.0mm / 10% Cutoff / Global Max / interp_fraction=10
 
-| Case | rtgamma GPR | 3DVH GPR | Δ (pp) | 判定 |
-|---|---|---|---|---|
-| Prostate CCC vs MC | 85.82% | 84.7% | +1.12 | PASS (≤2pp) |
-| BreastBolus CCC vs MC | 99.59% | 97.6% | +1.99 | PASS (≤2pp) |
+| Case | rtgamma GPR | 3DVH GPR | Δ (pp) |
+|---|---|---|---|
+| Prostate CCC vs MC | 85.82% | 84.7% | +1.12 |
+| BreastBolus CCC vs MC | 99.59% | 97.6% | +1.99 |
 
 - 詳細レポート: `output/3dvh_crossval/crossval_summary.md`
-- **考察**: `rtgamma` はサブボクセル内挿により高精度な探索を実施し、SunNuclear 3DVH との差が ≤2.0pp に収束。臨床的なクロスバリデーションとして許容範囲内の一致を確認した。
-- **interp_fraction 感度実験 (完了)**: `scripts/run_interp_experiment.py` により interp_fraction 1〜20 の感度実験を両ケースで実施済み。結果は `output/interp_experiment/` に CSV/PNG として保存。最適値は以下の通り確定し、`config/3dvh_reference.json` に反映済み。
+- この表は履歴上の観測値であり、臨床的クロスバリデーション、受入合格、同等性、精度保証、またはvendor endorsementを示しません。公開リポジトリには入力DICOM、3DVHの完全な出力・version・手順、実行時メタデータが揃っておらず、現状では再現可能な検証結果として扱えません。
+- `scripts/run_interp_experiment.py` は過去に症例ごとに3DVHとの差を小さくする `interp_fraction` を探索しました。この方法は今後の固定条件比較では禁止し、下表の値は標準設定または受入根拠として使用しません。
 
   | Case | 最適 interp_fraction | rtgamma GPR | 3DVH GPR | Δ (pp) |
   |---|---|---|---|---|
@@ -197,9 +199,9 @@ RTSTRUCT が提供されている場合、各 ROI に対して累積 DVH を構�
 - Fast 3D Viewer: scripts/gamma_viewer_fast.py (PyQtGraph + PySide6, 3断面CT/overlay表示, 共有voxel cursor, HU/Ref/Eval/Diff/Gamma/Pass-Fail readout, Ref/Evalファイル名表示, RTSTRUCT輪郭, ROI別GPR, 6 overlay mode, Info toggle, menu bar, physical-mm display mapping, HFS orientation labels, GUI 3D Viewer起動経路でFast固定)
 - 設定・DB: config/presets.json, rtgamma.db (SQLite)
 
-## 14. Commercial Roadmap (商用化ロードマップ)
-「研究用スクリプト」から「売り物レベルの臨床QAソフトウェア」へのアップグレードに向け、全19項目の機能拡充が計画されています。詳細は `docs/feature_roadmap.md` に記載の通りであり、主要な機能は以下の階層カテゴリに分類されます：
+## 14. Historical feature roadmap（旧機能ロードマップ）
+以下は過去の開発計画の要約であり、臨床QAソフトウェア、商用品質、または検証完了を意味しません。詳細は履歴資料 `docs/feature_roadmap.md` にあります。
 - **Tier 1: コア品質と信頼性 (Completed)**: バッチ処理一括化（`batch.py`）、PDFQA帳票自動生成（`pdf_report.py`）、RTPLANヘッダ統合、CIテストカバレッジ強化（E2E JSONSchema検証・合成データ回帰テスト）
 - **Tier 2: ユーザー体験の飛躍 (Completed)**: Web GUI設計、マルチプレーン連動ビューア（**Axial/Sagittal/Coronal同期・Slice GPR表示・設定永続化完了**）、SQLトレンド保存・プリセット管理、GUI ワンクリックPDF対応（完了）、GUI設定解説ツールチップ実装（完了）
-- **Tier 3: 高度解析機能**: ガンマヒストグラム実装・累積パス率統計（完了）、3DVH クロスバリデーション完了（Prostate/BreastBolus PASS）、interp_fraction 感度実験（**完了**: Prostate=3, BreastBolus=2 に決定・反映済み）、**GPR計算カーネル高速化**（**完了**: 距離順探索リファクタリングにより劇的改善）、**DVH（線量体積ヒストグラム）計算・比較機能**（**完了**: 指標算出と PDF 連携完了）、不確かさ推論（未着手）
+- **Tier 3: 高度解析機能**: ガンマヒストグラム、過去の3DVH探索比較、症例別interp_fraction感度実験、Numbaカーネル高速化、探索的DVH指標などの履歴。3DVH比較と症例別調整は現行の検証完了事項ではありません。
 - **Tier 4: 運用エコシステム**: `.exe` バイナリビルド同梱と GUI 統合連携（完了）、最小構成ZIPパッケージ生成・配布対応（完了）、**EXE容量の本格削減**（クリーンvenv + exclude + UPX で200〜250MB目標）、**出力形式PDF主軸化**（MD→PDF移行）、完全日英多言語対応、コンプライアンス準拠

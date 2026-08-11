@@ -216,6 +216,13 @@ if ($script:presets.PSObject.Properties.Name.Count -gt 0) {
 $cbPreset.SelectedIndex = 0
 $form.Controls.Add($cbPreset)
 
+# Gamma engine (PyMedPhys is the standard; Numba is explicit legacy/research)
+$form.Controls.Add((New-DarkLabel 'Engine' 300 $yf))
+$cbEngine = New-DarkCombo 365 ($yf - 2) 285 @('PyMedPhys (standard)','Numba (legacy / experimental)')
+$cbEngine.SelectedIndex = 0
+$tooltip.SetToolTip($cbEngine, "PyMedPhys is the standard gamma engine. Select Numba only to reproduce legacy results or investigate engine behavior.")
+$form.Controls.Add($cbEngine)
+
 $yf += 36
 
 # DTA
@@ -547,6 +554,7 @@ function Build-Command(){
 
   $normVal = $cbNorm.SelectedItem
   if ([string]::IsNullOrWhiteSpace($normVal)) { $normVal = 'global_max' }
+  $engineVal = if ($cbEngine.SelectedIndex -eq 1) { 'numba' } else { 'pymedphys' }
   $presetVal = $cbPreset.SelectedItem
   $viewerDd = $dd
   $viewerDta = $dta
@@ -562,7 +570,7 @@ function Build-Command(){
 
   # Common gamma args
   $interpVal = [int]$nudInterp.Value
-  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--interp-fraction', $interpVal)
+  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--engine', $engineVal, '--interp-fraction', $interpVal)
   if ($presetVal -ne 'Custom') { $gammaArgs += @('--profile', $presetVal) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
@@ -851,6 +859,20 @@ try {
     $normIdx = $cbNorm.Items.IndexOf([string]$cfg['norm'])
     if ($normIdx -ge 0) { $cbNorm.SelectedIndex = $normIdx }
   }
+  if ($savedCfg.ContainsKey('engine')) {
+    $engineSaved = ([string]$cfg['engine']).Trim().ToLowerInvariant()
+    if ($engineSaved -eq 'numba') {
+      $cbEngine.SelectedIndex = 1
+    } elseif ($engineSaved -eq 'pymedphys') {
+      $cbEngine.SelectedIndex = 0
+    } else {
+      $cbEngine.SelectedIndex = 0
+      Append-Log("[WARN] Invalid Gamma/engine '$engineSaved'; using pymedphys.")
+    }
+  } else {
+    $cbEngine.SelectedIndex = 0
+    Append-Log('[WARN] Legacy GUI config has no Gamma/engine; using pymedphys. Save Settings to persist it.')
+  }
   if ($cfg['preset']) {
     $profIdx = $cbPreset.Items.IndexOf([string]$cfg['preset'])
     if ($profIdx -ge 0) { $cbPreset.SelectedIndex = $profIdx }
@@ -868,6 +890,7 @@ $btnSave.Add_Click({
   if (-not $presetVal) { $presetVal = 'Custom' }
   $normVal = $cbNorm.SelectedItem
   if (-not $normVal) { $normVal = 'global_max' }
+  $engineVal = if ($cbEngine.SelectedIndex -eq 1) { 'numba' } else { 'pymedphys' }
   $viewerTypeVal = 'fast'
   $data = [ordered]@{
     'Paths' = [ordered]@{
@@ -883,6 +906,7 @@ $btnSave.Add_Click({
       dd               = $tbDD.Text
       cutoff           = $tbCutoff.Text
       norm             = $normVal
+      engine           = $engineVal
       interp_fraction  = [string][int]$nudInterp.Value
       preset           = $presetVal
     }

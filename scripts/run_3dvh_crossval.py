@@ -1,3 +1,10 @@
+"""Generate a historical exploratory 3DVH comparison report.
+
+This script does not establish validation, equivalence, clinical acceptance,
+or vendor endorsement. Its tracked configuration contains legacy case-specific
+settings and must not be used as the prospective PyMedPhys acceptance protocol.
+"""
+
 import argparse
 import json
 import os
@@ -18,7 +25,7 @@ def load_config(config_path):
         return json.load(f)
 
 def run_case(case_name, params, output_base):
-    print(f"[{case_name}] Starting cross-validation...")
+    print(f"[{case_name}] Starting exploratory comparison...")
     case_out_dir = os.path.join(output_base, case_name)
     os.makedirs(case_out_dir, exist_ok=True)
     
@@ -31,11 +38,11 @@ def run_case(case_name, params, output_base):
         '--cutoff', str(params['cutoff_percent']),
         '--gamma-type', params['gamma_type'],
         '--norm', params['norm'],
-        '--opt-shift', 'off', # Don't optimize shift for 3DVH exact comp
+        '--engine', 'numba',  # Preserve the historical engine explicitly.
+        '--opt-shift', 'off', # Keep the historical comparison condition fixed.
         '--interp-fraction', str(params.get('interp_fraction', 10)),
         '--save-gamma-map', os.path.join(case_out_dir, "gamma3d.npz"),
         '--report', os.path.join(case_out_dir, "run3d"),
-        '--pdf',
         '--log-level', 'INFO'
     ]
     if 'rtstruct' in params:
@@ -52,7 +59,7 @@ def run_case(case_name, params, output_base):
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Run 3DVH Cross-Validation")
+    parser = argparse.ArgumentParser(description="Run the historical exploratory 3DVH comparison")
     parser.add_argument('--config', default='config/3dvh_reference.json', help='Path to reference config')
     parser.add_argument('--output', default='output/3dvh_crossval', help='Output directory')
     args = parser.parse_args()
@@ -75,15 +82,12 @@ def main():
     out_json = {}
     
     md_lines = [
-        "# 3DVH Cross-Validation Summary",
+        "# Historical exploratory 3DVH comparison summary",
         "",
-        "**Δpp 許容範囲**:",
-        "- 許容範囲1: Δpp ≤ 2.0 pp以内 (PASS)",
-        "- 許容範囲2: Δpp ≤ 3.0 pp以内 (ACCEPTABLE)",
-        "- それ以外: NG",
+        "> These values are research observations, not PASS/FAIL decisions, evidence of equivalence, clinical validation, or vendor endorsement.",
         "",
-        "| Case | rtgamma GPR (%) | 3DVH GPR (%) | Δ (pp) | 判定 | Gamma Mean | Gamma Median | Gamma Max | 95th Percentile |",
-        "|---|---|---|---|---|---|---|---|---|"
+        "| Case | rtgamma GPR (%) | 3DVH GPR (%) | Δ (pp) | Gamma Mean | Gamma Median | Gamma Max | 95th Percentile |",
+        "|---|---|---|---|---|---|---|---|"
     ]
     
     # For overlaid histograms
@@ -97,16 +101,8 @@ def main():
         v3_gpr = p.get('3dvh_gpr', None)
         delta = (rg_gpr - v3_gpr) if v3_gpr is not None else float('nan')
         
-        abs_delta = abs(delta)
-        if abs_delta <= 2.0:
-            judge = "PASS (≤2pp)"
-        elif abs_delta <= 3.0:
-            judge = "ACCEPT (≤3pp)"
-        else:
-            judge = "NG (>3pp)"
-        
         md_lines.append(
-            f"| {p.get('label', case_name)} | {rg_gpr:.2f} | {v3_gpr if v3_gpr else 'N/A'} | {delta:.2f} | {judge} | "
+            f"| {p.get('label', case_name)} | {rg_gpr:.2f} | {v3_gpr if v3_gpr else 'N/A'} | {delta:.2f} | "
             f"{sm.get('gamma_mean', float('nan')):.3f} | {sm.get('gamma_median', float('nan')):.3f} | {sm.get('gamma_max', float('nan')):.3f} | {sm.get('gamma_p95', float('nan')):.3f} |"
         )
         

@@ -36,7 +36,7 @@ function Write-Line($s) { Write-Host $s }
 
 Write-Line "[A] 3D absolute geometry (opt-shift=off, norm=none)"
 $absBase = Join-Path $testDir "abs_3d"
-python -m rtgamma.main --mode 3d --opt-shift off --norm none --dd 3 --dta 2 --cutoff 10 `
+python -m rtgamma.main --mode 3d --opt-shift off --norm none --engine numba --dd 3 --dta 2 --cutoff 10 `
   --ref $Ref --eval $Eval --report $absBase
 
 if (-not (Test-Path ("{0}.json" -f $absBase))) { throw "Missing JSON: $absBase.json" }
@@ -68,7 +68,7 @@ if ($doFallback) {
   Write-Line "[B] Fallback Stage 1: Coarse 3D search"
   $coarseBase = Join-Path $testDir "coarse_3d"
   python -m rtgamma.main --mode 3d --opt-shift on --shift-range $CoarseRange --refine none `
-    --norm none --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $coarseBase
+    --norm none --engine numba --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $coarseBase
 
   if (-not (Test-Path ("{0}.json" -f $coarseBase))) { throw "Missing JSON: $coarseBase.json" }
   $coarseJson = Get-Content -Raw -Path ("{0}.json" -f $coarseBase) | ConvertFrom-Json
@@ -90,7 +90,7 @@ if ($doFallback) {
   $fineRange = ("x:{0}:{1}:1,y:{2}:{3}:1,z:{4}:{5}:1" -f $c_x0, $c_x1, $c_y0, $c_y1, $c_z0, $c_z1)
   $fineBase = Join-Path $testDir "fine_3d"
   python -m rtgamma.main --mode 3d --opt-shift on --shift-range $fineRange --refine none `
-    --norm none --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $fineBase
+    --norm none --engine numba --dd 3 --dta 2 --cutoff 10 --ref $Ref --eval $Eval --report $fineBase
 
   if (-not (Test-Path ("{0}.json" -f $fineBase))) { throw "Missing JSON: $fineBase.json" }
   $fineJson = Get-Content -Raw -Path ("{0}.json" -f $fineBase) | ConvertFrom-Json
@@ -109,7 +109,7 @@ if ($doFallback) {
   $bestAx = Join-Path $testDir "best_axial"
   python -m rtgamma.main --mode 2d --plane axial --plane-index auto `
     --opt-shift on --shift-range $fixSpec --refine none `
-    --norm none --dd 3 --dta 2 --cutoff 10 `
+    --norm none --engine numba --dd 3 --dta 2 --cutoff 10 `
     --ref $Ref --eval $Eval --report $bestAx
 
   $summary += ""

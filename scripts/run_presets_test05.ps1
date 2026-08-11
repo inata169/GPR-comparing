@@ -18,7 +18,7 @@ Write-Host '== Header compare (Test05) =='
 python scripts/compare_rtdose_headers.py --a $ref --b $eval --out (Join-Path $OutDir 'Test05_dose_compare.md')
 
 Write-Host '== 3D absolute geometry baseline (opt-shift off, norm none) =='
-python -m rtgamma.main --ref $ref --eval $eval --mode 3d --opt-shift off --norm none --dd 3 --dta 2 --cutoff 10 --report (Join-Path $OutDir 'Test05_abs')
+python -m rtgamma.main --ref $ref --eval $eval --mode 3d --opt-shift off --norm none --engine numba --dd 3 --dta 2 --cutoff 10 --report (Join-Path $OutDir 'Test05_abs')
 
 Write-Host '== 3D optimized (2-stage with prescan + early stop) =='
 python -m rtgamma.main --ref $ref --eval $eval --mode 3d --shift-range "x:-10:10:2,y:-10:10:2,z:-10:10:2" --fine-range-mm 5 --fine-step-mm 1 --early-stop-patience 200 --report (Join-Path $OutDir 'Test05_3d')

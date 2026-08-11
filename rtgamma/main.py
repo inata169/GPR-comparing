@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import sys
+import time
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -10,12 +12,19 @@ from .db import save_summary_db
 from .dvh import calculate_dvh_stats
 from .gamma import compute_gamma
 from .header_compare import run_header_comparison
-from .io_dicom import load_rtdose, load_rtstruct, world_to_index
+from .io_dicom import (
+    load_rtdose,
+    load_rtstruct,
+    validate_rtdose_pair_geometry,
+    world_to_index,
+)
 from .mask import build_roi_masks
 from .optimize import grid_search_best_shift
 from .pdf_report import save_summary_pdf
+from .provenance import build_provenance
 from .report import save_summary_csv, save_summary_json, save_summary_markdown
 from .resample import resample_eval_onto_ref
+from .settings import DEFAULT_GAMMA_ENGINE, REPORT_SCHEMA_VERSION, GammaSettings
 from .viz import save_dose_diff_2d, save_gamma_map_2d
 
 
@@ -97,6 +106,13 @@ def build_plane_world_coords(meta_ref, plane: str, sl: int):
 
 
 def main(argv=None):
+    started_monotonic = time.perf_counter()
+    started_utc = datetime.now(timezone.utc)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    engine_was_explicit = any(
+        value == '--engine' or value.startswith('--engine=')
+        for value in raw_argv
+    )
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         filename='rtgamma.log', filemode='w')
@@ -115,6 +131,15 @@ def main(argv=None):
     parser.add_argument('--cutoff', type=float, default=10.0)
     parser.add_argument('--gamma-type', choices=['global', 'local'], default='global')
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
+    parser.add_argument(
+        '--engine',
+        choices=['numba', 'pymedphys'],
+        default=DEFAULT_GAMMA_ENGINE,
+        help=(
+            'Gamma calculation engine (default: pymedphys). '
+            'Use numba only for legacy reproduction or engine research.'
+        ),
+    )
     parser.add_argument('--cutoff-mask', choices=['ref', 'eval'], default='ref')
     parser.add_argument('--low-dose-exclusion', type=float)
 
@@ -158,7 +183,7 @@ def main(argv=None):
                              'Higher values (e.g. 10) enable trilinear sub-voxel search within DTA sphere '
                              'at dta/interp_fraction mm resolution. 1 disables sub-voxel interpolation.')
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
     # Add console (stdout) logging handler for on-screen feedback
     try:
         root_logger = logging.getLogger()
@@ -169,6 +194,12 @@ def main(argv=None):
         root_logger.addHandler(sh)
     except Exception:
         pass
+
+    if not engine_was_explicit and args.mode != 'header':
+        logging.warning(
+            "--engine was omitted; the standard default is now PyMedPhys. "
+            "Use --engine numba to reproduce legacy Numba results."
+        )
 
     if args.profile:
         preset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'presets.json')
@@ -188,7 +219,6 @@ def main(argv=None):
             except Exception as e:
                 pass
 
-
     logging.info(f"Arguments: {args}")
 
     if args.mode == 'header':
@@ -207,6 +237,9 @@ def main(argv=None):
     meta_eval = load_rtdose(args.eval)
     logging.info("Evaluation dose loaded.")
 
+    orientation_min_dot = validate_rtdose_pair_geometry(meta_ref, meta_eval)
+    logging.info("RTDOSE geometry validation passed.")
+
     logging.info(f"Ref IPP: {meta_ref['ipp']}, Eval IPP: {meta_eval['ipp']}")
     logging.info(f"Ref v_col: {meta_ref['v_col']}, Eval v_col: {meta_eval['v_col']}")
     logging.info(f"Ref v_row: {meta_ref['v_row']}, Eval v_row: {meta_eval['v_row']}")
@@ -218,25 +251,19 @@ def main(argv=None):
     ref_for_uid = str(getattr(meta_ref['dataset'], 'FrameOfReferenceUID', ''))
     eval_for_uid = str(getattr(meta_eval['dataset'], 'FrameOfReferenceUID', ''))
     logging.info(f"Ref FoR UID: {ref_for_uid or 'N/A'}, Eval FoR UID: {eval_for_uid or 'N/A'}")
-
-    # Orientation similarity checks (cosine of angle between ref and eval axes)
-    try:
-        dot_col = float(abs(np.dot(meta_ref['v_col'], meta_eval['v_col'])))
-        dot_row = float(abs(np.dot(meta_ref['v_row'], meta_eval['v_row'])))
-        dot_sli = float(abs(np.dot(meta_ref['v_slice'], meta_eval['v_slice'])))
-        orientation_min_dot = min(dot_row, dot_col, dot_sli)
-        if orientation_min_dot < 0.99:
-            logging.warning(f"Orientation mismatch suspected (min dot = {orientation_min_dot:.6f}). Check IOP consistency.")
-    except Exception:
-        orientation_min_dot = float('nan')
+    if not ref_for_uid or not eval_for_uid:
+        logging.warning(
+            "FrameOfReferenceUID is missing from one or both RTDOSE inputs; "
+            "coordinate-frame identity cannot be verified."
+        )
 
     dose_ref = meta_ref['dose']  # (z,y,x)
     dose_eval = meta_eval['dose']
 
     # --- GEMINI AGENT MODIFICATION ---
     # Per user instruction, disabling forced normalization of eval dose to ref max.
-    # The user's data is a gold standard absolute dose comparison, and this
-    # step was incorrectly altering the data before gamma analysis.
+    # Preserve the original absolute dose values; forced scaling would alter
+    # the data before gamma analysis.
     # logging.info("Normalizing evaluation dose to reference max.")
     # eval_max = np.max(dose_eval)
     # ref_max = np.max(dose_ref)
@@ -318,6 +345,8 @@ def main(argv=None):
             early_stop_epsilon=float(args.early_stop_epsilon),
             early_stop_patience=int(args.early_stop_patience),
             prescan_2d=(args.prescan_2d == 'on'),
+            engine=args.engine,
+            interp_fraction=args.interp_fraction,
         )
         search_log = extras['search_log']
         logging.info(f"Shift optimization complete. Best shift: {best_shift}, Pass rate: {best_pass}")
@@ -377,9 +406,9 @@ def main(argv=None):
             cutoff_percent=args.cutoff,
             gamma_type=args.gamma_type,
             norm=args.norm,
-            use_pymedphys=False,
             norm_factor_override=full_ref_max if args.norm in ('global_max','max_ref') else None,
             interp_fraction=args.interp_fraction,
+            engine=args.engine,
         )
         logging.info(f"2D gamma calculation complete. Slice pass rate: {pass_rate}")
     else:
@@ -404,8 +433,8 @@ def main(argv=None):
             cutoff_percent=args.cutoff,
             gamma_type=args.gamma_type,
             norm=args.norm,
-            use_pymedphys=False,
             interp_fraction=args.interp_fraction,
+            engine=args.engine,
         )
         logging.info(f"Final gamma calculation complete. Pass rate: {pass_rate}")
 
@@ -556,10 +585,12 @@ def main(argv=None):
     # Build warnings and flags (always, for return value)
     warnings_list = []
     same_for = (ref_for_uid != '' and eval_for_uid != '' and ref_for_uid == eval_for_uid)
-    if (ref_for_uid and eval_for_uid) and (ref_for_uid != eval_for_uid):
-        msg = f"FrameOfReferenceUID differs (ref={ref_for_uid}, eval={eval_for_uid})"
+    if not ref_for_uid or not eval_for_uid:
+        msg = (
+            "FrameOfReferenceUID missing from one or both inputs; "
+            "coordinate-frame identity was not verified"
+        )
         warnings_list.append(msg)
-        logging.warning(msg)
     # Large shift warning (applies when optimization was enabled)
     try:
         dx_, dy_, dz_ = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])
@@ -574,7 +605,48 @@ def main(argv=None):
 
     absolute_geometry_only = (args.opt_shift == 'off' and args.norm == 'none')
 
+    ended_utc = datetime.now(timezone.utc)
+    elapsed_seconds = time.perf_counter() - started_monotonic
+    normalisation_value = gstats.get('resolved_normalisation')
+    if normalisation_value is None:
+        normalisation_value = (
+            float(np.nanmax(dose_ref))
+            if args.norm in ('global_max', 'max_ref') and np.isfinite(dose_ref).any()
+            else 1.0
+        )
+    settings = GammaSettings.from_namespace(args)
+    provenance = build_provenance(
+        started_utc=started_utc.isoformat(),
+        ended_utc=ended_utc.isoformat(),
+        elapsed_seconds=elapsed_seconds,
+        ref_path=args.ref,
+        eval_path=args.eval,
+        meta_ref=meta_ref,
+        meta_eval=meta_eval,
+        settings=settings,
+        engine_version=gstats.get('gamma_engine_version', 'unknown'),
+        mode=args.mode,
+        plane=getattr(args, 'plane', None),
+        plane_index=int(sl) if args.mode == '2d' else None,
+        normalisation_value=normalisation_value,
+        best_shift_mm=tuple(float(value) for value in best_shift),
+        best_shift_lps_mm=tuple(float(value) for value in _eval_on_ref_shift[0]),
+        shift_candidate_count=len(search_log) if search_log is not None else 0,
+        warnings=warnings_list,
+        rtstruct_supplied=bool(args.rtstruct),
+        roi_names=args.roi_names,
+        threads=args.threads,
+        gpu=args.gpu,
+        seed=args.seed,
+        cutoff_mask=args.cutoff_mask,
+        low_dose_exclusion=args.low_dose_exclusion,
+        spacing_override=args.spacing,
+        tolerance=args.tolerance,
+        orientation_min_dot=orientation_min_dot,
+    )
+
     summary = {
+        'report_schema_version': REPORT_SCHEMA_VERSION,
         'ref': os.path.basename(args.ref),
         'eval': os.path.basename(args.eval),
         'profile': getattr(args, 'profile', None),
@@ -587,6 +659,8 @@ def main(argv=None):
         'gamma_type': args.gamma_type,
         'norm': args.norm,
         'interp_fraction': args.interp_fraction,
+        'gamma_engine': gstats.get('gamma_engine', args.engine),
+        'gamma_engine_version': gstats.get('gamma_engine_version', 'unknown'),
         'pass_rate_percent': pass_rate_out if args.mode == '2d' else pass_rate,
         'best_shift_mm': best_shift,
         'best_shift_mag_mm': shift_mag,
@@ -603,6 +677,7 @@ def main(argv=None):
         'gamma_p99': gstats.get('gamma_p99', float('nan')),
         'histogram': gstats.get('histogram', None),
         'save_gamma_map_path': args.save_gamma_map,
+        'provenance': provenance,
     }
     if per_structure:
         summary['per_structure'] = per_structure

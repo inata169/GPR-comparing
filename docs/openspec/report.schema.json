@@ -1,234 +1,315 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "rtgamma report summary",
+  "title": "Current rtgamma summary report",
+  "description": "Schema version 2 for the summary object written by rtgamma.main, including privacy-conscious runtime provenance.",
   "type": "object",
   "additionalProperties": false,
-  "properties": {
-    "ref": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "eval": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "profile": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "mode": {
-      "type": "string",
-      "enum": [
-        "2d",
-        "3d"
-      ]
-    },
-    "plane": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "enum": [
-        "axial",
-        "sagittal",
-        "coronal",
-        null
-      ]
-    },
-    "plane_index": {
-      "type": [
-        "integer",
-        "null"
-      ]
-    },
-    "dd_percent": {
-      "type": "number"
-    },
-    "dta_mm": {
-      "type": "number"
-    },
-    "cutoff_percent": {
-      "type": "number"
-    },
-    "gamma_type": {
-      "type": "string",
-      "enum": [
-        "global",
-        "local"
-      ]
-    },
-    "norm": {
-      "type": "string",
-      "enum": [
-        "global_max",
-        "max_ref",
-        "none"
-      ]
-    },
-    "pass_rate_percent": {
+  "definitions": {
+    "nullableNumber": {
       "oneOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "null"
-        },
-        {
-          "type": "string",
-          "enum": [
-            "NaN"
-          ]
-        }
-      ],
-      "description": "注意: 実装は Python の NaN を非標準トークンで出力する場合があります。スキーマは整形済み（文字列 'NaN' または null）も許容します。"
+        { "type": "number" },
+        { "type": "null" },
+        { "type": "string", "enum": ["NaN"] }
+      ]
     },
+    "dvhStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mean": { "$ref": "#/definitions/nullableNumber" },
+        "max": { "$ref": "#/definitions/nullableNumber" },
+        "min": { "$ref": "#/definitions/nullableNumber" },
+        "d98": { "$ref": "#/definitions/nullableNumber" },
+        "d95": { "$ref": "#/definitions/nullableNumber" },
+        "d50": { "$ref": "#/definitions/nullableNumber" },
+        "d2": { "$ref": "#/definitions/nullableNumber" },
+        "dvh_bins": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "dvh_vol": {
+          "type": "array",
+          "items": { "type": "number" }
+        }
+      },
+      "required": ["mean", "max", "min", "d98", "d95", "d50", "d2"]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inputIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string", "enum": ["reference", "evaluation"] },
+        "basename": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/definitions/sha256" }
+      },
+      "required": ["role", "basename", "sha256"]
+    },
+    "gridSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shape_kji": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "dose_units": { "type": "string" },
+        "image_position_patient": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "number" }
+        },
+        "image_orientation_patient": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": { "type": "number" }
+        },
+        "pixel_spacing_mm": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": { "type": "number", "exclusiveMinimum": 0 }
+        },
+        "grid_frame_offset_vector": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": { "type": "integer", "minimum": 1 },
+            "first_mm": { "type": "number" },
+            "last_mm": { "type": "number" },
+            "strictly_increasing": { "type": "boolean" }
+          },
+          "required": ["count", "first_mm", "last_mm", "strictly_increasing"]
+        },
+        "frame_of_reference_uid_present": { "type": "boolean" }
+      },
+      "required": [
+        "shape_kji", "dose_units", "image_position_patient",
+        "image_orientation_patient", "pixel_spacing_mm",
+        "grid_frame_offset_vector", "frame_of_reference_uid_present"
+      ]
+    }
+  },
+  "properties": {
+    "report_schema_version": { "type": "integer", "const": 2 },
+    "ref": { "type": ["string", "null"] },
+    "eval": { "type": ["string", "null"] },
+    "profile": { "type": ["string", "null"] },
+    "mode": { "type": "string", "enum": ["2d", "3d"] },
+    "plane": {
+      "type": ["string", "null"],
+      "enum": ["axial", "sagittal", "coronal", null]
+    },
+    "plane_index": { "type": ["integer", "null"] },
+    "dd_percent": { "type": "number" },
+    "dta_mm": { "type": "number" },
+    "cutoff_percent": { "type": "number" },
+    "gamma_type": { "type": "string", "enum": ["global", "local"] },
+    "norm": { "type": "string", "enum": ["global_max", "max_ref", "none"] },
+    "interp_fraction": { "type": "integer", "minimum": 1 },
+    "gamma_engine": { "type": "string", "enum": ["numba", "pymedphys"] },
+    "gamma_engine_version": { "type": "string", "minLength": 1 },
+    "pass_rate_percent": { "$ref": "#/definitions/nullableNumber" },
     "best_shift_mm": {
       "type": "array",
       "minItems": 3,
       "maxItems": 3,
-      "items": {
-        "type": "number"
-      }
+      "items": { "type": "number" }
     },
-    "best_shift_mag_mm": {
-      "type": "number"
+    "best_shift_mag_mm": { "type": "number" },
+    "absolute_geometry_only": { "type": "boolean" },
+    "ref_for_uid": { "type": ["string", "null"] },
+    "eval_for_uid": { "type": ["string", "null"] },
+    "same_for_uid": { "type": "boolean" },
+    "orientation_min_dot": { "$ref": "#/definitions/nullableNumber" },
+    "warnings": { "type": "string" },
+    "gamma_mean": { "$ref": "#/definitions/nullableNumber" },
+    "gamma_median": { "$ref": "#/definitions/nullableNumber" },
+    "gamma_max": { "$ref": "#/definitions/nullableNumber" },
+    "gamma_p95": { "$ref": "#/definitions/nullableNumber" },
+    "gamma_p99": { "$ref": "#/definitions/nullableNumber" },
+    "histogram": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bin_edges": { "type": "array", "items": { "type": "number" } },
+        "counts": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "cumulative_pass": { "type": "array", "items": { "type": "number" } }
+      },
+      "required": ["bin_edges", "counts", "cumulative_pass"]
     },
-    "absolute_geometry_only": {
-      "type": "boolean"
-    },
-    "ref_for_uid": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "eval_for_uid": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "same_for_uid": {
-      "type": "boolean"
-    },
-    "orientation_min_dot": {
-      "oneOf": [
-        {
-          "type": "number"
+    "save_gamma_map_path": { "type": ["string", "null"] },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "type": "integer", "const": 2 },
+        "application": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "const": "GPR-comparing" },
+            "version": { "type": "string", "minLength": 1 },
+            "version_source": { "type": "string", "minLength": 1 },
+            "git_commit": { "type": ["string", "null"] },
+            "git_dirty": { "type": ["boolean", "null"] }
+          },
+          "required": ["name", "version", "version_source", "git_commit", "git_dirty"]
         },
-        {
-          "type": "null"
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "started_utc": { "type": "string" },
+            "ended_utc": { "type": "string" },
+            "elapsed_seconds": { "type": "number", "minimum": 0 }
+          },
+          "required": ["started_utc", "ended_utc", "elapsed_seconds"]
         },
-        {
-          "type": "string",
-          "enum": [
-            "NaN"
-          ]
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "python_version": { "type": "string" },
+            "python_implementation": { "type": "string" },
+            "os": { "type": "string" },
+            "os_release": { "type": "string" },
+            "architecture": { "type": "string" }
+          },
+          "required": ["python_version", "python_implementation", "os", "os_release", "architecture"]
+        },
+        "engine": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "enum": ["numba", "pymedphys"] },
+            "version": { "type": "string", "minLength": 1 }
+          },
+          "required": ["name", "version"]
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reference": { "$ref": "#/definitions/inputIdentity" },
+            "evaluation": { "$ref": "#/definitions/inputIdentity" },
+            "rtstruct_supplied": { "type": "boolean" },
+            "roi_names": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["reference", "evaluation", "rtstruct_supplied", "roi_names"]
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "type": "string", "enum": ["2d", "3d"] },
+            "plane": { "type": ["string", "null"], "enum": ["axial", "sagittal", "coronal", null] },
+            "plane_index": { "type": ["integer", "null"] },
+            "gamma": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "dd_percent": { "type": "number" },
+                "dta_mm": { "type": "number" },
+                "cutoff_percent": { "type": "number" },
+                "gamma_type": { "type": "string", "enum": ["global", "local"] },
+                "norm": { "type": "string", "enum": ["global_max", "max_ref", "none"] },
+                "engine": { "type": "string", "enum": ["numba", "pymedphys"] },
+                "interp_fraction": { "type": "integer", "minimum": 1 },
+                "resample_interp": { "type": "string", "enum": ["linear", "bspline", "nearest"] },
+                "opt_shift": { "type": "boolean" },
+                "shift_range": { "type": "string" },
+                "refine": { "type": "string", "enum": ["none", "coarse2fine"] },
+                "fine_range_mm": { "type": "number" },
+                "fine_step_mm": { "type": "number" },
+                "early_stop_epsilon": { "type": "number" },
+                "early_stop_patience": { "type": "integer" },
+                "prescan_2d": { "type": "boolean" }
+              },
+              "required": [
+                "dd_percent", "dta_mm", "cutoff_percent", "gamma_type", "norm",
+                "engine", "interp_fraction", "resample_interp", "opt_shift",
+                "shift_range", "refine", "fine_range_mm", "fine_step_mm",
+                "early_stop_epsilon", "early_stop_patience", "prescan_2d"
+              ]
+            },
+            "resolved_normalisation": { "type": "number" },
+            "selected_shift_axis_mm": {
+              "type": "array", "minItems": 3, "maxItems": 3,
+              "items": { "type": "number" }
+            },
+            "selected_shift_lps_mm": {
+              "type": "array", "minItems": 3, "maxItems": 3,
+              "items": { "type": "number" }
+            },
+            "shift_candidate_count": { "type": "integer", "minimum": 0 },
+            "execution_controls": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "threads_requested": { "type": ["integer", "null"] },
+                "threads_applied": { "const": false },
+                "gpu_requested": { "type": "string", "enum": ["on", "off"] },
+                "gpu_applied": { "const": false },
+                "seed_requested": { "type": ["integer", "null"] },
+                "seed_applied": { "const": false }
+              },
+              "required": ["threads_requested", "threads_applied", "gpu_requested", "gpu_applied", "seed_requested", "seed_applied"]
+            },
+            "parsed_but_not_applied": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cutoff_mask": { "type": "string", "enum": ["ref", "eval"] },
+                "low_dose_exclusion": { "type": ["number", "null"] },
+                "spacing_override": { "type": ["string", "null"] },
+                "tolerance": { "type": "number" }
+              },
+              "required": ["cutoff_mask", "low_dose_exclusion", "spacing_override", "tolerance"]
+            }
+          },
+          "required": ["mode", "plane", "plane_index", "gamma", "resolved_normalisation", "selected_shift_axis_mm", "selected_shift_lps_mm", "shift_candidate_count", "execution_controls", "parsed_but_not_applied"]
+        },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reference": { "$ref": "#/definitions/gridSummary" },
+            "evaluation": { "$ref": "#/definitions/gridSummary" },
+            "orientation_min_dot": { "$ref": "#/definitions/nullableNumber" }
+          },
+          "required": ["reference", "evaluation", "orientation_min_dot"]
+        },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "absolute_paths_recorded": { "const": false },
+            "dicom_demographics_recorded": { "const": false },
+            "input_identity": { "const": "basename-and-sha256" }
+          },
+          "required": ["absolute_paths_recorded", "dicom_demographics_recorded", "input_identity"]
         }
-      ]
-    },
-    "warnings": {
-      "type": "string"
-    },
-    "gamma_mean": {
-      "type": "number"
-    },
-    "gamma_median": {
-      "type": "number"
-    },
-    "gamma_max": {
-      "type": "number"
-    },
-    "save_gamma_map_path": {
-      "type": [
-        "string",
-        "null"
-      ]
+      },
+      "required": ["schema_version", "application", "execution", "runtime", "engine", "inputs", "analysis", "geometry", "warnings", "privacy"]
     },
     "per_structure": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
-          "roi_name": {
-            "type": "string"
-          },
-          "voxel_count": {
-            "type": "integer"
-          },
-          "evaluated_count": {
-            "type": "integer"
-          },
-          "pass_rate_percent": {
-            "oneOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "NaN"
-                ]
-              }
-            ]
-          },
-          "gamma_mean": {
-            "oneOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "NaN"
-                ]
-              }
-            ]
-          },
-          "gamma_median": {
-            "oneOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "NaN"
-                ]
-              }
-            ]
-          },
-          "gamma_max": {
-            "oneOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "NaN"
-                ]
-              }
-            ]
-          }
+          "roi_name": { "type": "string" },
+          "voxel_count": { "type": "integer", "minimum": 0 },
+          "evaluated_count": { "type": "integer", "minimum": 0 },
+          "pass_rate_percent": { "$ref": "#/definitions/nullableNumber" },
+          "gamma_mean": { "$ref": "#/definitions/nullableNumber" },
+          "gamma_median": { "$ref": "#/definitions/nullableNumber" },
+          "gamma_max": { "$ref": "#/definitions/nullableNumber" },
+          "ref_dvh": { "$ref": "#/definitions/dvhStats" },
+          "eval_dvh": { "$ref": "#/definitions/dvhStats" }
         },
         "required": [
           "roi_name",
@@ -237,20 +318,45 @@
           "pass_rate_percent",
           "gamma_mean",
           "gamma_median",
-          "gamma_max"
-        ],
-        "additionalProperties": false
+          "gamma_max",
+          "ref_dvh",
+          "eval_dvh"
+        ]
       }
     }
   },
   "required": [
+    "report_schema_version",
+    "ref",
+    "eval",
+    "profile",
     "mode",
+    "plane",
+    "plane_index",
     "dd_percent",
     "dta_mm",
     "cutoff_percent",
     "gamma_type",
     "norm",
+    "interp_fraction",
+    "gamma_engine",
+    "gamma_engine_version",
+    "pass_rate_percent",
     "best_shift_mm",
-    "absolute_geometry_only"
+    "best_shift_mag_mm",
+    "absolute_geometry_only",
+    "ref_for_uid",
+    "eval_for_uid",
+    "same_for_uid",
+    "orientation_min_dot",
+    "warnings",
+    "gamma_mean",
+    "gamma_median",
+    "gamma_max",
+    "gamma_p95",
+    "gamma_p99",
+    "histogram",
+    "save_gamma_map_path"
+    , "provenance"
   ]
 }

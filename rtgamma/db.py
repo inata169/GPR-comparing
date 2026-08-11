@@ -3,6 +3,8 @@ import logging
 import sqlite3
 from typing import Any, Dict
 
+from .report import sanitize_for_json
+
 
 def init_db(db_path: str):
     """Initialize the SQLite database schema if it doesn't exist."""
@@ -23,6 +25,10 @@ def init_db(db_path: str):
             cutoff_percent REAL,
             gamma_type TEXT,
             norm TEXT,
+            gamma_engine TEXT,
+            gamma_engine_version TEXT,
+            report_schema_version INTEGER,
+            provenance_json TEXT,
             pass_rate_percent REAL,
             best_shift_x REAL,
             best_shift_y REAL,
@@ -37,6 +43,20 @@ def init_db(db_path: str):
             per_structure_json TEXT
         )
     ''')
+    existing_columns = {
+        row[1] for row in cursor.execute('PRAGMA table_info(gamma_results)')
+    }
+    migrations = {
+        'gamma_engine': 'TEXT',
+        'gamma_engine_version': 'TEXT',
+        'report_schema_version': 'INTEGER',
+        'provenance_json': 'TEXT',
+    }
+    for column, column_type in migrations.items():
+        if column not in existing_columns:
+            cursor.execute(
+                f'ALTER TABLE gamma_results ADD COLUMN {column} {column_type}'
+            )
     conn.commit()
     conn.close()
 
@@ -72,10 +92,12 @@ def save_summary_db(db_path: str, summary: Dict[str, Any]):
             INSERT INTO gamma_results (
                 ref, eval, profile, mode, plane, plane_index,
                 dd_percent, dta_mm, cutoff_percent, gamma_type, norm,
+                gamma_engine, gamma_engine_version,
+                report_schema_version, provenance_json,
                 pass_rate_percent, best_shift_x, best_shift_y, best_shift_z,
                 best_shift_mag_mm, absolute_geometry_only, same_for_uid,
                 warnings, gamma_mean, gamma_median, gamma_max, per_structure_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             summary.get('ref'),
             summary.get('eval'),
@@ -88,6 +110,14 @@ def save_summary_db(db_path: str, summary: Dict[str, Any]):
             summary.get('cutoff_percent'),
             summary.get('gamma_type'),
             summary.get('norm'),
+            summary.get('gamma_engine'),
+            summary.get('gamma_engine_version'),
+            summary.get('report_schema_version'),
+            json.dumps(
+                sanitize_for_json(summary.get('provenance')),
+                ensure_ascii=False,
+                allow_nan=False,
+            ),
             summary.get('pass_rate_percent'),
             sx, sy, sz,
             summary.get('best_shift_mag_mm'),

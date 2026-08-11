@@ -15,7 +15,9 @@ $env:PYTHONPATH = $ROOT
 # =============================================
 $iniPath = Join-Path $ROOT 'config/gui_config.ini'
 . (Join-Path $ROOT 'scripts/gui_config_common.ps1')
-$cfg = Merge-GuiConfig (Read-GuiDefaults $ROOT) (Read-GuiConfig $ROOT)
+$defaultCfg = Read-GuiDefaults $ROOT
+$savedCfg = Read-GuiConfig $ROOT
+$cfg = Merge-GuiConfig $defaultCfg $savedCfg
 $viewerResolution = Resolve-ViewerType $cfg 'fast'
 $cfg['viewer_type'] = 'fast'
 
@@ -211,6 +213,13 @@ if ($script:presets.PSObject.Properties.Name.Count -gt 0) {
 $cbPreset.SelectedIndex = 0
 $form.Controls.Add($cbPreset)
 
+# Gamma engine (PyMedPhys is the standard; Numba is explicit legacy/research)
+$form.Controls.Add((New-DarkLabel 'Engine' 300 $yf))
+$cbEngine = New-DarkCombo 365 ($yf - 2) 285 @('PyMedPhys (standard)','Numba (legacy / experimental)')
+$cbEngine.SelectedIndex = 0
+$tooltip.SetToolTip($cbEngine, "PyMedPhys is the standard gamma engine. Select Numba only to reproduce legacy results or investigate engine behavior.")
+$form.Controls.Add($cbEngine)
+
 $yf += 36
 
 # DTA
@@ -261,7 +270,7 @@ $form.Controls.Add($cbViewerType)
 $form.Controls.Add((New-DarkLabel 'Norm' 550 $yf))
 $cbNorm = New-DarkCombo 610 ($yf - 2) 130 @('global_max','max_ref','none')
 $cbNorm.SelectedIndex = 0
-$tooltip.SetToolTip($cbNorm, "DD[%]やCutoff[%]の100%の基準を定義します。`r`n・global_max: 全体の最大線量を100%とする（標準のQA運用）。`r`n・none: 正規化せず絶対線量(Gy)を直接%として扱う（特殊用途。GPRが大幅に低下します）。")
+$tooltip.SetToolTip($cbNorm, "DD[%]やCutoff[%]の100%の基準を定義します。`r`n・global_max: 参照線量全体の有限な最大値を100%とします。`r`n・none: 正規化係数を1.0線量単位にします。通常の絶対線量基準を意味しないため、別途検証した研究手順でのみ使用してください。")
 $form.Controls.Add($cbNorm)
 
 # Event to populate parameters when preset changes (requires cbNorm to be initialized)
@@ -597,6 +606,7 @@ function Build-Command(){
 
   $normVal = $cbNorm.SelectedItem
   if ([string]::IsNullOrWhiteSpace($normVal)) { $normVal = 'global_max' }
+  $engineVal = if ($cbEngine.SelectedIndex -eq 1) { 'numba' } else { 'pymedphys' }
   $presetVal = $cbPreset.SelectedItem
   $viewerDd = $dd
   $viewerDta = $dta
@@ -612,7 +622,7 @@ function Build-Command(){
 
   # Common gamma args
   $interpVal = [int]$nudInterp.Value
-  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--interp-fraction', $interpVal)
+  $gammaArgs = @('--dd', $dd, '--dta', $dta, '--cutoff', $cutoff, '--norm', $normVal, '--engine', $engineVal, '--interp-fraction', $interpVal)
   if ($presetVal -ne 'Custom') { $gammaArgs += @('--profile', $presetVal) }
   if ($cbLocal.Checked) { $gammaArgs += @('--gamma-type','local') }
   if ($cbDB.Checked) { $gammaArgs += @('--db', (Join-Path $out 'rtgamma.db')) }
@@ -917,6 +927,20 @@ try {
     $normIdx = $cbNorm.Items.IndexOf([string]$cfg['norm'])
     if ($normIdx -ge 0) { $cbNorm.SelectedIndex = $normIdx }
   }
+  if ($savedCfg.ContainsKey('engine')) {
+    $engineSaved = ([string]$cfg['engine']).Trim().ToLowerInvariant()
+    if ($engineSaved -eq 'numba') {
+      $cbEngine.SelectedIndex = 1
+    } elseif ($engineSaved -eq 'pymedphys') {
+      $cbEngine.SelectedIndex = 0
+    } else {
+      $cbEngine.SelectedIndex = 0
+      Append-Log("[WARN] Invalid Gamma/engine '$engineSaved'; using pymedphys.")
+    }
+  } else {
+    $cbEngine.SelectedIndex = 0
+    Append-Log('[WARN] Legacy GUI config has no Gamma/engine; using pymedphys. Save Settings to persist it.')
+  }
   if ($cfg['preset']) {
     $profIdx = $cbPreset.Items.IndexOf([string]$cfg['preset'])
     if ($profIdx -ge 0) { $cbPreset.SelectedIndex = $profIdx }
@@ -934,6 +958,7 @@ $btnSave.Add_Click({
   if (-not $presetVal) { $presetVal = 'Custom' }
   $normVal = $cbNorm.SelectedItem
   if (-not $normVal) { $normVal = 'global_max' }
+  $engineVal = if ($cbEngine.SelectedIndex -eq 1) { 'numba' } else { 'pymedphys' }
   $viewerTypeVal = 'fast'
   $data = [ordered]@{
     'Paths' = [ordered]@{
@@ -949,6 +974,7 @@ $btnSave.Add_Click({
       dd               = $tbDD.Text
       cutoff           = $tbCutoff.Text
       norm             = $normVal
+      engine           = $engineVal
       interp_fraction  = [string][int]$nudInterp.Value
       preset           = $presetVal
     }

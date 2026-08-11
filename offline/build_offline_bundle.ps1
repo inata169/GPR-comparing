@@ -218,8 +218,8 @@ try {
     Invoke-Checked 'offline-only wheel installation test' {
         & $verifyPython -m pip install --no-index --find-links $wheelhouseDir --requirement $requirements
     }
-    Invoke-Checked 'runtime import test' {
-        & $verifyPython -c "import os,struct,sys; assert sys.version_info[:2] == (3,12); assert struct.calcsize('P') == 8; os.environ['QT_QPA_PLATFORM']='offscreen'; import pydicom,numpy,scipy,numba,matplotlib,reportlab,pyqtgraph; from PySide6 import QtCore,QtGui,QtWidgets; app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([]); assert app; print('Runtime and offscreen Qt imports: OK')"
+    Invoke-Checked 'runtime and standard-engine import test' {
+        & $verifyPython -c "import os,struct,sys; from importlib.metadata import version; assert sys.version_info[:2] == (3,12); assert struct.calcsize('P') == 8; os.environ['QT_QPA_PLATFORM']='offscreen'; import pydicom,numpy,scipy,numba,matplotlib,reportlab,pyqtgraph,pymedphys; assert version('pymedphys') == '0.41.0'; from PySide6 import QtCore,QtGui,QtWidgets; app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([]); assert app; print('Runtime, PyMedPhys 0.41.0, and offscreen Qt imports: OK')"
     }
 }
 finally {

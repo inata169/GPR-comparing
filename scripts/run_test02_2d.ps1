@@ -27,6 +27,7 @@ $commonArgs = @(
   "--refine","none",
   "--dd","3","--dta","2","--cutoff","10",
   "--norm","none",
+  "--engine","numba",
   "--log-level","INFO"
 )
 

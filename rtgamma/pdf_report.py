@@ -57,7 +57,7 @@ def _get_config():
 
 
 def save_summary_pdf(path: str, summary: dict):
-    """Generate a QA PDF report."""
+    """Generate a research-use gamma-analysis PDF report."""
     config = _get_config()
 
     doc = SimpleDocTemplate(
@@ -110,7 +110,7 @@ def save_summary_pdf(path: str, summary: dict):
     # Header / Title
     fac_name = config.get('facility_name', 'Generic Hospital')
     Story.append(Paragraph(fac_name, text_style))
-    Story.append(Paragraph("Gamma Analysis QA Report", title_style))
+    Story.append(Paragraph("Gamma Analysis Research Report", title_style))
     Story.append(Spacer(1, 0.2*inch))
 
     # Output directory for charts
@@ -141,6 +141,8 @@ def save_summary_pdf(path: str, summary: dict):
     dd = summary.get('dd_percent', 'N/A')
     cutoff = summary.get('cutoff_percent', 'N/A')
     interp = summary.get('interp_fraction', 1)
+    engine = summary.get('gamma_engine', 'unknown')
+    engine_version = summary.get('gamma_engine_version', 'unknown')
     criteria_str = f"{dd}%, {dta}mm, TH: {cutoff}%, Interp: {interp}"
 
     # Statistics extraction
@@ -160,6 +162,7 @@ def save_summary_pdf(path: str, summary: dict):
         ["Reference:", ref_para, "Machine:", config.get('machine_name', '')],
         ["Evaluation:", eval_para, "Physicist:", config.get('physicist_name', '')],
         ["Criteria:", criteria_str, "Overall GPR:", gpr_str],
+        ["Gamma Engine:", f"{engine} {engine_version}", "", ""],
     ]
 
     info_table = Table(info_data, colWidths=[1.1*inch, 2.7*inch, 1.2*inch, 2.4*inch])
@@ -174,17 +177,8 @@ def save_summary_pdf(path: str, summary: dict):
     Story.append(info_table)
     Story.append(Spacer(1, 0.4*inch))
 
-    # Result Status Block
-    status = "PASS"
-    status_color = colors.green
-    if isinstance(gpr, float):
-        if gpr < 90.0:
-            status = "FAIL"
-            status_color = colors.red
-        elif gpr < 95.0:
-            status = "WARNING"
-            status_color = colors.orange
-
+    # Research result block. A GPR alone is not a clinical acceptance decision.
+    status_color = colors.black
     status_style = ParagraphStyle(
         'StatusText',
         parent=styles['Normal'],
@@ -193,7 +187,12 @@ def save_summary_pdf(path: str, summary: dict):
         textColor=status_color,
         alignment=1
     )
-    Story.append(Paragraph(f"STATUS: {status} (GPR = {gpr_str})", status_style))
+    Story.append(Paragraph(f"OBSERVED GPR: {gpr_str}", status_style))
+    Story.append(Paragraph(
+        "Research and education use only. This report is not a patient-QA, "
+        "commissioning, treatment-decision, certification, or vendor-approval record.",
+        text_style,
+    ))
     Story.append(Spacer(1, 0.2*inch))
 
     # Global Statistics Table
@@ -439,28 +438,20 @@ def save_summary_pdf(path: str, summary: dict):
 
     # Environment & Reproducibility
     Story.append(Paragraph("Reproducibility Information", bold_style))
-    import importlib.metadata
-    import platform
-    import sys
-    
-    env_info = [["Python", sys.version.split()[0], "Platform", platform.platform()]]
-    pkgs = ["pydicom", "numpy", "scipy", "numba", "matplotlib", "reportlab"]
-    pkg_row1 = []
-    pkg_row2 = []
-    for i, pkg in enumerate(pkgs):
-        try:
-            ver = importlib.metadata.version(pkg)
-        except Exception:
-            ver = "N/A"
-        if i < 3:
-            pkg_row1.extend([pkg, ver])
-        else:
-            pkg_row2.extend([pkg, ver])
-            
-    env_info.append(pkg_row1)
-    env_info.append(pkg_row2)
+    provenance = summary.get('provenance', {})
+    application = provenance.get('application', {})
+    execution = provenance.get('execution', {})
+    runtime = provenance.get('runtime', {})
+    inputs = provenance.get('inputs', {})
+    env_info = [
+        ["Schema", provenance.get('schema_version', 'unknown'), "Application", application.get('version', 'unknown')],
+        ["Git commit", application.get('git_commit', 'unknown'), "Dirty", application.get('git_dirty', 'unknown')],
+        ["Python", runtime.get('python_version', 'unknown'), "Platform", f"{runtime.get('os', 'unknown')} {runtime.get('os_release', '')}"],
+        ["Started UTC", execution.get('started_utc', 'unknown'), "Elapsed (s)", execution.get('elapsed_seconds', 'unknown')],
+        ["Ref SHA-256", inputs.get('reference', {}).get('sha256', 'unknown'), "Eval SHA-256", inputs.get('evaluation', {}).get('sha256', 'unknown')],
+    ]
 
-    env_table = Table(env_info, colWidths=[1*inch, 1.3*inch, 1*inch, 1.3*inch, 1*inch, 1.3*inch], hAlign='LEFT')
+    env_table = Table(env_info, colWidths=[1*inch, 2.5*inch, 1*inch, 2.5*inch], hAlign='LEFT')
     env_table.setStyle(TableStyle([
         ('FONT', (0,0), (-1,-1), font_name, 8),
         ('TEXTCOLOR', (0,0), (-1,-1), colors.darkgrey),
@@ -470,8 +461,11 @@ def save_summary_pdf(path: str, summary: dict):
     Story.append(env_table)
     Story.append(Spacer(1, 0.1*inch))
     
-    cmd_str = " ".join(sys.argv)
-    cmd_para = Paragraph(f"Command: {cmd_str}", text_style)
+    cmd_para = Paragraph(
+        "Absolute command-line paths are intentionally omitted. Complete "
+        "calculation settings are stored in the structured provenance block.",
+        text_style,
+    )
     cmd_data = [[cmd_para]]
     cmd_table = Table(cmd_data, colWidths=[7*inch], hAlign='LEFT')
     cmd_table.setStyle(TableStyle([

@@ -1,3 +1,10 @@
+"""Historical case-specific interpolation sensitivity experiment.
+
+This script was designed to find settings close to stored 3DVH GPR values.
+That method is not permitted for the prospective fixed-condition validation
+protocol and its output must not be presented as an optimal standard setting.
+"""
+
 import argparse
 import json
 import os
@@ -41,6 +48,7 @@ def run_experiment(case_name, params, interp_fractions, output_base):
             '--cutoff', str(params['cutoff_percent']),
             '--gamma-type', params['gamma_type'],
             '--norm', params['norm'],
+            '--engine', 'numba',  # This is a legacy Numba sensitivity study.
             '--opt-shift', 'off',
             '--interp-fraction', str(frac),
             # Do not save map, report, or pdf to save time and disk space
@@ -111,7 +119,7 @@ def run_experiment(case_name, params, interp_fractions, output_base):
     return df
 
 def main():
-    parser = argparse.ArgumentParser(description="Find optimal interp_fraction")
+    parser = argparse.ArgumentParser(description="Run the historical case-specific interp_fraction sensitivity experiment")
     parser.add_argument('--config', default='config/3dvh_reference.json', help='Path to reference config')
     parser.add_argument('--output', default='output/interp_experiment', help='Output directory')
     parser.add_argument('--case', help='Specific case to run (e.g. Prostate). If omitted, runs all cases.')

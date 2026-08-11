@@ -55,6 +55,7 @@ class TestBatchBuildArgv:
         assert '--ref' in argv
         assert '--eval' in argv
         assert '--report' in argv
+        assert argv[argv.index('--engine') + 1] == 'pymedphys'
         assert pid  # patient_id derived from ref basename
 
     def test_custom_params(self, tmp_path):
@@ -133,7 +134,7 @@ class TestBatchSummaryWriters:
 class TestBatchIntegration:
     """Integration test: run_batch with synthetic DICOM data."""
 
-    def test_self_compare_batch(self, tmp_path):
+    def test_self_compare_batch(self, tmp_path, caplog):
         """Batch with 2 identical self-compare pairs should produce 100% GPR."""
         # Create synthetic RTDOSE
         dose_path = str(tmp_path / 'dose.dcm')
@@ -163,6 +164,8 @@ class TestBatchIntegration:
         out_dir = str(tmp_path / 'output')
         from rtgamma.batch import run_batch
         result = run_batch(csv_path, out_dir)
+
+        assert 'the standard default is PyMedPhys' in caplog.text
 
         assert len(result['results']) == 2
         assert len(result['errors']) == 0

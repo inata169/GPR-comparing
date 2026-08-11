@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from .gamma import compute_gamma
+from .settings import DEFAULT_GAMMA_ENGINE
 
 
 def parse_shift_range(spec: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -40,6 +41,8 @@ def grid_search_best_shift(
     early_stop_epsilon: float = 0.05,
     early_stop_patience: int = 100,
     prescan_2d: bool = True,
+    engine: str = DEFAULT_GAMMA_ENGINE,
+    interp_fraction: int = 10,
 ) -> Tuple[Tuple[float, float, float], float, Dict]:
 
     z_eval, y_eval, x_eval = eval_axes_mm_1d
@@ -57,7 +60,8 @@ def grid_search_best_shift(
             cutoff_percent=cutoff,
             gamma_type=gamma_type,
             norm=norm,
-            use_pymedphys=False,
+            engine=engine,
+            interp_fraction=interp_fraction,
         )
         return pass_rate
 
@@ -85,7 +89,8 @@ def grid_search_best_shift(
                     cutoff_percent=cutoff,
                     gamma_type=gamma_type,
                     norm=norm,
-                    use_pymedphys=False,
+                    engine=engine,
+                    interp_fraction=interp_fraction,
                 )
                 return pr
 
@@ -136,7 +141,8 @@ def grid_search_best_shift(
             axes_eval_mm=shifted_axes_eval,
             dose_eval=dose_eval,
             dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
-            gamma_type=gamma_type, norm=norm, use_pymedphys=False
+            gamma_type=gamma_type, norm=norm, engine=engine,
+            interp_fraction=interp_fraction,
         )
         n_eval = gstats.get('valid_points', 0)
         if x == 0 and y == 0 and z == 0:
@@ -206,7 +212,8 @@ def grid_search_best_shift(
                 axes_ref_mm=ref_axes_mm_1d, dose_ref=dose_ref,
                 axes_eval_mm=shifted_axes_eval, dose_eval=dose_eval,
                 dd_percent=dd, dta_mm=dta, cutoff_percent=cutoff,
-                gamma_type=gamma_type, norm=norm, use_pymedphys=False
+                gamma_type=gamma_type, norm=norm, engine=engine,
+                interp_fraction=interp_fraction,
             )
             n_eval = gstats.get('valid_points', 0)
             log.append({'dx': x, 'dy': y, 'dz': z, 'pass_rate': pass_rate, 'type': 'fine', 'n_eval': n_eval})

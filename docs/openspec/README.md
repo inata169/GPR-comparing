@@ -1,62 +1,50 @@
-# OpenSpec (プロジェクト仕様)
+# OpenSpec index
 
-このフォルダは本プロジェクトの仕様（OpenSpec）を管理する場所です。まずテンプレートから着手し、必要な章を埋めてください。エンコーディングは UTF-8（BOMなし）を推奨します。
+This directory contains project specifications, report schemas, change proposals, and historical design records. Public current-state statements must agree with the implementation and the canonical English [README](../../README.md).
 
-## はじめ方
-- `TEMPLATE.md` をベースに、新規仕様ファイル（例: `rtgamma_openspec.md`）を作成します。
-- 仕様は最低限、次をカバーしてください。
-  - 目的・範囲・非対象
-  - ユースケース / ユーザーストーリー
-  - 入出力（DICOM/CLI 引数/レポート構造）
-  - 幾何・座標系（IPP/IOP/PixelSpacing/GFOV の取り扱い）
-  - アルゴリズム（リサンプリング / ガンマ / 最適化）
-  - パフォーマンス・精度の受け入れ基準
-  - ログ / 再現性 / セキュリティ
-  - 既知の制約・未決事項
+## Active change
 
-## レポート JSON スキーマ
-- `report.schema.json` に、CLI が出力するサマリ JSON のスキーマ雛形があります。
-- 実装と付き合わせて、必要に応じて更新してください（`CHANGELOG.md` / `DECISIONS.md` と相互参照）。
-- メモ: Python の `json.dump` は非標準トークン `NaN` を出力する場合があります。厳格 JSON が必要な場合は `NaN` を `null` または文字列 `"NaN"` に整形してから検証してください（本スキーマは `null` / `"NaN"` も許容）。
+- [PyMedPhys as the standard gamma engine](changes/pymedphys-standard-engine/proposal.md)
+  - [Design](changes/pymedphys-standard-engine/design.md)
+  - [Tasks](changes/pymedphys-standard-engine/tasks.md)
 
-## 運用のヒント
-- 仕様ドキュメントはレビュー/PR で小さく頻繁に更新します。
-- 変更は `CHANGELOG.md` とリンクし、重要な決定は `DECISIONS.md` と相互参照します。
-- GUI の実行とログ保存手順は `docs/openspec/GUI_RUN.md` を参照してください。
+The Python 3.12 source implementation now uses PyMedPhys as the CLI, batch, and GUI default; preserves Numba through explicit legacy/research selection; and writes strict-JSON schema-versioned provenance across report formats and SQLite. Controlled local characterization is recorded without approving clinical or cross-engine acceptance thresholds. Offline PyMedPhys packaging remains open; a 3DVH comparison is not required for this standardization.
 
-## 主要ドキュメント（日本語）
-- 仕様書（本書の要約＋詳細）: `docs/openspec/rtgamma_spec_JA.md`
-- ガンマ種別の図式解説: `docs/openspec/Global_Local_Illustrated_JA.md`
-- FAQ: `docs/openspec/FAQ_JA.md`
+## Current report contract
 
-## **免責事項 / Disclaimer**
+- [JSON Schema](report.schema.json)
+- [Example report](examples/rtgamma_report_example.json)
+- Validator: `python scripts/validate_report.py <report.json>`
 
-## **⚠️ 重要：使用上の注意 (Important Notice)**
+Schema version 2 emits strict JSON and replaces non-finite floating-point values with `null`. The validator retains `--sanitize-nan` only for legacy reports.
 
-### **1\. 本ソフトウェアの位置づけ (Software Status)**
+## Historical specifications
 
-本ソフトウェアは、作者個人の研究成果として公開されているものであり、**医療機器としての承認（薬機法等）を受けたものではありません。**
+- `rtgamma_openspec.md`
+- `rtgamma_spec_JA.md`
+- `Global_Local_Illustrated_JA.md`
+- `FAQ_JA.md`
+- `GUI_RUN.md`
 
-標準的な治療計画装置（TPS）や検証用ファントム、測定機器を**置き換えるものではありません。**
+These files preserve earlier implementation and development context. They are not the canonical source for current validation or clinical claims. In particular, historical 3DVH results, case-specific interpolation tuning, “clinical” preset wording, and numerical acceptance language must not be treated as current evidence. Use the active change proposal and canonical README for the present project position.
 
-This software is published as a personal research outcome and **is not a certified medical device** under any regulation. It does not replace, and is not intended to replace, any commercial Treatment Planning System (TPS), phantom, or measurement device.
+## Specification requirements
 
-### **2\. 使用の制限と責任 (Limitation of Use and Liability)**
+A new change should define:
 
-本ソフトウェアは、その設計上、**研究および教育目的**での利用を意図しています。
+- purpose, scope, and non-goals;
+- user-visible and machine-readable interfaces;
+- reference/evaluation input order;
+- DICOM geometry and unsupported-geometry behavior;
+- algorithm/engine option mapping;
+- report and provenance schema changes;
+- exact tests, characterization tests, and human-approved acceptance criteria;
+- privacy, licensing, offline delivery, and failure behavior;
+- compatibility and migration policy;
+- unresolved decisions assigned to a human reviewer.
 
-本ソフトウェアを、**患者の診断、治療計画の立案、あるいは治療の品質保証（QA）など、臨床判断に直接関わるプロセスに使用することはできません。**
+Do not use a roadmap item as evidence that a feature is implemented. Do not create validation results, citations, data provenance, vendor positions, or acceptance thresholds that are not present and reviewable.
 
-医学物理士などの専門家が、本ソフトウェアを臨床業務の「**参考用**」として（例：セカンドチェックの補助、研究的解析など）使用することもあるかもしれません。その場合であっても、使用者は以下の点に同意する必要があります：
+## Safety boundary
 
-1. **使用者の全責任:** ソフトウェアを使用する前に、自身の施設環境で十分な検証（コミッショニング）を行い、その正確性、特性、限界をすべて把握すること。  
-2. **結果の保証の否認:** 本ソフトウェアが出力する計算結果の妥当性、正確性について、作者は一切保証しません。  
-3. **最終責任の所在:** 本ソフトウェアを使用したこと、またはその結果を参照したことにより生じる**すべての臨床判断と、それに伴う一切の結果について、作者は一切の責任を負わず、使用者が単独で全責任を負うものとします。**
-
-### **3\. 無保証 (No Warranty)**
-
-本ソフトウェアは、MITライセンスに基づき「**現状有姿 (AS IS)**」で提供されます。作者は、本ソフトウェアの正確性、完全性、特定目的への適合性、非侵害について、明示的か黙示的かを問わず、一切の保証を行いません。
-
-### **4\. 免責 (Limitation of Liability)**
-
-作者または著作権者は、本ソフトウェアの使用、誤用、または使用不能から生じる、いかなる直接的、間接的、付随的、特別、懲罰的、結果的な損害（データの損失、逸失利益、業務の中断、あるいは患者への危害を含むがこれに限られない）についても、一切の責任を負いません。
+GPR-comparing is for research and education only. It is not for patient QA, clinical commissioning, diagnosis, treatment planning, treatment decisions, or clinical decision support. It is not a medical device or a replacement for commercial QA systems, and it has no vendor approval, certification, or endorsement. Public specifications and examples must use synthetic or properly governed non-patient data and must not include PHI.

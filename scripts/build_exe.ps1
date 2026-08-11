@@ -27,6 +27,7 @@ $cliArgs = @(
     '-m', 'PyInstaller', '-y', '--name', 'rtgamma_cli', '--onedir', '--console',
     '--add-data', 'config;config',
     '--hidden-import', 'numba',
+    '--collect-all', 'pymedphys',
     '--hidden-import', 'pydicom',
     '--hidden-import', 'reportlab',
     '--hidden-import', 'rtgamma.gamma',
