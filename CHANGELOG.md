@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - 2026-08-10
+## [0.9.3] - 2026-08-11
 
 ### Added
 - PyMedPhys 0.41.0をCLI・batch・GUIの標準gamma engineとして選択し、Numbaを明示的なlegacy/experimental選択として保持。
@@ -16,10 +16,12 @@
 - 既存の外部Python 3.12を検出した場合、同梱Pythonインストーラ起動前に安全停止するよう修正。
 - オフラインpipが参照するwheelhouseパスの区切り不足を修正。
 - GUIが更新する `config/gui_config.ini` を不変ファイルのチェックサム対象から除外し、再検証時の誤検出を防止。
+- PyMedPhys 0.41.0の厳密なバージョン確認、DICOM geometry/endianness検証、入力スナップショットSHA-256、計算契約を含むViewer cache検証をfail-closed化。
 
 ### Validation
-- Python 3.12.10でRuff合格、pytest `82 passed, 7 skipped`。変更後のCI実行は未実施。
+- Python 3.12.10でRuff合格、pytest `134 passed, 7 skipped`。Windows/Ubuntu、Python 3.10/3.11/3.12のCI matrixも合格。
 - source/EXE GUI PowerShell構文、report schema/example、実RTDOSE由来ケースでの省略時PyMedPhys実行を確認。
+- PR #26の最終Codex reviewで重大な問題なし、未解決review threadなしを確認。
 - Python 3.12未導入のクリーンWindows PCでの初回完全導入試験は保留中。
 
 ## [0.9.1] - 2026-06-07

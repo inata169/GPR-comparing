@@ -39,7 +39,7 @@ Implemented features include:
 - a Windows GUI and a PySide6/PyQtGraph Fast 3D Viewer;
 - an offline Windows bundle builder and a synthetic, non-patient installation smoke test.
 
-The PyMedPhys default, GUI selection, versioned runtime provenance, controlled local PyMedPhys-versus-Numba characterization, geometry safety gates, and analytical regression tests are implemented. The current standardization scope fixes PyMedPhys at 0.41.0; changing that version requires a separately reviewed validation cycle. Cross-engine numerical equality is not a release criterion because Numba remains a legacy/experimental comparator. Release approval remains open, and a 3DVH comparison is not required for PyMedPhys standardization.
+The PyMedPhys default, GUI selection, versioned runtime provenance, controlled local PyMedPhys-versus-Numba characterization, geometry safety gates, and analytical regression tests are implemented. The current standardization scope fixes PyMedPhys at 0.41.0; changing that version requires a separately reviewed validation cycle. Cross-engine numerical equality is not a release criterion because Numba remains a legacy/experimental comparator. The project owner approved the v0.9.3 source release on 2026-08-11. A 3DVH comparison is not required for PyMedPhys standardization.
 
 ## 4. Supported environment
 
@@ -176,7 +176,7 @@ Local characterization with controlled derivatives of anonymized 3 x 3 cm and 5 
 
 A separate [controlled 5 x 5 cm RTDOSE verification record](docs/PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md) documents two full-volume PyMedPhys 0.41.0 source-GUI runs and Fast 3D Viewer checks: a uniform +2% dose variant and a +1 mm positive-column spatial-shift variant. It records only input hashes, effective settings, summary results, and explicit limitations; the DICOM inputs and numerical outputs remain local and Git-ignored.
 
-The project owner approved the documented validation scope, numerical policy, and known limitations for release preparation on 2026-08-11. This is not clinical-use or release approval. Remaining compatibility-cleanup, clean-candidate, CI, offline-acceptance, and publication gates are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
+The project owner approved the documented validation scope, numerical policy, known limitations, and v0.9.3 source publication on 2026-08-11. This is not clinical-use approval and does not establish a clean-machine-verified offline installation. The accepted scope and remaining compatibility/offline items are listed in the [release-readiness checkpoint](docs/RELEASE_READINESS_2026-08-11.md).
 
 The RTDOSE loader validates IPP, IOP, Pixel Spacing, GFOV, dimensions, Dose Grid Scaling, Dose Units, and finite dose values before calculation. It accepts strictly ascending or descending GFOV and sorts frames and offsets together into ascending order. Axial absolute-z GFOV is converted to offsets from IPP. Different origins and voxel spacing are supported, but differing reference/evaluation orientations, Dose Units, or present Frame of Reference UIDs fail closed. A missing Frame of Reference UID remains a recorded warning for compatibility with older research data. The interpolating Numba kernel assumes uniform evaluation-axis spacing based on the first interval; PyMedPhys is the standard engine.
 

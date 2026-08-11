@@ -82,9 +82,9 @@ The implemented source target is CPython 3.12 and PyMedPhys 0.41.0. Checked task
 
 ## I. Release gate
 
-- [ ] Full CI and local test suite pass on every supported Python/OS combination.
+- [x] Full CI and local test suite pass on every supported Python/OS combination; PR #26 passed Windows/Ubuntu on Python 3.10/3.11/3.12, and the release checks were repeated locally on Python 3.12.
 - [x] CLI help, source/EXE GUI launchers, batch, config, schema, and public documentation agree. A rebuilt bundle passed local `--no-index` smoke testing; clean-machine artifact acceptance remains pending.
 - [x] No silent engine fallback exists.
 - [x] No unsupported clinical, 3DVH-equivalence, precision-guarantee, or vendor claim remains in the canonical public documentation.
-- [x] Validation scope and known limitations received project-owner approval on 2026-08-11 for release preparation; this is not clinical-use or release approval.
-- [ ] Only after all gates: separately consider version, tag, and release actions.
+- [x] Validation scope and known limitations received project-owner approval on 2026-08-11; this is not clinical-use or clean-machine/offline-installation approval.
+- [x] After the source gates passed, the project owner separately approved version v0.9.3, its tag, and a source-only GitHub Release on 2026-08-11.

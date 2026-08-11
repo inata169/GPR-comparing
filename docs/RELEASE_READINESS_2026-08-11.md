@@ -2,7 +2,7 @@
 
 ## Decision recorded
 
-The project owner approved the current PyMedPhys-standardization validation scope and known limitations on 2026-08-11. This approval permits release preparation; it is not approval to create a version, tag, GitHub Release, clinical claim, or offline clean-machine claim.
+The project owner approved the current PyMedPhys-standardization validation scope and known limitations on 2026-08-11, then explicitly approved version v0.9.3, its tag, and a source-only GitHub Release. This is not approval for clinical use or an offline clean-machine claim.
 
 The approved scope is software verification for research and education:
 
@@ -20,7 +20,8 @@ The approved scope is software verification for research and education:
 - Exact and analytical PyMedPhys tests plus explicit Numba regression coverage.
 - Controlled 3 x 3 cm and 5 x 5 cm local characterization without distributing DICOM or numerical arrays.
 - Full-volume 5 x 5 cm +2% and +1 mm source-GUI/Fast-Viewer checks documented in the [controlled RTDOSE verification record](PYMEDPHYS_CONTROLLED_RTDOSE_VERIFICATION_2026-08-11.md).
-- Local Windows/Python 3.12 `tests/` result: `99 passed, 7 skipped, 8 warnings`; Ruff passed.
+- Local Windows/Python 3.12 `tests/` result: `134 passed, 7 skipped, 13 warnings`; Ruff and the report-schema example passed.
+- PR #26 completed the Codex review/fix loop with no major issue and no unresolved review thread; its Windows/Ubuntu, Python 3.10/3.11/3.12 CI matrix passed.
 - A Python 3.12 x64 offline candidate bundle with a complete wheelhouse, SHA-256 manifest, third-party licensing manifest, local `--no-index` installation verification, and source-tree smoke checks. See the [2026-08-11 progress record](PROGRESS_2026-08-11.md).
 
 ## Gates requiring completion or an explicit disposition
@@ -35,9 +36,9 @@ The approved scope is software verification for research and education:
 
 ### Verification and CI
 
-- Re-run the release candidate from a clean Git revision so reports no longer record `git_dirty=true`.
-- Confirm the complete supported Python/operating-system CI matrix on that revision.
-- Verify schema handling for any retained legacy, ROI, and DVH report paths selected for the release scope.
+- Resolved 2026-08-11: the release candidate is based on the reviewed and merged PR #26 revision; local verification is repeated on the release-documentation revision before tagging.
+- Resolved 2026-08-11: confirm the complete supported Python/operating-system CI matrix on the release revision before publishing the tag and GitHub Release.
+- Resolved 2026-08-11: report-schema example validation and retained report-path coverage passed in the release test suite.
 - Continue to review observed cross-engine disagreements without case-specific parameter tuning; no cross-engine acceptance threshold is defined.
 
 ### Offline delivery
@@ -52,8 +53,8 @@ The approved scope is software verification for research and education:
 - Keep `config/gui_config.ini` local and Git-ignored. Distributions and fresh checkouts fall back to the tracked, path-free `config/gui_config.example.ini`; packaging must exclude locally saved DICOM paths.
 - Preserve the user's unrelated `AGENTS.md` change without staging it as part of the release work.
 - Confirm that `test_data_local/`, `dist/`, DICOM, NPZ, reports, logs, databases, and local absolute paths are absent from the publication diff.
-- Choose the release version and approve the version change, tag, and GitHub Release as separate actions.
+- Resolved 2026-08-11: the project owner selected and approved v0.9.3, its tag, and a source-only GitHub Release.
 
 ## Current disposition
 
-Release preparation may continue. The source/numerical policy items above were resolved or explicitly deferred on 2026-08-11. No version, tag, or GitHub Release is approved by this checkpoint. The next safe technical step is to publish the review branch, run CI, then create a clean release-candidate revision and repeat the final reproducibility checks from it.
+The v0.9.3 source release is approved. Publication remains conditional on the final local checks and the supported CI matrix passing on the release revision. The release must contain no DICOM, NPZ, local reports, databases, absolute paths, or locally saved GUI configuration. The clean Windows/Python-absent installation test remains pending, so v0.9.3 makes no clean-machine-verified offline-installation claim and attaches no offline binary bundle.
