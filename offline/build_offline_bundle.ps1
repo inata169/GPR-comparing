@@ -113,6 +113,15 @@ $trackedFiles = @($trackedFiles | Where-Object {
         $candidate.StartsWith($_, [StringComparison]::OrdinalIgnoreCase)
     })
 })
+if ($AllowDirty) {
+    $trackedFiles = @($trackedFiles | Where-Object {
+        $worktreePath = Join-Path $repoRoot ($_ -replace '/', '\')
+        Test-Path -LiteralPath $worktreePath -PathType Leaf
+    })
+}
+if ($trackedFiles.Count -eq 0) {
+    throw 'No application files remain after applying bundle exclusions.'
+}
 foreach ($relativePath in $trackedFiles) {
     $source = Join-Path $repoRoot ($relativePath -replace '/', '\')
     $destination = Join-Path $appDir ($relativePath -replace '/', '\')

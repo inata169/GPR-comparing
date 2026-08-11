@@ -19,3 +19,10 @@ def test_bundle_manifest_excludes_mutable_gui_settings() -> None:
 
     assert "$mutableRelativePaths = @('app/config/gui_config.ini')" in script
     assert "if ($relative -in $mutableRelativePaths) { continue }" in script
+
+
+def test_dirty_bundle_filters_files_deleted_from_the_worktree() -> None:
+    script = BUILDER.read_text(encoding="utf-8")
+
+    assert "if ($AllowDirty) {" in script
+    assert "Test-Path -LiteralPath $worktreePath -PathType Leaf" in script

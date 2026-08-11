@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import sys
 import urllib.request
 import zipfile
@@ -69,6 +70,30 @@ SECRET_MARKERS = (
     b"github_" + b"pat_",
     b"gh" + b"p_",
 )
+DICOM_VRS = {
+    b"AE", b"AS", b"AT", b"CS", b"DA", b"DS", b"DT", b"FD", b"FL",
+    b"IS", b"LO", b"LT", b"OB", b"OD", b"OF", b"OL", b"OV", b"OW",
+    b"PN", b"SH", b"SL", b"SQ", b"SS", b"ST", b"SV", b"TM", b"UC",
+    b"UI", b"UL", b"UN", b"UR", b"US", b"UT", b"UV",
+}
+DICOM_LONG_VRS = {
+    b"OB", b"OD", b"OF", b"OL", b"OV", b"OW", b"SQ", b"SV", b"UC",
+    b"UN", b"UR", b"UT", b"UV",
+}
+DICOM_IDENTIFYING_TAGS = {
+    (0x0002, 0x0002),  # Media Storage SOP Class UID
+    (0x0002, 0x0003),  # Media Storage SOP Instance UID
+    (0x0002, 0x0010),  # Transfer Syntax UID
+    (0x0008, 0x0016),  # SOP Class UID
+    (0x0008, 0x0018),  # SOP Instance UID
+    (0x0008, 0x0060),  # Modality
+    (0x0010, 0x0010),  # Patient Name
+    (0x0010, 0x0020),  # Patient ID
+    (0x0020, 0x000D),  # Study Instance UID
+    (0x0020, 0x000E),  # Series Instance UID
+    (0x0028, 0x0010),  # Rows
+    (0x0028, 0x0011),  # Columns
+}
 
 
 class ComplianceError(RuntimeError):
@@ -89,6 +114,67 @@ def sha256_file(path: Path) -> str:
 
 def normalized(value: str) -> str:
     return re.sub(r"[-_.]+", "_", value).lower()
+
+
+def _looks_like_dicom_stream(
+    data: bytes, *, little_endian: bool, explicit_vr: bool
+) -> bool:
+    """Parse enough data elements to recognize a preamble-less DICOM dataset."""
+    byte_order = "<" if little_endian else ">"
+    offset = 0
+    identifying_tags: set[tuple[int, int]] = set()
+    parsed_elements = 0
+
+    while offset + 8 <= len(data) and parsed_elements < 64:
+        group, element = struct.unpack_from(f"{byte_order}HH", data, offset)
+        if group == 0xFFFE or group > 0x7FE0:
+            break
+
+        if explicit_vr:
+            vr = data[offset + 4 : offset + 6]
+            if vr not in DICOM_VRS:
+                return False
+            if vr in DICOM_LONG_VRS:
+                if offset + 12 > len(data) or data[offset + 6 : offset + 8] != b"\0\0":
+                    return False
+                length = struct.unpack_from(f"{byte_order}I", data, offset + 8)[0]
+                value_offset = offset + 12
+            else:
+                length = struct.unpack_from(f"{byte_order}H", data, offset + 6)[0]
+                value_offset = offset + 8
+        else:
+            length = struct.unpack_from(f"{byte_order}I", data, offset + 4)[0]
+            value_offset = offset + 8
+
+        if length == 0xFFFFFFFF:
+            break
+        value_end = value_offset + length
+        if value_end > len(data):
+            return False
+
+        tag = (group, element)
+        if tag in DICOM_IDENTIFYING_TAGS:
+            identifying_tags.add(tag)
+        parsed_elements += 1
+        offset = value_end
+
+        if tag == (0x7FE0, 0x0010):
+            break
+
+    return parsed_elements >= 2 and len(identifying_tags) >= 2
+
+
+def looks_like_dicom(data: bytes) -> bool:
+    """Recognize Part 10 and common preamble-less DICOM encodings."""
+    if len(data) >= 132 and data[128:132] == b"DICM":
+        return True
+    return any(
+        _looks_like_dicom_stream(
+            data, little_endian=little_endian, explicit_vr=explicit_vr
+        )
+        for little_endian in (True, False)
+        for explicit_vr in (True, False)
+    )
 
 
 def field_text(value) -> str:
@@ -432,7 +518,7 @@ def verify_bundle(bundle: Path) -> None:
             raise ComplianceError(f"forbidden PHITS-related executable: {relative}")
         if path.suffix.lower() not in {".whl", ".exe", ".png", ".jpg", ".pdf"}:
             data = path.read_bytes()
-            if len(data) >= 132 and data[128:132] == b"DICM":
+            if looks_like_dicom(data):
                 raise ComplianceError(f"DICOM payload found in bundle: {relative}")
             if any(marker in data for marker in SECRET_MARKERS):
                 raise ComplianceError(f"secret marker found in bundle: {relative}")
