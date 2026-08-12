@@ -352,6 +352,32 @@ def test_pymedphys_rejects_non_monotonic_axes_before_dispatch():
         )
 
 
+@pytest.mark.parametrize('interp_fraction', [1, 4])
+def test_numba_rejects_nonuniform_evaluation_axes(interp_fraction):
+    axes, dose = _case()
+    nonuniform_eval_axes = (
+        np.array([0.0, 2.0, 5.0]),
+        axes[1],
+        axes[2],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match='requires uniformly spaced evaluation axes',
+    ):
+        compute_gamma(
+            axes_ref_mm=axes,
+            dose_ref=dose,
+            axes_eval_mm=nonuniform_eval_axes,
+            dose_eval=dose.copy(),
+            dd_percent=3.0,
+            dta_mm=2.0,
+            cutoff_percent=10.0,
+            interp_fraction=interp_fraction,
+            engine='numba',
+        )
+
+
 def test_shift_optimization_routes_selected_engine(monkeypatch):
     axes, dose = _case()
     selected_engines = []
