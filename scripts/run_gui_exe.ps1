@@ -218,9 +218,9 @@ $form.Controls.Add($cbPreset)
 
 # Gamma engine (PyMedPhys is the standard; Numba is explicit legacy/research)
 $form.Controls.Add((New-DarkLabel 'Engine' 300 $yf))
-$cbEngine = New-DarkCombo 365 ($yf - 2) 285 @('PyMedPhys (standard)','Numba (legacy / experimental)')
-$cbEngine.SelectedIndex = 0
-$tooltip.SetToolTip($cbEngine, "PyMedPhys is the standard gamma engine. Select Numba only to reproduce legacy results or investigate engine behavior.")
+$cbEngine = New-DarkCombo 365 ($yf - 2) 285 @('PyMedPhys (reference / slow 3D)','Numba (fast full-volume GPR)')
+$cbEngine.SelectedIndex = 1
+$tooltip.SetToolTip($cbEngine, "Numba is recommended for routine full-volume GPR. PyMedPhys is the reference engine but can take tens of minutes on large 3D grids.")
 $form.Controls.Add($cbEngine)
 
 $yf += 36
@@ -306,13 +306,14 @@ $form.Controls.Add($tbPlaneIdx)
 
 # Threads
 $cpu = [Environment]::ProcessorCount
-$form.Controls.Add((New-DarkLabel "Threads (max=$cpu)" 480 $yf))
+$form.Controls.Add((New-DarkLabel "Threads (0=auto)" 480 $yf))
 $nudThreads = New-Object System.Windows.Forms.NumericUpDown
 $nudThreads.Location = New-Object System.Drawing.Point(620, ($yf - 2))
 $nudThreads.Size = New-Object System.Drawing.Size(80, 26)
 $nudThreads.Font = $fontMain; $nudThreads.BackColor = $clrInput; $nudThreads.ForeColor = $clrText
 $nudThreads.Minimum = 0; $nudThreads.Maximum = [decimal]$cpu; $nudThreads.Value = [decimal]$cpu
 $nudThreads.BorderStyle = 'FixedSingle'
+$tooltip.SetToolTip($nudThreads, "Numba worker threads. 0 uses the automatic runtime default. PyMedPhys does not use this setting.")
 $form.Controls.Add($nudThreads)
 
 $yf += 38
@@ -322,7 +323,9 @@ $cbOpt    = New-DarkCheck 'Optimize Shift' 24 $yf $false
 $tooltip.SetToolTip($cbOpt, "シフト最適化: 最もパス率が高くなるよう空間的なズレ（シフト）を自動探索して補正します。")
 $cbLocal  = New-DarkCheck 'Local Gamma' 160 $yf $false
 $tooltip.SetToolTip($cbLocal, "Local Gamma: 各ボクセルの「その場所の線量」を100%基準とします。`r`n低線量域で基準が極端に厳しくなるため、Globalに比べてパス率(GPR)が大きく低下するのが正常な仕様です。")
-$cbNPZ    = New-DarkCheck 'Save 3D NPZ' 290 $yf $false
+$cbNPZ    = New-DarkCheck 'Save Viewer Cache' 290 $yf $true
+$cbNPZ.Enabled = $false
+$tooltip.SetToolTip($cbNPZ, "3D Gamma always saves gamma3d.npz and diff3d.npz so Gamma and Pass/Fail overlays are available in the Viewer.")
 $cbDB     = New-DarkCheck 'Save to DB' 420 $yf $true
 $cbLog    = New-DarkCheck 'Save Log' 540 $yf $true
 $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cbNPZ); $form.Controls.Add($cbDB); $form.Controls.Add($cbLog)
@@ -339,7 +342,7 @@ $nudInterp.Size = New-Object System.Drawing.Size(60, 26)
 $nudInterp.Font = $fontMain; $nudInterp.BackColor = $clrInput; $nudInterp.ForeColor = $clrText
 $nudInterp.Minimum = 1; $nudInterp.Maximum = 20; $nudInterp.Value = 3
 $nudInterp.BorderStyle = 'FixedSingle'
-$tooltip.SetToolTip($nudInterp, "Sub-voxel Interp: 空間探索時にボクセルをN等分して精度を高めます。`r`n値が大きいほど高精度ですが計算時間が増加します（推奨: 3〜10）。")
+$tooltip.SetToolTip($nudInterp, "Sub-voxel Interp: 空間探索時にボクセルをN等分します。`r`n大規模3Dの推奨値は4です。値を上げると計算時間が急増します。")
 $form.Controls.Add($nudInterp)
 $yf += 34
 
@@ -598,12 +601,17 @@ function Build-Command(){
       return @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','header','--report',(Join-Path $out 'header_compare.md'))
     }
     1 { # 3D
+      if ($engineVal -eq 'pymedphys') {
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+          "PyMedPhys full 3D can take tens of minutes or longer on large dose grids and does not provide percentage progress.`r`n`r`nFor routine full-volume GPR, select 'Numba (fast full-volume GPR)'.`r`n`r`nContinue with PyMedPhys?",
+          'Slow 3D Gamma Warning','YesNo','Warning'
+        )
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return $null }
+      }
       $baseCmdName = "$ROOT\dist\rtgamma_cli\rtgamma_cli.exe"
       $baseArgs = @()
       $baseCmd = @($baseCmdName) + $baseArgs + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
-      if ($cbNPZ.Checked) {
-        $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
-      }
+      $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
       return $baseCmd
     }
     2 { # 2D
@@ -631,7 +639,7 @@ function Build-Command(){
       }
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal,
-        '--engine',$engineVal,'--interp-fraction',$interpVal,'--opt-shift',$optVal)
+        '--engine',$engineVal,'--interp-fraction',$interpVal,'--opt-shift',$optVal,'--skip-gamma-compute')
       if ($cbLocal.Checked) { $viewerCmd += @('--gamma-type','local') }
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
@@ -642,7 +650,10 @@ function Build-Command(){
         $npzPath = Join-Path $out 'gamma3d.npz'
         $reportPath = Join-Path $out 'run3d.json'
         if ((Test-Path $npzPath) -and (Test-Path $reportPath)) {
+          Append-Log("[OK] Viewer Gamma cache found: $npzPath")
           $viewerCmd += @('--gamma-npz', $npzPath, '--gamma-report', $reportPath)
+        } else {
+          Append-Log("[WARN] Viewer Gamma cache is missing in '$out'. Gamma and Pass/Fail need a completed 3D Gamma run; dose overlays remain available.")
         }
       }
       return $viewerCmd
@@ -794,15 +805,38 @@ function Run-Viewer([string[]]$cmd){
   Set-ProcessArguments $psi ([string[]]$cmd[1..($cmd.Length-1)])
   Append-Log ("Launching FileName: " + $psi.FileName)
   Append-Log ("Launching Arguments: " + $psi.Arguments)
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
   $psi.UseShellExecute = $false
-  $psi.CreateNoWindow = $false
+  $psi.CreateNoWindow = $true
   $psi.WorkingDirectory = $ROOT
   $psi.EnvironmentVariables['PYTHONUNBUFFERED'] = '1'
   $psi.EnvironmentVariables['PYTHONUTF8'] = '1'
 
   try {
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $lblStatus.Text = 'Status: Viewer launched'; $lblStatus.ForeColor = $clrGreen
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    $p.EnableRaisingEvents = $true
+    $p.SynchronizingObject = $form
+    $script:viewerProc = $p
+    $null = $p.add_OutputDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
+    $null = $p.add_ErrorDataReceived({ param($sender,$e) if ($e.Data) { $tbLog.AppendText($e.Data + "`r`n") } })
+    $null = $p.add_Exited({ param($sender,$e)
+        $code = $sender.ExitCode
+        $script:viewerProc = $null
+        if ($code -eq 0) {
+          $lblStatus.Text = 'Status: Viewer closed (Exit 0)'; $lblStatus.ForeColor = $clrGreen
+          Append-Log('Viewer closed normally (Exit 0).')
+        } else {
+          $lblStatus.Text = "Status: Viewer error (Exit $code)"; $lblStatus.ForeColor = $clrRed
+          Append-Log("Viewer exited with code $code.")
+          Show-FastViewerFailure "Viewer process exited with code $code. Review the captured traceback in the GUI log."
+        }
+      })
+    [void]$p.Start()
+    $p.BeginOutputReadLine()
+    $p.BeginErrorReadLine()
+    $lblStatus.Text = 'Status: Viewer running'; $lblStatus.ForeColor = $clrGreen
     Append-Log('Viewer process started (PID=' + $p.Id + '). Window should appear shortly.')
   } catch {
     $lblStatus.Text = 'Status: Error launching viewer'; $lblStatus.ForeColor = $clrRed
@@ -841,7 +875,7 @@ try {
   if ($cfg['plane_index']) { $tbPlaneIdx.Text = [string]$cfg['plane_index'] } else { $tbPlaneIdx.Text = 'auto' }
   if ($cfg['rtstruct'])    { $tbStruct.Text = [string]$cfg['rtstruct'] }
   if ($cfg['roi'])         { $tbRoi.Text = [string]$cfg['roi'] }
-  if ($cfg.ContainsKey('save_npz_3d'))    { $cbNPZ.Checked = Parse-Bool $cfg['save_npz_3d'] }
+  $cbNPZ.Checked = $true
   if ($cfg.ContainsKey('save_db'))        { $cbDB.Checked = Parse-Bool $cfg['save_db'] }
   if ($cfg.ContainsKey('open_on_finish')) { $cbOpen.Checked = Parse-Bool $cfg['open_on_finish'] }
   if ($cfg.ContainsKey('save_log'))       { $cbLog.Checked = Parse-Bool $cfg['save_log'] }
@@ -877,12 +911,12 @@ try {
     } elseif ($engineSaved -eq 'pymedphys') {
       $cbEngine.SelectedIndex = 0
     } else {
-      $cbEngine.SelectedIndex = 0
-      Append-Log("[WARN] Invalid Gamma/engine '$engineSaved'; using pymedphys.")
+      $cbEngine.SelectedIndex = 1
+      Append-Log("[WARN] Invalid Gamma/engine '$engineSaved'; using numba.")
     }
   } else {
-    $cbEngine.SelectedIndex = 0
-    Append-Log('[WARN] Legacy GUI config has no Gamma/engine; using pymedphys. Save Settings to persist it.')
+    $cbEngine.SelectedIndex = 1
+    Append-Log('[WARN] Legacy GUI config has no Gamma/engine; using numba for fast full-volume GPR. Save Settings to persist it.')
   }
   if ($cfg['preset']) {
     $profIdx = $cbPreset.Items.IndexOf([string]$cfg['preset'])
@@ -931,7 +965,7 @@ $btnSave.Add_Click({
       local_gamma      = $cbLocal.Checked.ToString().ToLower()
     }
     'Output' = [ordered]@{
-      save_npz_3d      = $cbNPZ.Checked.ToString().ToLower()
+      save_npz_3d      = 'true'
       save_db          = $cbDB.Checked.ToString().ToLower()
       save_log         = $cbLog.Checked.ToString().ToLower()
       save_pdf         = $cbPDF.Checked.ToString().ToLower()

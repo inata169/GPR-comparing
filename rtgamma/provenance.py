@@ -158,6 +158,7 @@ def build_provenance(
     roi_names: list[str] | None,
     effective_roi_names: list[str],
     threads: int | None,
+    threads_applied: bool,
     gpu: str,
     seed: int | None,
     cutoff_mask: str,
@@ -225,7 +226,7 @@ def build_provenance(
             'shift_candidate_count': int(shift_candidate_count),
             'execution_controls': {
                 'threads_requested': threads,
-                'threads_applied': False,
+                'threads_applied': bool(threads_applied),
                 'gpu_requested': gpu,
                 'gpu_applied': False,
                 'seed_requested': seed,

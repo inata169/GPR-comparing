@@ -1,3 +1,6 @@
+import logging
+import threading
+import time
 from importlib import metadata
 from typing import Literal, Optional, Tuple
 
@@ -9,6 +12,31 @@ from .settings import DEFAULT_GAMMA_ENGINE, SUPPORTED_PYMEDPHYS_VERSION
 GammaType = Literal['global', 'local']
 NormType = Literal['global_max', 'max_ref', 'none']
 GammaEngineName = Literal['numba', 'pymedphys']
+
+
+def _start_gamma_heartbeat(
+    engine_name: str,
+    active_points: int,
+    interval_seconds: float = 30.0,
+):
+    """Emit periodic liveness messages while a silent gamma engine is busy."""
+    stop_event = threading.Event()
+    started = time.monotonic()
+
+    def report() -> None:
+        while not stop_event.wait(interval_seconds):
+            elapsed = time.monotonic() - started
+            logging.info(
+                "%s gamma is still calculating: elapsed %.0f s, "
+                "%d reference points above cutoff. No percentage is available.",
+                engine_name,
+                elapsed,
+                active_points,
+            )
+
+    thread = threading.Thread(target=report, name='gamma-heartbeat', daemon=True)
+    thread.start()
+    return stop_event, thread
 
 
 def resolve_gamma_engine(
@@ -424,22 +452,43 @@ def compute_gamma(
                 "Install the pinned runtime requirements before calculation."
             )
 
-        g = pymedphys.gamma(
-            axes_ref_mm,
-            dose_ref,
-            axes_eval_mm,
-            dose_eval,
-            dose_percent_threshold=dd_percent,
-            distance_mm_threshold=dta_mm,
-            lower_percent_dose_cutoff=cutoff_percent,
-            interp_fraction=interp_fraction,
-            local_gamma=(gamma_type == 'local'),
-            global_normalisation=nf,
-            max_gamma=np.inf,
-            skip_once_passed=False,
-            random_subset=None,
-            interp_algo='pymedphys',
+        active_points = int(
+            np.count_nonzero(
+                np.isfinite(dose_ref)
+                & (dose_ref >= (cutoff_percent / 100.0) * nf)
+            )
         )
+        logging.info(
+            "PyMedPhys workload: %d/%d reference points above cutoff, "
+            "interp_fraction=%d. Large 3D grids may take tens of minutes; "
+            "the GUI Numba engine is recommended for fast full-volume GPR.",
+            active_points,
+            dose_ref.size,
+            interp_fraction,
+        )
+        heartbeat_stop, heartbeat_thread = _start_gamma_heartbeat(
+            'PyMedPhys', active_points
+        )
+        try:
+            g = pymedphys.gamma(
+                axes_ref_mm,
+                dose_ref,
+                axes_eval_mm,
+                dose_eval,
+                dose_percent_threshold=dd_percent,
+                distance_mm_threshold=dta_mm,
+                lower_percent_dose_cutoff=cutoff_percent,
+                interp_fraction=interp_fraction,
+                local_gamma=(gamma_type == 'local'),
+                global_normalisation=nf,
+                max_gamma=np.inf,
+                skip_once_passed=False,
+                random_subset=None,
+                interp_algo='pymedphys',
+            )
+        finally:
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=1.0)
     else:
         engine_version = gamma_engine_version('numba')
         if dose_ref.ndim != 3:

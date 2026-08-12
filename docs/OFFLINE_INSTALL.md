@@ -7,7 +7,7 @@ The bundle definition now pins PyMedPhys 0.41.0 and its required dependencies an
 ## Supported bundle target
 
 - 64-bit Windows 10 or 11
-- CPython 3.12.10 x64 supplied by the bundle
+- CPython 3.12 x64 (an existing compatible installation, or CPython 3.12.10 x64 supplied by the bundle)
 - a dedicated virtual environment at `app/.venv`
 - installation and smoke testing without network access
 - a writable local installation directory; do not execute directly from USB media
@@ -59,7 +59,7 @@ Do not add DICOM, local GUI settings, SQLite databases, generated results, crede
 5. Double-click `INSTALL_OFFLINE.bat`.
 6. Require the final success message; treat any hash, signature, Python preflight, wheel, or smoke-test failure as a failed installation.
 
-The installer sets pip to offline-only operation, creates the bundled runtime and dedicated virtual environment, installs from the wheelhouse, checks runtime imports, and runs the synthetic smoke test. It does not use global site-packages. Its current preflight intentionally stops if an external Python 3.12 x64 installation is detected, to avoid modifying an existing environment.
+The installer sets pip to offline-only operation, creates a dedicated virtual environment, installs from the wheelhouse, checks runtime imports, and runs the synthetic smoke test. It does not use global site-packages. If a runnable external CPython 3.12 x64 installation already exists, the preflight uses it only as the base interpreter for `app/.venv`; it does not run the bundled Python installer or modify the external installation, PATH, registry, or global packages. If no compatible external interpreter exists, it installs the bundled CPython 3.12.10 into `runtime/python312`. A stale Python 3.12 registration without a runnable compatible executable remains a safety stop.
 
 ## Launch and manual checks
 
@@ -106,7 +106,7 @@ Do not copy patient identifiers, patient DICOM, institutional credentials, or re
 
 ## Current verification boundary
 
-The repository contains automated builder, integrity, licensing, preflight, path, and smoke-test tests. A complete installation on a clean Windows computer without an existing Python 3.12 installation is explicitly **Pending — no suitable test PC is currently available**. This external acceptance item does not block source development, but the procedure must not be called clean-machine validated until a recorded human acceptance run exists.
+The repository contains automated builder, integrity, licensing, preflight, path, and smoke-test tests. Complete installation acceptance should cover both a clean Windows computer without Python 3.12 and a computer with a compatible external CPython 3.12 x64 installation. These external acceptance items must be recorded before either route is described as validated on its target machine class.
 
 ## PyMedPhys standardization gate
 

@@ -331,6 +331,12 @@ def _compute_gamma_if_needed(
             "No compatible shift-optimized Gamma cache is available. "
             "Run 3D Gamma with Optimize Shift enabled before opening the Viewer."
         )
+    if getattr(args, "skip_gamma_compute", False):
+        logger.info(
+            "No compatible Gamma cache. Skipping synchronous Gamma calculation "
+            "so the Viewer can open immediately."
+        )
+        return None
     if eval_on_ref is not None:
         logger.info("No compatible Gamma cache. Computing Gamma map for display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])
@@ -400,7 +406,10 @@ class FastPlaneViewer:
         self.eval_label = eval_label
         self.gamma_warning = ""
         if gamma is None:
-            self.gamma_warning = "Gamma overlay: N/A"
+            self.gamma_warning = (
+                "Gamma / Pass-Fail: unavailable (run 3D Gamma to create "
+                "gamma3d.npz); dose overlays remain available"
+            )
         elif gamma.shape != ref_dose.shape:
             self.gamma_warning = f"Gamma overlay disabled: shape {gamma.shape} != ref {ref_dose.shape}"
 
@@ -418,8 +427,12 @@ class FastPlaneViewer:
         self.cur_y = self.ny // 2
         self.cur_x = self.nx // 2
         self.overlay_alpha = 128
-        self.overlay_visible = self.gamma is not None
-        self.overlay_mode = "Gamma"
+        self.overlay_mode = (
+            "Gamma"
+            if self.gamma is not None
+            else ("Dose Ratio" if self.eval_dose is not None else "Ref Dose")
+        )
+        self.overlay_visible = True
         self.visible = {"CT": True, "Structure": True, "Info": True}
         self.roi_visible = {name: True for name in self.roi_names}
         self.ct_levels = self._ct_levels()
@@ -532,6 +545,10 @@ class FastPlaneViewer:
             action = overlay_menu.addAction(mode)
             action.setCheckable(True)
             action.setChecked(mode == self.overlay_mode)
+            if mode in {"Gamma", "Pass/Fail"}:
+                action.setEnabled(self.gamma is not None)
+            elif mode in {"Eval Dose", "Dose Diff", "Dose Ratio"}:
+                action.setEnabled(self.eval_dose is not None)
             action.triggered.connect(lambda checked=False, m=mode: self._set_overlay_mode(m))
             self._overlay_actions[mode] = action
         view_menu.addSeparator()
@@ -642,6 +659,12 @@ class FastPlaneViewer:
         for i, mode in enumerate(["Gamma", "Pass/Fail", "Ref Dose", "Eval Dose", "Dose Diff", "Dose Ratio"]):
             button = QtWidgets.QRadioButton(mode)
             button.setChecked(mode == self.overlay_mode)
+            if mode in {"Gamma", "Pass/Fail"}:
+                button.setEnabled(self.gamma is not None)
+                if self.gamma is None:
+                    button.setToolTip("Run 3D Gamma first to create gamma3d.npz and run3d.json.")
+            elif mode in {"Eval Dose", "Dose Diff", "Dose Ratio"}:
+                button.setEnabled(self.eval_dose is not None)
             self.mode_group.addButton(button, i)
             mode_layout.addWidget(button, i // 2, i % 2)
         self.mode_group.buttonClicked.connect(self._on_mode_changed)
@@ -1758,6 +1781,11 @@ def _parse_args(argv=None):
     parser.add_argument("--norm", choices=["global_max", "max_ref", "none"], default="global_max")
     parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
     parser.add_argument("--interp-fraction", type=int, default=1)
+    parser.add_argument(
+        "--skip-gamma-compute",
+        action="store_true",
+        help="Open the Viewer without synchronously computing a missing Gamma cache.",
+    )
     parser.add_argument("--opt-shift", choices=["on", "off"], default="off")
     parser.add_argument(
         "--shift-range",

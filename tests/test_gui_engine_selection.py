@@ -8,21 +8,33 @@ ROOT = Path(__file__).parents[1]
 def test_gui_launchers_expose_persist_and_forward_engine():
     for relative_path in ('scripts/run_gui.ps1', 'scripts/run_gui_exe.ps1'):
         script = (ROOT / relative_path).read_text(encoding='utf-8-sig')
-        assert 'PyMedPhys (standard)' in script
-        assert 'Numba (legacy / experimental)' in script
+        assert 'PyMedPhys (reference / slow 3D)' in script
+        assert 'Numba (fast full-volume GPR)' in script
         assert "'--engine', $engineVal" in script
         assert 'engine           = $engineVal' in script
         assert "$savedCfg.ContainsKey('engine')" in script
-        assert 'using pymedphys. Save Settings to persist it.' in script
+        assert 'using numba for fast full-volume GPR' in script
         assert "$engineVal -eq 'pymedphys' -and $viewerNormVal -eq 'none'" in script
         assert "does not support Norm 'none'" in script
         assert "'--engine',$engineVal,'--interp-fraction',$interpVal" in script
         assert "$viewerCmd += @('--gamma-type','local')" in script
         assert "'--gamma-npz', $npzPath, '--gamma-report', $reportPath" in script
         assert "'--opt-shift',$optVal" in script
+        assert "'--skip-gamma-compute'" in script
+        assert '$psi.RedirectStandardOutput = $true' in script
+        assert '$psi.RedirectStandardError = $true' in script
+        assert 'Viewer exited with code $code.' in script
+        assert 'Status: Viewer running' in script
+        assert 'Slow 3D Gamma Warning' in script
+        assert 'Threads (0=auto)' in script
+        assert "New-DarkCheck 'Save Viewer Cache'" in script
+        assert '$cbNPZ.Enabled = $false' in script
+        assert "'--save-gamma-map',(Join-Path $out 'gamma3d.npz')" in script
+        assert 'Viewer Gamma cache found' in script
+        assert 'Viewer Gamma cache is missing' in script
 
 
-def test_gui_default_and_saved_config_select_pymedphys():
+def test_gui_default_and_saved_config_select_fast_numba():
     defaults = json.loads(
         (ROOT / 'config' / 'gui_defaults.json').read_text(encoding='utf-8-sig')
     )
@@ -30,8 +42,14 @@ def test_gui_default_and_saved_config_select_pymedphys():
         encoding='utf-8-sig'
     )
 
-    assert defaults['engine'] == 'pymedphys'
-    assert 'engine = pymedphys' in example_config
+    assert defaults['engine'] == 'numba'
+    assert defaults['interp_fraction'] == 4
+    assert defaults['threads'] == 0
+    assert defaults['save_npz_3d'] is True
+    assert 'engine = numba' in example_config
+    assert 'interp_fraction = 4' in example_config
+    assert 'threads = 0' in example_config
+    assert 'save_npz_3d = true' in example_config
 
 
 def test_tracked_gui_example_has_no_workstation_paths():

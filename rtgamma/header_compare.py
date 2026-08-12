@@ -33,7 +33,10 @@ def summarize(meta):
     center = (mins + maxs) / 2.0
 
     out = {
-        'path': os.path.basename(getattr(ds, 'filename', '')),
+        # Snapshot loading intentionally parses from BytesIO, so pydicom's
+        # Dataset.filename is not guaranteed to be path-like. The loader keeps
+        # the resolved original path explicitly for reports and provenance.
+        'path': os.path.basename(meta.get('source_path', '')),
         'modality': getattr(ds, 'Modality', ''),
         'dose_units': getattr(ds, 'DoseUnits', ''),
         'dose_grid_scaling': float(getattr(ds, 'DoseGridScaling', 1.0)),

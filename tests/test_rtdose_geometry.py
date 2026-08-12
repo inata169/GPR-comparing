@@ -6,6 +6,7 @@ import pytest
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian
 
+from rtgamma.header_compare import summarize
 from rtgamma.io_dicom import (
     RTDoseGeometryError,
     load_rtdose,
@@ -81,6 +82,13 @@ def test_loader_retains_digest_of_loaded_snapshot(tmp_path):
     path.write_bytes(b'replaced after loading')
     assert meta['source_sha256'] == loaded_digest
     assert meta['source_sha256'] != sha256_file(path)
+
+
+def test_header_summary_uses_snapshot_source_path(tmp_path):
+    path = _write_rtdose(tmp_path / 'summary.dcm')
+    meta = load_rtdose(str(path))
+
+    assert summarize(meta)['path'] == 'summary.dcm'
 
 
 def test_absolute_axial_gfov_is_converted_to_offsets(tmp_path):
@@ -161,7 +169,7 @@ def test_pair_rejects_different_orientation(tmp_path):
         validate_rtdose_pair_geometry(ref, evaluation)
 
 
-def test_pair_rejects_frame_of_reference_mismatch(tmp_path):
+def test_pair_warns_and_allows_frame_of_reference_mismatch(tmp_path, caplog):
     ref = load_rtdose(str(_write_rtdose(
         tmp_path / 'ref.dcm',
         frame_of_reference_uid=pydicom.uid.generate_uid(),
@@ -171,5 +179,9 @@ def test_pair_rejects_frame_of_reference_mismatch(tmp_path):
         frame_of_reference_uid=pydicom.uid.generate_uid(),
     )))
 
-    with pytest.raises(RTDoseGeometryError, match='FrameOfReferenceUID values differ'):
-        validate_rtdose_pair_geometry(ref, evaluation)
+    with caplog.at_level('WARNING'):
+        orientation_min_dot = validate_rtdose_pair_geometry(ref, evaluation)
+
+    assert orientation_min_dot == pytest.approx(1.0)
+    assert 'FrameOfReferenceUID values differ' in caplog.text
+    assert 'continuing with explicit DICOM patient coordinates' in caplog.text

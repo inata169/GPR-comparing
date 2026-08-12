@@ -43,6 +43,7 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
     assert args.early_stop_epsilon == 0.05
     assert args.early_stop_patience == 100
     assert args.prescan_2d == 'on'
+    assert args.skip_gamma_compute is False
 
 
 def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
@@ -111,6 +112,44 @@ def test_on_demand_gamma_routes_selected_engine(monkeypatch):
     assert captured['gamma_type'] == 'local'
     assert captured['norm'] == 'none'
     assert captured['interp_fraction'] == 4
+
+
+def test_viewer_can_skip_missing_gamma_for_immediate_display(monkeypatch):
+    args = SimpleNamespace(
+        gamma_npz=None,
+        gamma_report=None,
+        opt_shift='off',
+        skip_gamma_compute=True,
+    )
+    dose_meta = {
+        'dose': np.ones((2, 2, 2), dtype=float),
+        'source_sha256': 'ref',
+    }
+    monkeypatch.setattr(
+        'scripts.gamma_viewer_fast.compute_gamma',
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError('synchronous Gamma computation must be skipped')
+        ),
+    )
+
+    assert _compute_gamma_if_needed(
+        args,
+        dose_meta,
+        np.ones((2, 2, 2), dtype=float),
+    ) is None
+
+
+def test_viewer_source_falls_back_to_dose_ratio_without_gamma():
+    source = (
+        __import__('pathlib').Path(__file__).parents[1]
+        / 'scripts'
+        / 'gamma_viewer_fast.py'
+    ).read_text(encoding='utf-8-sig')
+
+    assert 'else ("Dose Ratio" if self.eval_dose is not None else "Ref Dose")' in source
+    assert 'Gamma / Pass-Fail: unavailable' in source
+    assert 'action.setEnabled(self.gamma is not None)' in source
+    assert 'button.setEnabled(self.gamma is not None)' in source
 
 
 def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):

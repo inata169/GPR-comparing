@@ -14,6 +14,15 @@
 
 ## 2D fast path と 3D の同一スライスで GPR が一致しません
 - まず `scripts/compare_slice_gpr.py` で 3D の該当スライスと 2D レポートを突合してください。
+
+## 3D Gamma が `Lower dose cutoff set ...` の後で長時間進みません
+- PyMedPhysは大規模3D格子で数十分以上かかることがあり、計算中の割合進捗を出しません。GUIでは `Numba (fast full-volume GPR)`、`Sub-voxel Interp = 4`、`Threads = 0`（自動）を推奨します。
+- Numbaはサンプル点の合否判定後に早期終了するためGPR用途向けです。通過点を含む最小gamma値、gamma平均、gammaヒストグラムをPyMedPhysと数値同等とは扱わないでください。
+
+## 3D ViewerでGammaまたはPass/Failが表示されません
+- 選択中のOutput Folderに`gamma3d.npz`と`run3d.json`が必要です。先に同じReference/Evaluation RTDOSE、条件、Output Folderで3D Gammaを完了してください。GUIからの3D GammaではViewer cacheを常に保存します。
+- Viewerログに`Ignoring stale Gamma cache`がある場合は、RTDOSEまたはGamma条件が計算時と異なります。現在の条件で3D Gammaを再実行してください。
+- Dose RatioはGamma cacheを必要としません。評価RTDOSEが読み込まれていれば、Gamma cacheがない場合の初期Overlayとして表示されます。
 - バージョンが古い場合、2D 正規化の整合修正前だと差が出ます。最新に更新してください。
 - `--plane-index` の±1で GPR が変動することがあります（高勾配領域）。
 - 幾何（IPP/IOP/PixelSpacing/GFOV）に差がないか `scripts/compare_rtdose_headers.py` で確認。
@@ -21,6 +30,7 @@
 ## FrameOfReferenceUID（FoR）が異なります
 - 幾何原点や向きの不一致が疑われます。`scripts/compare_rtdose_headers.py` でヘッダ差分を確認し、
   必要ならシフト最適化（`--opt-shift on`）で探索してください。FoR 不一致のまま高い GPR を狙うと再現性が低下します。
+- 線量単位と方向余弦が互換であれば、解析は明示的なDICOM患者座標を使って継続し、FoR不一致をログ・JSON・PDFの警告と`same_for_uid=false`に記録します。線量単位または方向余弦が異なる場合は安全のため停止します。
 
 ## Pass Rate が低いときの対処
 - データ起因（異なる装置/線質/スケール）なら Global でも低下します。まず 2D 可視化で空間パターンを確認。
@@ -43,4 +53,3 @@
 
 ## 文字コードの推奨は？
 - Markdown/ログとも UTF-8（BOMなし）を推奨（Windows の文字化け回避）。
-

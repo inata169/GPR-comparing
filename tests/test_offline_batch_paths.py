@@ -15,6 +15,15 @@ def test_installer_points_pip_to_bundled_wheelhouse() -> None:
     assert '--find-links "%BUNDLE_ROOT%wheelhouse"' not in script
 
 
+def test_installer_uses_external_python_only_as_dedicated_venv_base() -> None:
+    script = INSTALLER.read_text(encoding="utf-8")
+
+    assert '-SelectedPythonPathFile "%SELECTED_PYTHON_FILE%"' in script
+    assert 'set /p PYTHON_EXE=<"%SELECTED_PYTHON_FILE%"' in script
+    assert '"%PYTHON_EXE%" -m venv "%VENV_DIR%"' in script
+    assert '--no-index --find-links "%BUNDLE_ROOT%\\wheelhouse"' in script
+
+
 def test_bundle_manifest_excludes_mutable_gui_settings() -> None:
     script = BUILDER.read_text(encoding="utf-8")
 
