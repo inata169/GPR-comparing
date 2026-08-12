@@ -37,7 +37,7 @@ def summarize(meta):
     center = (mins + maxs) / 2.0
 
     out = {
-        'path': os.path.basename(getattr(ds, 'filename', '')),
+        'path': os.path.basename(meta.get('source_path', '')),
         'modality': getattr(ds, 'Modality', ''),
         'dose_units': getattr(ds, 'DoseUnits', ''),
         'dose_grid_scaling': float(getattr(ds, 'DoseGridScaling', 1.0)),

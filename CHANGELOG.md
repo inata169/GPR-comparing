@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.4] - 2026-08-12
+
+### Fixed
+- 3D Gamma runs started from the GUI now always save the validated `gamma3d.npz`/`run3d.json` Viewer cache. The Viewer clearly disables unavailable Gamma/Pass-Fail choices and automatically shows Dose Ratio when evaluation dose is loaded but no compatible Gamma cache exists.
+- Large full-volume 3D runs started from the GUI now default to the parallel Numba GPR engine with interpolation fraction 4. PyMedPhys remains available as the reference engine, with an explicit slow-run warning and 30-second liveness messages. The GUI thread limit is now actually applied to Numba; `0` means automatic selection.
+- Windowsオフラインインストーラーが既存のCPython 3.12 x64を検出した場合、そのPython本体やグローバルパッケージを変更せず、アプリ専用venvの作成元として利用できるようにした。
+- RTDOSEのスナップショット読込後にヘッダー比較が`Dataset.filename`の`BytesIO`値をパスとして扱い、スモークテストが失敗する問題を修正。
+- `FrameOfReferenceUID`が異なるRTDOSE同士は、明示的な空間登録変換なしでは同じ患者座標系とみなせないため、fail-closedで解析を停止する安全動作を維持。
+- 3D Viewerの標準出力・例外・終了コードをGUIへ戻し、起動直後の異常終了を成功表示せずログとダイアログで通知するよう修正。
+- GUIから3D Viewerを開く際、有効なGamma cacheがなければ大規模Gammaをウィンドウ表示前に同期計算せず、CT・Ref/Eval線量Viewerを先に表示するよう修正。Gamma overlayは「Save 3D NPZ」を有効にした3D解析後に検証済みcacheから表示可能。
+- Qt公式ライセンス取得元を一時的に503となるcode.qt.ioからQt公式GitHubミラーへ切り替え、固定SHA-256検証を維持したままオフラインバンドルを安定して再生成できるようにした。
+
 ## [0.9.3] - 2026-08-11
 
 ### Added

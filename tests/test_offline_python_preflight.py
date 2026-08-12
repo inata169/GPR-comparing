@@ -29,25 +29,33 @@ def run_preflight(*arguments: str) -> subprocess.CompletedProcess[str]:
             *arguments,
         ],
         text=True,
+        encoding="utf-8",
         capture_output=True,
         check=False,
     )
 
 
 def test_preflight_allows_no_candidates(tmp_path: Path) -> None:
+    selected_path = tmp_path / "selected-python.txt"
     result = run_preflight(
         "-BundledPythonDir",
         str(tmp_path / "runtime" / "python312"),
+        "-SelectedPythonPathFile",
+        str(selected_path),
         "-SkipSystemDiscovery",
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "No external Python 3.12" in result.stdout
+    assert not selected_path.exists()
 
 
-def test_preflight_ignores_python_inside_bundled_runtime() -> None:
+def test_preflight_ignores_python_inside_bundled_runtime(tmp_path: Path) -> None:
+    selected_path = tmp_path / "selected-python.txt"
     result = run_preflight(
         "-BundledPythonDir",
         str(Path(sys.executable).parent),
+        "-SelectedPythonPathFile",
+        str(selected_path),
         "-CandidatePath",
         sys.executable,
         "-SkipSystemDiscovery",
@@ -56,14 +64,18 @@ def test_preflight_ignores_python_inside_bundled_runtime() -> None:
 
 
 @pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason="requires a Python 3.12 test interpreter")
-def test_preflight_blocks_external_python312(tmp_path: Path) -> None:
+def test_preflight_selects_external_python312_without_modifying_it(tmp_path: Path) -> None:
+    selected_path = tmp_path / "selected-python.txt"
     result = run_preflight(
         "-BundledPythonDir",
         str(tmp_path / "runtime" / "python312"),
+        "-SelectedPythonPathFile",
+        str(selected_path),
         "-CandidatePath",
         sys.executable,
         "-SkipSystemDiscovery",
     )
-    assert result.returncode == 12, result.stdout + result.stderr
-    assert "SAFETY STOP" in result.stdout
-    assert "installer was not started" in result.stdout
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Compatible external Python 3.12 x64" in result.stdout
+    assert "global packages will not be changed" in result.stdout
+    assert selected_path.read_text(encoding="utf-8") == str(Path(sys.executable).resolve())

@@ -5,7 +5,7 @@
 この手順は、インターネット未接続の Windows TPS PC に、USBストレージ経由で GPR-comparing を導入するためのものです。患者データはバンドルやスモークテストに含めません。
 
 - 対象OS: 64-bit Windows 10/11
-- 固定Python: CPython 3.12.10 64-bit（Python 3.12系列）
+- Python: 既存の互換CPython 3.12 64-bit、または同梱CPython 3.12.10 64-bit
 - 導入先: 展開したバンドル内の `app/.venv` 専用仮想環境
 - 通信: オフラインPC上のインストール・起動・スモークテストは外部通信不要
 - 権限: 通常ユーザーでの導入を基本とし、管理者権限は不要
@@ -85,13 +85,14 @@ dist/offline/
 
 - SHA-256によるバンドル完全性確認
 - 外部のPython 3.12 x64が既に存在する場合、公式Pythonインストーラを起動せず安全停止
-- バンドル内 `runtime/python312` へのPython 3.12.10ユーザー領域インストール
+- 既存の互換CPython 3.12 x64がある場合は、それを変更せず `app/.venv` の作成元としてのみ使用
+- 互換Pythonがない場合は、バンドル内 `runtime/python312` へPython 3.12.10をユーザー領域インストール
 - `app/.venv` 専用仮想環境の作成
 - `PIP_NO_INDEX=1`、`PIP_CONFIG_FILE=NUL`、`--no-index --find-links wheelhouse`を指定したwheel導入
 - Python 3.12 x64と主要importの確認
 - 非患者合成DICOMによるスモークテスト
 
-既にPCへ導入されているPythonやグローバルsite-packagesは使いません。外部のPython 3.12 x64が検出された場合は、その環境を変更しないため導入を中止します。完全導入試験にはPython 3.12が未導入のクリーンなWindows PCを使用してください。
+既にPCへ互換CPython 3.12 x64が導入されている場合、その実行ファイルは専用仮想環境 `app/.venv` の作成元としてのみ使用します。既存Python本体、グローバルsite-packages、PATH、レジストリは変更しません。依存パッケージは専用仮想環境へ同梱wheelhouseからのみ導入します。実行可能な互換Pythonがなく、Python 3.12の登録情報だけが残っている場合は、既存環境との衝突を避けるため安全停止します。
 
 ## 3. 起動する
 
@@ -116,6 +117,8 @@ GUI表示とGPU/画面ドライバの相性は無人スモークテストでは�
 - RTDOSEヘッダ比較
 - 2D Gamma解析とJSON、Markdown、PDF、Gamma画像、線量差画像の生成
 - 3D Gamma解析
+- 大規模3D Gammaでは、GUIの既定 `Numba (fast full-volume GPR)` と `Sub-voxel Interp = 4` を使用してください。`PyMedPhys (reference / slow 3D)` は参照計算用で、数十分以上かかる場合があります。`Threads = 0` はNumbaの自動スレッド選択です。
+- GUIの3D GammaはViewer用の`gamma3d.npz`、`diff3d.npz`、`run3d.json`を出力フォルダへ常に保存します。同じ出力フォルダを選んだまま3D Viewerを開くとGamma/Pass-Failを検証済みキャッシュから読み込みます。
 - 同一線量に対する99.99%以上のPass Rate
 
 結果はバンドル直下の `smoke_output/YYYYMMDD_HHMMSS/` に保存されます。成功時は `SMOKE_TEST_RESULT.json` に `"status": "PASS"` が記録されます。
@@ -129,7 +132,7 @@ GUI表示とGPU/画面ドライバの相性は無人スモークテストでは�
 - 245個の不変ファイルについてSHA-256検証に成功
 - `config/gui_config.ini` を変更した後も、同ファイルを除く完全性検証に成功
 - 非患者合成DICOMによるHeader Compare、2D/3D Gamma、帳票・画像生成に成功
-- 既存Python 3.12.10があるWindows 11 Home PCでは、Pythonインストーラ起動前に安全停止し、既存Pythonが変化しないことを確認
+- 既存Python 3.12.10があるWindows 11 Home PCで、既存Pythonを変更せず専用venvの作成元として選択できることを確認
 - 最終Codexレビュー: 重大な問題なし
 
 Python 3.12未導入のクリーンWindows PCが現在ないため、初回完全導入の受入試験は保留中です。詳細な開発記録と配布ZIPのSHA-256は [Progress Log — 2026-08-10](PROGRESS_2026-08-10.md) を参照してください。
@@ -138,7 +141,7 @@ Python 3.12未導入のクリーンWindows PCが現在ないため、初回完�
 
 - `SHA-256 mismatch`: USBコピーまたは展開時に破損しています。ZIPを再コピーしてください。
 - Pythonインストール失敗: TPS PCのアプリケーション制御ポリシーを管理者へ確認してください。
-- `[SAFETY STOP]`: 外部のPython 3.12 x64が検出されています。既存Pythonを変更しないため、Pythonインストーラは起動されていません。Python 3.12未導入のクリーンなWindows PCで導入してください。
+- `[SAFETY STOP]`: Python 3.12の登録情報はありますが、実行可能な互換CPython 3.12 x64が見つかりません。壊れた登録や不完全なアンインストールを確認してください。同梱Pythonインストーラは既存環境を保護するため起動されません。
 - `python_install.log`: Python本体の無人導入に失敗した場合、バンドル直下のこのログで終了理由を確認してください。既に同じPython 3.12系列がユーザーインストールされているPCでは、公式インストーラが保守モードとして動作する場合があります。
 - wheel導入時にネットワークへ接続しようとする表示がある: このバッチでは通信を無効化しています。必ず同梱 `INSTALL_OFFLINE.bat` を使用してください。
 - Qt/GUIが起動しない: 画面ドライバ、リモートデスクトップ制限、セキュリティ製品のログを確認してください。
@@ -153,7 +156,7 @@ GPR-comparing のアプリケーションコードと文書は MIT License で�
 `LICENSE` で全文を確認できます。Python、Qt / PySide6、wheelhouse 内の Python
 パッケージはそれぞれ固有の第三者ライセンスに従います。
 
-ライセンスおよび配布に関する連絡先: Hiroki Inata <169@inata169.com>
+ライセンスおよび配布に関する連絡先は、同梱の `offline/NOTICE.txt` を参照してください。
 
 配布前にはビルド処理が次を自動確認します。
 

@@ -6,6 +6,7 @@ import pytest
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian
 
+from rtgamma.header_compare import summarize
 from rtgamma.io_dicom import (
     RTDoseGeometryError,
     load_rtdose,
@@ -81,6 +82,13 @@ def test_loader_retains_digest_of_loaded_snapshot(tmp_path):
     path.write_bytes(b'replaced after loading')
     assert meta['source_sha256'] == loaded_digest
     assert meta['source_sha256'] != sha256_file(path)
+
+
+def test_header_summary_uses_snapshot_source_path(tmp_path):
+    path = _write_rtdose(tmp_path / 'summary.dcm')
+    meta = load_rtdose(str(path))
+
+    assert summarize(meta)['path'] == 'summary.dcm'
 
 
 def test_absolute_axial_gfov_is_converted_to_offsets(tmp_path):

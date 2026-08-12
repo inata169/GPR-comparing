@@ -1,11 +1,17 @@
 import builtins
+import logging
 import sys
+import time
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from rtgamma.gamma import compute_gamma, resolve_gamma_engine
+from rtgamma.gamma import (
+    _start_gamma_heartbeat,
+    compute_gamma,
+    resolve_gamma_engine,
+)
 from rtgamma.optimize import grid_search_best_shift
 
 
@@ -42,6 +48,21 @@ def test_default_engine_is_pymedphys():
     assert default_rate == named_rate
     assert default_stats['gamma_engine'] == 'pymedphys'
     assert named_stats['gamma_engine'] == 'pymedphys'
+
+
+def test_gamma_heartbeat_reports_liveness(caplog):
+    caplog.set_level(logging.INFO)
+    stop, thread = _start_gamma_heartbeat(
+        'PyMedPhys', active_points=123, interval_seconds=0.01
+    )
+    try:
+        time.sleep(0.04)
+    finally:
+        stop.set()
+        thread.join(timeout=1.0)
+
+    assert 'PyMedPhys gamma is still calculating' in caplog.text
+    assert '123 reference points above cutoff' in caplog.text
 
 
 @pytest.mark.parametrize('gamma_type', ['global', 'local'])

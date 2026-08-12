@@ -5,6 +5,7 @@ set "BUNDLE_ROOT=%~dp0."
 set "APP_DIR=%BUNDLE_ROOT%\app"
 set "PYTHON_DIR=%BUNDLE_ROOT%\runtime\python312"
 set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
+set "SELECTED_PYTHON_FILE=%BUNDLE_ROOT%\runtime\selected-python.txt"
 set "VENV_DIR=%APP_DIR%\.venv"
 set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 set "PY_INSTALLER=%BUNDLE_ROOT%\python\python-3.12.10-amd64.exe"
@@ -26,7 +27,7 @@ if errorlevel 1 goto :fail
 
 if not exist "%PYTHON_EXE%" (
     echo [2/7] Checking for an existing external Python 3.12...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\CHECK_EXISTING_PYTHON.ps1" -BundledPythonDir "%PYTHON_DIR%"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\CHECK_EXISTING_PYTHON.ps1" -BundledPythonDir "%PYTHON_DIR%" -SelectedPythonPathFile "%SELECTED_PYTHON_FILE%"
     set "PREFLIGHT_RC=!ERRORLEVEL!"
     if not "!PREFLIGHT_RC!"=="0" (
         if "!PREFLIGHT_RC!"=="12" echo [ERROR] Safety preflight stopped installation before the Python installer was launched.
@@ -34,28 +35,37 @@ if not exist "%PYTHON_EXE%" (
         goto :fail
     )
 
-    echo [3/7] Installing bundled Python 3.12.10 locally...
-    if not exist "%PY_INSTALLER%" (
-        echo [ERROR] Python installer is missing: %PY_INSTALLER%
-        goto :fail
-    )
-    if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
-    start /wait "" "%PY_INSTALLER%" /quiet InstallAllUsers=0 TargetDir="%PYTHON_DIR%" Include_pip=1 Include_tcltk=1 Include_launcher=0 InstallLauncherAllUsers=0 PrependPath=0 Include_test=0 Shortcuts=0 /log "%PYTHON_INSTALL_LOG%"
-    if errorlevel 1 (
-        echo [ERROR] Python installer failed. See: %PYTHON_INSTALL_LOG%
-        goto :fail
-    )
-    if not exist "%PYTHON_EXE%" (
-        echo [ERROR] Python installer did not create: %PYTHON_EXE%
-        echo See installer log: %PYTHON_INSTALL_LOG%
-        goto :fail
+    if exist "%SELECTED_PYTHON_FILE%" (
+        set /p PYTHON_EXE=<"%SELECTED_PYTHON_FILE%"
+        if not exist "!PYTHON_EXE!" (
+            echo [ERROR] Selected external Python does not exist: !PYTHON_EXE!
+            goto :fail
+        )
+        echo [3/7] Using compatible external Python only to create the dedicated virtual environment.
+    ) else (
+        echo [3/7] Installing bundled Python 3.12.10 locally...
+        if not exist "%PY_INSTALLER%" (
+            echo [ERROR] Python installer is missing: %PY_INSTALLER%
+            goto :fail
+        )
+        if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
+        start /wait "" "%PY_INSTALLER%" /quiet InstallAllUsers=0 TargetDir="%PYTHON_DIR%" Include_pip=1 Include_tcltk=1 Include_launcher=0 InstallLauncherAllUsers=0 PrependPath=0 Include_test=0 Shortcuts=0 /log "%PYTHON_INSTALL_LOG%"
+        if errorlevel 1 (
+            echo [ERROR] Python installer failed. See: %PYTHON_INSTALL_LOG%
+            goto :fail
+        )
+        if not exist "%PYTHON_EXE%" (
+            echo [ERROR] Python installer did not create: %PYTHON_EXE%
+            echo See installer log: %PYTHON_INSTALL_LOG%
+            goto :fail
+        )
     )
 ) else (
     echo [2/7] Bundled runtime detected; external Python check is not needed.
     echo [3/7] Bundled Python is already installed.
 )
 
-"%PYTHON_EXE%" -c "import struct,sys; assert sys.version_info[:3] == (3,12,10), sys.version; assert struct.calcsize('P') == 8, '64-bit Python required'"
+"%PYTHON_EXE%" -I -c "import struct,sys; assert sys.implementation.name == 'cpython', sys.implementation.name; assert sys.version_info[:2] == (3,12), sys.version; assert struct.calcsize('P') == 8, '64-bit Python required'"
 if errorlevel 1 goto :fail
 
 if not exist "%VENV_PYTHON%" (

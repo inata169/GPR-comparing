@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pydicom
 import pytest
 from jsonschema import validate
 
@@ -200,6 +201,52 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
         row = connection.execute('SELECT report_schema_version, provenance_json FROM gamma_results').fetchone()
     assert row[0] == 2
     assert json.loads(row[1])['engine']['name'] == 'pymedphys'
+
+
+def test_cli_rejects_frame_of_reference_mismatch(synthetic_doses, tmp_path):
+    ref_path, eval_path = synthetic_doses
+    _make_synthetic_rtdose(ref_path, shape=(2, 3, 3), dose_value=2.0)
+    _make_synthetic_rtdose(eval_path, shape=(2, 3, 3), dose_value=2.0)
+    ref_dataset = pydicom.dcmread(ref_path)
+    eval_dataset = pydicom.dcmread(eval_path)
+    ref_dataset.FrameOfReferenceUID = pydicom.uid.generate_uid()
+    eval_dataset.FrameOfReferenceUID = pydicom.uid.generate_uid()
+    ref_dataset.save_as(ref_path, write_like_original=False)
+    eval_dataset.save_as(eval_path, write_like_original=False)
+    report_base = str(tmp_path / 'for_mismatch_report')
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            ref_path,
+            '--eval',
+            eval_path,
+            '--report',
+            report_base,
+            '--opt-shift',
+            'off',
+            '--mode',
+            '3d',
+            '--engine',
+            'numba',
+            '--interp-fraction',
+            '1',
+            '--threads',
+            '1',
+        ],
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        env={**os.environ, 'PYTHONUTF8': '1'},
+    )
+
+    assert result.returncode != 0
+    assert 'FrameOfReferenceUID values differ' in result.stdout + result.stderr
+    assert not Path(report_base + '.pdf').exists()
+    assert not Path(report_base + '.json').exists()
 
 
 def test_cli_explicit_pymedphys_engine_records_provenance(synthetic_doses, tmp_path):

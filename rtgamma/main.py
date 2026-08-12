@@ -29,6 +29,31 @@ from .settings import DEFAULT_GAMMA_ENGINE, REPORT_SCHEMA_VERSION, GammaSettings
 from .viz import save_dose_diff_2d, save_gamma_map_2d
 
 
+def _configure_numba_threads(engine: str, threads: int | None) -> bool:
+    """Apply the CLI thread limit when the selected engine supports it."""
+    if threads is None or threads == 0:
+        return False
+    if threads < 0:
+        raise ValueError("--threads must be 0 (automatic) or a positive integer")
+    if engine != 'numba':
+        logging.warning(
+            "--threads=%d is not applied by the PyMedPhys engine.", threads
+        )
+        return False
+
+    import numba
+
+    try:
+        numba.set_num_threads(threads)
+    except ValueError as exc:
+        raise ValueError(
+            f"--threads={threads} is outside the Numba runtime range "
+            f"1..{numba.config.NUMBA_NUM_THREADS}"
+        ) from exc
+    logging.info("Numba thread count set to %d.", numba.get_num_threads())
+    return True
+
+
 def _save_npz_with_sha256(path: str, **arrays) -> str:
     """Atomically save an NPZ and return the digest of the published bytes."""
     target = os.path.abspath(path)
@@ -241,6 +266,11 @@ def main(argv=None):
                 pass
 
     logging.info(f"Arguments: {args}")
+
+    try:
+        threads_applied = _configure_numba_threads(args.engine, args.threads)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     if args.mode == 'header':
         logging.info("Running header comparison mode.")
@@ -674,6 +704,7 @@ def main(argv=None):
         roi_names=args.roi_names,
         effective_roi_names=effective_roi_names,
         threads=args.threads,
+        threads_applied=threads_applied,
         gpu=args.gpu,
         seed=args.seed,
         cutoff_mask=args.cutoff_mask,

@@ -2,14 +2,21 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$BundledPythonDir,
+    [Parameter(Mandatory = $true)]
+    [string]$SelectedPythonPathFile,
     [string[]]$CandidatePath = @(),
     [switch]$SkipSystemDiscovery
 )
 
 $ErrorActionPreference = 'Stop'
 $bundledRoot = [IO.Path]::GetFullPath($BundledPythonDir).TrimEnd('\')
+$selectedPathFile = [IO.Path]::GetFullPath($SelectedPythonPathFile)
 $candidatePaths = New-Object 'System.Collections.Generic.List[string]'
 $installedProducts = New-Object 'System.Collections.Generic.List[string]'
+
+if (Test-Path -LiteralPath $selectedPathFile) {
+    Remove-Item -LiteralPath $selectedPathFile -Force
+}
 
 function Add-PythonCandidate {
     param([string]$Path)
@@ -110,7 +117,7 @@ if (-not $SkipSystemDiscovery) {
     }
 }
 
-$conflicts = New-Object 'System.Collections.Generic.List[string]'
+$compatiblePythons = New-Object 'System.Collections.Generic.List[object]'
 foreach ($path in $candidatePaths) {
     $normalized = [IO.Path]::GetFullPath($path)
     if ($normalized.StartsWith($bundledRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -119,20 +126,40 @@ foreach ($path in $candidatePaths) {
     $info = Get-PythonInfo $normalized
     if ($null -eq $info) { continue }
     if ($info.implementation -eq 'cpython' -and $info.version[0] -eq 3 -and $info.version[1] -eq 12 -and $info.bits -eq 64) {
-        $conflicts.Add("$normalized (Python $($info.version -join '.'), 64-bit)")
+        $compatiblePythons.Add([PSCustomObject]@{
+            Path = $normalized
+            Version = ($info.version -join '.')
+            Patch = [int]$info.version[2]
+        })
     }
 }
 
-if ($conflicts.Count -gt 0 -or $installedProducts.Count -gt 0) {
-    Write-Host '[SAFETY STOP] An existing external Python 3.12 installation was detected.'
-    foreach ($conflict in $conflicts) {
-        Write-Host "  Executable: $conflict"
+if ($compatiblePythons.Count -gt 0) {
+    $selected = @($compatiblePythons | Sort-Object `
+        @{ Expression = { if ($_.Patch -eq 10) { 0 } else { 1 } } }, `
+        @{ Expression = { $_.Path } })[0]
+    $selectedParent = Split-Path -Parent $selectedPathFile
+    if (-not (Test-Path -LiteralPath $selectedParent)) {
+        New-Item -ItemType Directory -Path $selectedParent -Force | Out-Null
     }
+    [IO.File]::WriteAllText(
+        $selectedPathFile,
+        $selected.Path,
+        (New-Object Text.UTF8Encoding($false))
+    )
+    Write-Host '[OK] Compatible external Python 3.12 x64 installation detected.'
+    Write-Host "  Executable: $($selected.Path) (Python $($selected.Version), 64-bit)"
+    Write-Host 'It will only create the dedicated app virtual environment; the external installation and global packages will not be changed.'
+    exit 0
+}
+
+if ($installedProducts.Count -gt 0) {
+    Write-Host '[SAFETY STOP] An existing external Python 3.12 installation was detected.'
     foreach ($product in $installedProducts) {
         Write-Host "  Registered product: $product"
     }
-    Write-Host 'The bundled Python installer was not started, so the existing Python installation was not changed.'
-    Write-Host 'Use a clean Windows PC without Python 3.12 for the full offline acceptance test.'
+    Write-Host 'No runnable compatible CPython 3.12 x64 executable was found.'
+    Write-Host 'The bundled Python installer was not started, so the registered Python installation was not changed.'
     exit 12
 }
 

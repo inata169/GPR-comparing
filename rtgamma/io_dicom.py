@@ -1,11 +1,13 @@
 import hashlib
 import io
+import logging
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pydicom
 
 GEOMETRY_TOLERANCE = 1e-5
+logger = logging.getLogger(__name__)
 
 
 class RTDoseGeometryError(ValueError):
