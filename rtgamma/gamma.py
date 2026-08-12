@@ -86,6 +86,43 @@ def _validate_pymedphys_grid(
                 raise ValueError(f"{label} axis {dimension} is not strictly monotonic")
 
 
+def _validate_numba_grid(
+    axes: Tuple[np.ndarray, ...],
+    dose: np.ndarray,
+    label: str,
+    *,
+    require_uniform: bool,
+) -> None:
+    """Validate the rectilinear-grid assumptions used by the Numba kernels."""
+    if len(axes) != dose.ndim:
+        raise ValueError(f"{label} axes count does not match dose dimensions")
+    for dimension, axis in enumerate(axes):
+        values = np.asarray(axis, dtype=float)
+        if values.ndim != 1 or len(values) != dose.shape[dimension]:
+            raise ValueError(f"{label} axis {dimension} does not match dose shape")
+        if not np.isfinite(values).all():
+            raise ValueError(f"{label} axis {dimension} contains non-finite values")
+        if len(values) <= 1:
+            continue
+        differences = np.diff(values)
+        if not np.all(differences > 0.0):
+            raise ValueError(
+                f"Numba gamma requires ascending axes; {label} axis "
+                f"{dimension} is not strictly ascending"
+            )
+        if require_uniform and not np.allclose(
+            differences,
+            differences[0],
+            rtol=1e-6,
+            atol=1e-6,
+        ):
+            raise ValueError(
+                "Numba gamma requires uniformly spaced evaluation axes; "
+                f"evaluation axis {dimension} is nonuniform. Use "
+                "--engine pymedphys or resample the evaluation RTDOSE."
+            )
+
+
 def _norm_factor(dose_ref: np.ndarray, dose_eval: np.ndarray, norm: NormType) -> float:
     if norm in ('global_max', 'max_ref'):
         return float(np.nanmax(dose_ref)) if np.isfinite(dose_ref).any() else 1.0
@@ -493,6 +530,18 @@ def compute_gamma(
         engine_version = gamma_engine_version('numba')
         if dose_ref.ndim != 3:
             raise ValueError("Numba gamma implementation currently only supports 3D doses.")
+        _validate_numba_grid(
+            axes_ref_mm,
+            dose_ref,
+            'reference',
+            require_uniform=False,
+        )
+        _validate_numba_grid(
+            axes_eval_mm,
+            dose_eval,
+            'evaluation',
+            require_uniform=True,
+        )
 
         local_mode = 1 if gamma_type == 'local' else 0
 
