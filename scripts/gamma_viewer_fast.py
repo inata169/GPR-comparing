@@ -1614,6 +1614,10 @@ class FastPlaneViewer:
         self._set_overlay_mode(button.text())
 
     def _set_overlay_mode(self, mode: str):
+        if mode in {"Gamma", "Pass/Fail"} and self.gamma is None:
+            return
+        if mode in {"Eval Dose", "Dose Diff", "Dose Ratio"} and self.eval_dose is None:
+            return
         self.overlay_mode = mode
         dose_key = self._dose_key_for_mode(mode)
         if dose_key is not None:

@@ -152,6 +152,19 @@ def test_viewer_source_falls_back_to_dose_ratio_without_gamma():
     assert 'button.setEnabled(self.gamma is not None)' in source
 
 
+def test_unavailable_gamma_overlay_shortcuts_leave_dose_ratio_selected():
+    viewer = FastPlaneViewer.__new__(FastPlaneViewer)
+    viewer.gamma = None
+    viewer.eval_dose = np.ones((2, 2, 2), dtype=float)
+    viewer.overlay_mode = 'Dose Ratio'
+
+    viewer._set_overlay_mode('Gamma')
+    assert viewer.overlay_mode == 'Dose Ratio'
+
+    viewer._set_overlay_mode('Pass/Fail')
+    assert viewer.overlay_mode == 'Dose Ratio'
+
+
 def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
     captured = {}
     dose = np.ones((2, 2, 2), dtype=float)
