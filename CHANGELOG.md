@@ -7,7 +7,7 @@
 - Large full-volume 3D runs started from the GUI now default to the parallel Numba GPR engine with interpolation fraction 4. PyMedPhys remains available as the reference engine, with an explicit slow-run warning and 30-second liveness messages. The GUI thread limit is now actually applied to Numba; `0` means automatic selection.
 - Windowsオフラインインストーラーが既存のCPython 3.12 x64を検出した場合、そのPython本体やグローバルパッケージを変更せず、アプリ専用venvの作成元として利用できるようにした。
 - RTDOSEのスナップショット読込後にヘッダー比較が`Dataset.filename`の`BytesIO`値をパスとして扱い、スモークテストが失敗する問題を修正。
-- PHITS由来RTDOSEなどでFrameOfReferenceUIDが異なっても、線量単位と方向余弦が互換なら明示的なDICOM患者座標で解析を継続し、不一致をレポート警告として記録するよう修正。
+- `FrameOfReferenceUID`が異なるRTDOSE同士は、明示的な空間登録変換なしでは同じ患者座標系とみなせないため、fail-closedで解析を停止する安全動作を維持。
 - 3D Viewerの標準出力・例外・終了コードをGUIへ戻し、起動直後の異常終了を成功表示せずログとダイアログで通知するよう修正。
 - GUIから3D Viewerを開く際、有効なGamma cacheがなければ大規模Gammaをウィンドウ表示前に同期計算せず、CT・Ref/Eval線量Viewerを先に表示するよう修正。Gamma overlayは「Save 3D NPZ」を有効にした3D解析後に検証済みcacheから表示可能。
 - Qt公式ライセンス取得元を一時的に503となるcode.qt.ioからQt公式GitHubミラーへ切り替え、固定SHA-256検証を維持したままオフラインバンドルを安定して再生成できるようにした。

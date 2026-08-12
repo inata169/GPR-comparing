@@ -655,12 +655,6 @@ def main(argv=None):
             "coordinate-frame identity was not verified"
         )
         warnings_list.append(msg)
-    elif ref_for_uid != eval_for_uid:
-        msg = (
-            "FrameOfReferenceUID values differ; analysis used explicit DICOM "
-            "patient coordinates after validating matching orientation"
-        )
-        warnings_list.append(msg)
     # Large shift warning (applies when optimization was enabled)
     try:
         dx_, dy_, dz_ = float(best_shift[0]), float(best_shift[1]), float(best_shift[2])

@@ -118,7 +118,7 @@ def test_viewer_can_skip_missing_gamma_for_immediate_display(monkeypatch):
     args = SimpleNamespace(
         gamma_npz=None,
         gamma_report=None,
-        opt_shift='off',
+        opt_shift='on',
         skip_gamma_compute=True,
     )
     dose_meta = {

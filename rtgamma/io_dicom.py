@@ -111,12 +111,8 @@ def validate_rtdose_pair_geometry(meta_ref: Dict, meta_eval: Dict) -> float:
         getattr(meta_eval['dataset'], 'FrameOfReferenceUID', '')
     ).strip()
     if ref_for_uid and eval_for_uid and ref_for_uid != eval_for_uid:
-        logger.warning(
-            "FrameOfReferenceUID values differ; continuing with explicit DICOM "
-            "patient coordinates after validating matching dose units and "
-            "ImageOrientationPatient directions (reference=%s, evaluation=%s).",
-            ref_for_uid,
-            eval_for_uid,
+        raise RTDoseGeometryError(
+            "Unsupported RTDOSE pair geometry: FrameOfReferenceUID values differ"
         )
 
     signed_dots = np.array([

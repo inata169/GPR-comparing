@@ -203,7 +203,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     assert json.loads(row[1])['engine']['name'] == 'pymedphys'
 
 
-def test_cli_for_uid_mismatch_warns_but_generates_pdf(synthetic_doses, tmp_path):
+def test_cli_rejects_frame_of_reference_mismatch(synthetic_doses, tmp_path):
     ref_path, eval_path = synthetic_doses
     _make_synthetic_rtdose(ref_path, shape=(2, 3, 3), dose_value=2.0)
     _make_synthetic_rtdose(eval_path, shape=(2, 3, 3), dose_value=2.0)
@@ -243,19 +243,10 @@ def test_cli_for_uid_mismatch_warns_but_generates_pdf(synthetic_doses, tmp_path)
         env={**os.environ, 'PYTHONUTF8': '1'},
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode != 0
     assert 'FrameOfReferenceUID values differ' in result.stdout + result.stderr
-    assert Path(report_base + '.pdf').exists()
-    report = json.loads(Path(report_base + '.json').read_text(encoding='utf-8'))
-    assert report['same_for_uid'] is False
-    execution_controls = report['provenance']['analysis']['execution_controls']
-    assert execution_controls['threads_requested'] == 1
-    assert execution_controls['threads_applied'] is True
-    assert 'FrameOfReferenceUID values differ' in report['warnings']
-    assert any(
-        'FrameOfReferenceUID values differ' in warning
-        for warning in report['provenance']['warnings']
-    )
+    assert not Path(report_base + '.pdf').exists()
+    assert not Path(report_base + '.json').exists()
 
 
 def test_cli_explicit_pymedphys_engine_records_provenance(synthetic_doses, tmp_path):

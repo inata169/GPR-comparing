@@ -326,17 +326,17 @@ def _compute_gamma_if_needed(
         gamma = None
     if gamma is not None:
         return gamma
-    if getattr(args, "opt_shift", "off") == "on":
-        raise ValueError(
-            "No compatible shift-optimized Gamma cache is available. "
-            "Run 3D Gamma with Optimize Shift enabled before opening the Viewer."
-        )
     if getattr(args, "skip_gamma_compute", False):
         logger.info(
             "No compatible Gamma cache. Skipping synchronous Gamma calculation "
             "so the Viewer can open immediately."
         )
         return None
+    if getattr(args, "opt_shift", "off") == "on":
+        raise ValueError(
+            "No compatible shift-optimized Gamma cache is available. "
+            "Run 3D Gamma with Optimize Shift enabled before opening the Viewer."
+        )
     if eval_on_ref is not None:
         logger.info("No compatible Gamma cache. Computing Gamma map for display.")
         axes = (dose_meta["z_coords_mm"], dose_meta["y_coords_mm"], dose_meta["x_coords_mm"])

@@ -169,7 +169,7 @@ def test_pair_rejects_different_orientation(tmp_path):
         validate_rtdose_pair_geometry(ref, evaluation)
 
 
-def test_pair_warns_and_allows_frame_of_reference_mismatch(tmp_path, caplog):
+def test_pair_rejects_frame_of_reference_mismatch(tmp_path):
     ref = load_rtdose(str(_write_rtdose(
         tmp_path / 'ref.dcm',
         frame_of_reference_uid=pydicom.uid.generate_uid(),
@@ -179,9 +179,5 @@ def test_pair_warns_and_allows_frame_of_reference_mismatch(tmp_path, caplog):
         frame_of_reference_uid=pydicom.uid.generate_uid(),
     )))
 
-    with caplog.at_level('WARNING'):
-        orientation_min_dot = validate_rtdose_pair_geometry(ref, evaluation)
-
-    assert orientation_min_dot == pytest.approx(1.0)
-    assert 'FrameOfReferenceUID values differ' in caplog.text
-    assert 'continuing with explicit DICOM patient coordinates' in caplog.text
+    with pytest.raises(RTDoseGeometryError, match='FrameOfReferenceUID values differ'):
+        validate_rtdose_pair_geometry(ref, evaluation)
