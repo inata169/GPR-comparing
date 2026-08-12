@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.4] - 2026-08-12
 
 ### Fixed
 - 3D Gamma runs started from the GUI now always save the validated `gamma3d.npz`/`run3d.json` Viewer cache. The Viewer clearly disables unavailable Gamma/Pass-Fail choices and automatically shows Dose Ratio when evaluation dose is loaded but no compatible Gamma cache exists.
