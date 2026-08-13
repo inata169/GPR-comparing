@@ -32,6 +32,13 @@ def test_gui_launchers_expose_persist_and_forward_engine():
         assert "'--save-gamma-map',(Join-Path $out 'gamma3d.npz')" in script
         assert 'Viewer Gamma cache found' in script
         assert 'Viewer Gamma cache is missing' in script
+        assert "New-DarkCheck 'Allow different FoR UID'" in script
+        assert "@('--allow-frame-of-reference-mismatch')" in script
+        assert '$viewerCmd += $forArg' in script
+        assert 'Frame of Reference Override' in script
+        assert 'allow_frame_of_reference_mismatch = $cbAllowFoR.Checked' in script
+        assert "enable 'Allow different FoR UID' and retry" in script
+        assert 'correct the indicated input or runtime issue' in script
 
 
 def test_gui_default_and_saved_config_select_fast_numba():
@@ -46,10 +53,12 @@ def test_gui_default_and_saved_config_select_fast_numba():
     assert defaults['interp_fraction'] == 4
     assert defaults['threads'] == 0
     assert defaults['save_npz_3d'] is True
+    assert defaults['allow_frame_of_reference_mismatch'] is False
     assert 'engine = numba' in example_config
     assert 'interp_fraction = 4' in example_config
     assert 'threads = 0' in example_config
     assert 'save_npz_3d = true' in example_config
+    assert 'allow_frame_of_reference_mismatch = false' in example_config
 
 
 def test_tracked_gui_example_has_no_workstation_paths():
@@ -101,5 +110,6 @@ def test_both_viewers_validate_rtdose_pairs_before_resampling():
     legacy = (ROOT / 'scripts' / 'gamma_viewer.py').read_text(encoding='utf-8-sig')
     fast = (ROOT / 'scripts' / 'gamma_viewer_fast.py').read_text(encoding='utf-8-sig')
 
-    assert 'validate_rtdose_pair_geometry(dose_meta, eval_meta)' in legacy
-    assert 'validate_rtdose_pair_geometry(dose_meta, eval_meta)' in fast
+    for script in (legacy, fast):
+        assert 'validate_rtdose_pair_geometry(' in script
+        assert 'allow_frame_of_reference_mismatch=' in script

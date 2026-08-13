@@ -330,7 +330,9 @@ $form.Controls.Add($cbOpt); $form.Controls.Add($cbLocal); $form.Controls.Add($cb
 $yf += 28
 $cbOpen   = New-DarkCheck 'Open summary on finish' 24 $yf $true
 $cbPDF    = New-DarkCheck 'Output PDF' 190 $yf $true
-$form.Controls.Add($cbOpen); $form.Controls.Add($cbPDF)
+$cbAllowFoR = New-DarkCheck 'Allow different FoR UID' 500 $yf $false
+$tooltip.SetToolTip($cbAllowFoR, "Use only when the UID difference was introduced by anonymization and both RTDOSE grids use the same absolute DICOM patient coordinates.")
+$form.Controls.Add($cbOpen); $form.Controls.Add($cbPDF); $form.Controls.Add($cbAllowFoR)
 
 $form.Controls.Add((New-DarkLabel 'Sub-voxel Interp' 290 $yf))
 $nudInterp = New-Object System.Windows.Forms.NumericUpDown
@@ -439,7 +441,7 @@ function Show-FastViewerFailure([string]$summary) {
   $logText = if ($logPath) { "`r`nLog: $logPath" } else { "`r`nLog: not available" }
   Append-Log("[ERROR] Fast viewer launch failed: $summary")
   [System.Windows.Forms.MessageBox]::Show(
-    "Fast Viewer launch failed.`r`nSummary: $summary$logText`r`n`r`nCheck PySide6/pyqtgraph dependencies or Fast Viewer EXE packaging, then try again.",
+    "Fast Viewer launch failed.`r`nSummary: $summary$logText`r`n`r`nReview the summary and saved log, correct the indicated input or runtime issue, then try again.",
     "Fast Viewer launch failed",
     "OK",
     "Error"
@@ -630,6 +632,13 @@ function Build-Command(){
     )
     return $null
   }
+  if ($cbAction.SelectedIndex -ne 0 -and $cbAllowFoR.Checked) {
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+      "Continue only if the FrameOfReferenceUID difference was introduced by anonymization and both RTDOSE files still use the same absolute DICOM patient coordinate system.`r`n`r`nContinue with the explicit override?",
+      'Frame of Reference Override','YesNo','Warning'
+    )
+    if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return $null }
+  }
 
   # Common gamma args
   $interpVal = [int]$nudInterp.Value
@@ -645,6 +654,10 @@ function Build-Command(){
 
   $optVal = if ($cbOpt.Checked) { 'on' } else { 'off' }
   $optArg = @('--opt-shift', $optVal)
+  $forArg = @()
+  if ($cbAllowFoR.Checked) {
+    $forArg = @('--allow-frame-of-reference-mismatch')
+  }
 
   switch ($cbAction.SelectedIndex){
     0 { # Header compare
@@ -668,7 +681,7 @@ function Build-Command(){
         [System.Windows.Forms.MessageBox]::Show('Python was not found. Install Python or create .venv before running analysis.','Python Not Found','OK','Warning')
         return $null
       }
-      $baseCmd = @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg
+      $baseCmd = @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','3d','--report',(Join-Path $out 'run3d')) + $optArg + $gammaArgs + $threadsArg + $forArg
       $baseCmd += @('--save-gamma-map',(Join-Path $out 'gamma3d.npz'),'--save-dose-diff',(Join-Path $out 'diff3d.npz'))
       return $baseCmd
     }
@@ -684,7 +697,7 @@ function Build-Command(){
       return @($cmdPrefix) + @('--ref',$ref,'--eval',$eval,'--mode','2d','--plane',$plane,'--plane-index',$pindex,
         '--save-gamma-map',(Join-Path $out ("${plane}_gamma.png")),
         '--save-dose-diff',(Join-Path $out ("${plane}_diff.png")),
-        '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg
+        '--report',(Join-Path $out $plane)) + $optArg + $gammaArgs + $threadsArg + $forArg
     }
     3 { # 3D Viewer
       $ct = $tbCT.Text
@@ -708,6 +721,7 @@ function Build-Command(){
       $viewerCmd = @($baseCmdName) + $baseArgs + @('--ct',$ct,'--ref',$ref,'--eval',$eval,
         '--dd',$viewerDd,'--dta',$viewerDta,'--cutoff',$viewerCutoff,'--norm',$viewerNormVal,
         '--engine',$engineVal,'--interp-fraction',$interpVal,'--opt-shift',$optVal,'--skip-gamma-compute')
+      $viewerCmd += $forArg
       if ($cbLocal.Checked) { $viewerCmd += @('--gamma-type','local') }
       if (-not [string]::IsNullOrWhiteSpace($tbStruct.Text)) { $viewerCmd += @('--rtstruct', $tbStruct.Text.Trim()) }
       if (-not [string]::IsNullOrWhiteSpace($tbRoi.Text)) {
@@ -898,7 +912,11 @@ function Run-Viewer([string[]]$cmd){
         } else {
           $lblStatus.Text = "Status: Viewer error (Exit $code)"; $lblStatus.ForeColor = $clrRed
           Append-Log("Viewer exited with code $code.")
-          Show-FastViewerFailure "Viewer process exited with code $code. Review the captured traceback in the GUI log."
+          if ($tbLog.Text -match 'FrameOfReferenceUID values differ') {
+            Show-FastViewerFailure "The RTDOSE FrameOfReferenceUID values differ. If anonymization alone changed the UID and both files retain the same DICOM patient coordinates, enable 'Allow different FoR UID' and retry."
+          } else {
+            Show-FastViewerFailure "Viewer process exited with code $code. Review the captured traceback in the GUI log."
+          }
         }
       })
     [void]$p.Start()
@@ -950,6 +968,7 @@ try {
   if ($cfg.ContainsKey('save_pdf'))       { $cbPDF.Checked = Parse-Bool $cfg['save_pdf'] }
   if ($cfg.ContainsKey('optimize_shift')) { $cbOpt.Checked = Parse-Bool $cfg['optimize_shift'] }
   if ($cfg.ContainsKey('local_gamma'))    { $cbLocal.Checked = Parse-Bool $cfg['local_gamma'] }
+  if ($cfg.ContainsKey('allow_frame_of_reference_mismatch')) { $cbAllowFoR.Checked = Parse-Bool $cfg['allow_frame_of_reference_mismatch'] }
   if ($cfg['threads']) { $val = [int]$cfg['threads']; if ($val -ge 0 -and $val -le $cpu) { $nudThreads.Value = [decimal]$val } }
   if ($cfg['interp_fraction']) { $val = [int]$cfg['interp_fraction']; if ($val -ge 1 -and $val -le 20) { $nudInterp.Value = [decimal]$val } }
   if ($cfg['action']) {
@@ -1031,6 +1050,7 @@ $btnSave.Add_Click({
       threads          = [string][int]$nudThreads.Value
       optimize_shift   = $cbOpt.Checked.ToString().ToLower()
       local_gamma      = $cbLocal.Checked.ToString().ToLower()
+      allow_frame_of_reference_mismatch = $cbAllowFoR.Checked.ToString().ToLower()
     }
     'Output' = [ordered]@{
       save_npz_3d      = 'true'

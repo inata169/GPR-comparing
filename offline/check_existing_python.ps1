@@ -4,6 +4,7 @@ param(
     [string]$BundledPythonDir,
     [Parameter(Mandatory = $true)]
     [string]$SelectedPythonPathFile,
+    [string]$VenvDir,
     [string[]]$CandidatePath = @(),
     [switch]$SkipSystemDiscovery
 )
@@ -147,6 +148,23 @@ if ($compatiblePythons.Count -gt 0) {
         $selected.Path,
         (New-Object Text.UTF8Encoding($false))
     )
+    if (-not [string]::IsNullOrWhiteSpace($VenvDir)) {
+        $resolvedVenvDir = [IO.Path]::GetFullPath($VenvDir)
+        Write-Host '[RUN] Creating the dedicated application environment with the selected Python.'
+        & $selected.Path -m venv $resolvedVenvDir
+        if ($LASTEXITCODE -ne 0) {
+            Remove-Item -LiteralPath $selectedPathFile -Force -ErrorAction SilentlyContinue
+            Write-Error "The selected external Python could not create the dedicated environment (exit $LASTEXITCODE)."
+            exit 13
+        }
+        $venvPython = Join-Path $resolvedVenvDir 'Scripts\python.exe'
+        if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
+            Remove-Item -LiteralPath $selectedPathFile -Force -ErrorAction SilentlyContinue
+            Write-Error "The selected external Python did not create: $venvPython"
+            exit 13
+        }
+        Write-Host '[OK] Dedicated application environment created.'
+    }
     Write-Host '[OK] Compatible external Python 3.12 x64 installation detected.'
     Write-Host "  Executable: $($selected.Path) (Python $($selected.Version), 64-bit)"
     Write-Host 'It will only create the dedicated app virtual environment; the external installation and global packages will not be changed.'

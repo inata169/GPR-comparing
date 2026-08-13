@@ -23,6 +23,7 @@ class GammaSettings:
     norm: str
     engine: str
     interp_fraction: int
+    allow_frame_of_reference_mismatch: bool
     resample_interp: str
     opt_shift: bool
     shift_range: str
@@ -43,6 +44,11 @@ class GammaSettings:
             norm=str(args.norm),
             engine=str(args.engine),
             interp_fraction=int(args.interp_fraction),
+            allow_frame_of_reference_mismatch=bool(getattr(
+                args,
+                'allow_frame_of_reference_mismatch',
+                False,
+            )),
             resample_interp=str(args.interp),
             opt_shift=args.opt_shift == 'on',
             shift_range=str(args.shift_range),

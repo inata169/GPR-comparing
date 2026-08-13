@@ -249,6 +249,63 @@ def test_cli_rejects_frame_of_reference_mismatch(synthetic_doses, tmp_path):
     assert not Path(report_base + '.json').exists()
 
 
+def test_cli_explicitly_allows_frame_of_reference_mismatch(
+    synthetic_doses,
+    tmp_path,
+):
+    ref_path, eval_path = synthetic_doses
+    _make_synthetic_rtdose(ref_path, shape=(2, 3, 3), dose_value=2.0)
+    _make_synthetic_rtdose(eval_path, shape=(2, 3, 3), dose_value=2.0)
+    ref_dataset = pydicom.dcmread(ref_path)
+    eval_dataset = pydicom.dcmread(eval_path)
+    ref_dataset.FrameOfReferenceUID = pydicom.uid.generate_uid()
+    eval_dataset.FrameOfReferenceUID = pydicom.uid.generate_uid()
+    ref_dataset.save_as(ref_path, write_like_original=False)
+    eval_dataset.save_as(eval_path, write_like_original=False)
+    report_base = str(tmp_path / 'allowed_for_mismatch_report')
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            ref_path,
+            '--eval',
+            eval_path,
+            '--report',
+            report_base,
+            '--opt-shift',
+            'off',
+            '--mode',
+            '3d',
+            '--engine',
+            'numba',
+            '--interp-fraction',
+            '1',
+            '--allow-frame-of-reference-mismatch',
+            '--no-pdf',
+        ],
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        env={**os.environ, 'PYTHONUTF8': '1'},
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(Path(report_base + '.json').read_text(encoding='utf-8'))
+    repository_schema = json.loads(
+        (Path(__file__).parents[1] / 'docs' / 'openspec' / 'report.schema.json')
+        .read_text(encoding='utf-8')
+    )
+    validate(instance=data, schema=repository_schema)
+    assert data['same_for_uid'] is False
+    assert 'explicitly allowed' in data['warnings']
+    gamma_settings = data['provenance']['analysis']['gamma']
+    assert gamma_settings['allow_frame_of_reference_mismatch'] is True
+    assert 'explicitly allowed' in data['provenance']['warnings'][0]
+
+
 def test_cli_explicit_pymedphys_engine_records_provenance(synthetic_doses, tmp_path):
     """The explicit PyMedPhys path records the selected engine."""
     ref_path, eval_path = synthetic_doses

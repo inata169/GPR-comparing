@@ -27,7 +27,7 @@ if errorlevel 1 goto :fail
 
 if not exist "%PYTHON_EXE%" (
     echo [2/7] Checking for an existing external Python 3.12...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\CHECK_EXISTING_PYTHON.ps1" -BundledPythonDir "%PYTHON_DIR%" -SelectedPythonPathFile "%SELECTED_PYTHON_FILE%"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%BUNDLE_ROOT%\CHECK_EXISTING_PYTHON.ps1" -BundledPythonDir "%PYTHON_DIR%" -SelectedPythonPathFile "%SELECTED_PYTHON_FILE%" -VenvDir "%VENV_DIR%"
     set "PREFLIGHT_RC=!ERRORLEVEL!"
     if not "!PREFLIGHT_RC!"=="0" (
         if "!PREFLIGHT_RC!"=="12" echo [ERROR] Safety preflight stopped installation before the Python installer was launched.
@@ -36,11 +36,11 @@ if not exist "%PYTHON_EXE%" (
     )
 
     if exist "%SELECTED_PYTHON_FILE%" (
-        set /p PYTHON_EXE=<"%SELECTED_PYTHON_FILE%"
-        if not exist "!PYTHON_EXE!" (
-            echo [ERROR] Selected external Python does not exist: !PYTHON_EXE!
+        if not exist "%VENV_PYTHON%" (
+            echo [ERROR] External Python did not create the dedicated virtual environment.
             goto :fail
         )
+        set "PYTHON_EXE=%VENV_PYTHON%"
         echo [3/7] Using compatible external Python only to create the dedicated virtual environment.
     ) else (
         echo [3/7] Installing bundled Python 3.12.10 locally...
