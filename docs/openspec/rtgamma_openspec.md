@@ -40,6 +40,7 @@
 - 2D 平面の世界座標グリッドは配列軸順 (z,y,x) と整合。固定次元は単一軸にし、形状を以下に統一：
   - axial: (1, y, x)、sagittal: (z, y, 1)、coronal: (z, 1, x)。
 - FoR/Orientation チェックを行い、`orientation_min_dot` が 0.99 未満で警告。
+- 非空の `FrameOfReferenceUID` が異なる場合は既定で停止する。匿名化だけがUIDを変更し、両RTDOSEが同じDICOM患者座標系を維持していることを確認した場合に限り、`--allow-frame-of-reference-mismatch`（GUI: `Allow different FoR UID`）で明示的に続行できる。解除時も座標登録や自動補正は行わず、レポートにUID差、解除設定、警告を記録する。
 
 ## 5. Resampling
 - 参照グリッドの世界座標 (Xw,Yw,Zw) を構築し、評価線量を `world_to_index` で eval 側 (i,j,k) へ投影。

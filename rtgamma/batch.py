@@ -20,7 +20,8 @@ from .settings import DEFAULT_GAMMA_ENGINE
 # Required: ref, eval
 # Optional (override per row):
 #   patient_id, rtstruct, roi, dta_mm, dd_percent, cutoff_percent,
-#   gamma_type, norm, engine, opt_shift, interp_fraction, mode, report_dir
+#   gamma_type, norm, engine, opt_shift, interp_fraction,
+#   allow_frame_of_reference_mismatch, mode, report_dir
 # Blank cells fall back to CLI defaults.
 
 _DEFAULTS = {
@@ -63,6 +64,13 @@ def _build_argv(row: Dict[str, str], output_dir: str) -> List[str]:
     argv += ['--opt-shift', opt_shift]
     argv += ['--interp-fraction', interp_fraction]
     argv += ['--mode', mode]
+
+    allow_for_mismatch = row.get(
+        'allow_frame_of_reference_mismatch',
+        '',
+    ).strip().lower()
+    if allow_for_mismatch in ('true', '1', 'yes'):
+        argv += ['--allow-frame-of-reference-mismatch']
 
     pdf = row.get('pdf', '').strip().lower()
     if pdf == 'true' or pdf == '1' or pdf == 'yes':

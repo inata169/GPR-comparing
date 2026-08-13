@@ -255,11 +255,16 @@ def _load_gamma_npz(path: str | None) -> np.ndarray | None:
 def _resample_eval(
     eval_path: str | None,
     dose_meta: dict,
+    allow_frame_of_reference_mismatch: bool = False,
 ) -> tuple[np.ndarray | None, str, dict | None]:
     if not eval_path:
         return None, "", None
     eval_meta = load_rtdose(eval_path)
-    validate_rtdose_pair_geometry(dose_meta, eval_meta)
+    validate_rtdose_pair_geometry(
+        dose_meta,
+        eval_meta,
+        allow_frame_of_reference_mismatch=allow_frame_of_reference_mismatch,
+    )
     Xw, Yw, Zw = build_ref_world_coords(dose_meta)
     w2i = lambda pts: world_to_index(
         eval_meta["ipp"],
@@ -1786,6 +1791,14 @@ def _parse_args(argv=None):
     parser.add_argument("--engine", choices=["pymedphys", "numba"], default="pymedphys")
     parser.add_argument("--interp-fraction", type=int, default=1)
     parser.add_argument(
+        "--allow-frame-of-reference-mismatch",
+        action="store_true",
+        help=(
+            "Continue only for a verified anonymization-only UID mismatch "
+            "using absolute DICOM patient coordinates."
+        ),
+    )
+    parser.add_argument(
         "--skip-gamma-compute",
         action="store_true",
         help="Open the Viewer without synchronously computing a missing Gamma cache.",
@@ -1817,7 +1830,11 @@ def main(argv=None) -> int:
     dose_meta = load_rtdose(args.ref)
     ct_on_dose = resample_ct_onto_dose(ct_meta, dose_meta)
     try:
-        eval_on_ref, eval_unit, eval_meta = _resample_eval(args.eval, dose_meta)
+        eval_on_ref, eval_unit, eval_meta = _resample_eval(
+            args.eval,
+            dose_meta,
+            args.allow_frame_of_reference_mismatch,
+        )
         gamma = _compute_gamma_if_needed(args, dose_meta, eval_on_ref, eval_meta)
     except ValueError as exc:
         logger.error("%s", exc)

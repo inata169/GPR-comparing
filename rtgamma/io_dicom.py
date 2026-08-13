@@ -89,7 +89,12 @@ def _normalise_gfov(ds, ipp: np.ndarray, iop: np.ndarray, nframes: int) -> np.nd
     return gfov
 
 
-def validate_rtdose_pair_geometry(meta_ref: Dict, meta_eval: Dict) -> float:
+def validate_rtdose_pair_geometry(
+    meta_ref: Dict,
+    meta_eval: Dict,
+    *,
+    allow_frame_of_reference_mismatch: bool = False,
+) -> float:
     """Validate geometry assumptions shared by both gamma engines.
 
     Differing origins, in-plane spacing, and slice spacing are supported. The
@@ -111,8 +116,15 @@ def validate_rtdose_pair_geometry(meta_ref: Dict, meta_eval: Dict) -> float:
         getattr(meta_eval['dataset'], 'FrameOfReferenceUID', '')
     ).strip()
     if ref_for_uid and eval_for_uid and ref_for_uid != eval_for_uid:
-        raise RTDoseGeometryError(
-            "Unsupported RTDOSE pair geometry: FrameOfReferenceUID values differ"
+        if not allow_frame_of_reference_mismatch:
+            raise RTDoseGeometryError(
+                "Unsupported RTDOSE pair geometry: FrameOfReferenceUID values "
+                "differ. If this is a verified anonymization-only mismatch, "
+                "rerun with --allow-frame-of-reference-mismatch."
+            )
+        logger.warning(
+            "FrameOfReferenceUID values differ; continuing because the user "
+            "explicitly allowed absolute DICOM-coordinate comparison."
         )
 
     signed_dots = np.array([

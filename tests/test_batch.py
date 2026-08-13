@@ -80,6 +80,18 @@ class TestBatchBuildArgv:
         roi_indices = [i for i, v in enumerate(argv) if v == '--roi']
         assert len(roi_indices) == 2
 
+    def test_explicit_frame_of_reference_override(self, tmp_path):
+        from rtgamma.batch import _build_argv
+        row = {
+            'ref': '/r.dcm',
+            'eval': '/e.dcm',
+            'allow_frame_of_reference_mismatch': 'true',
+        }
+
+        argv, _ = _build_argv(row, str(tmp_path))
+
+        assert '--allow-frame-of-reference-mismatch' in argv
+
 
 class TestBatchSummaryWriters:
     """Unit tests for summary output writers."""

@@ -233,6 +233,7 @@
                 "norm": { "type": "string", "enum": ["global_max", "max_ref", "none"] },
                 "engine": { "type": "string", "enum": ["numba", "pymedphys"] },
                 "interp_fraction": { "type": "integer", "minimum": 1 },
+                "allow_frame_of_reference_mismatch": { "type": "boolean" },
                 "resample_interp": { "type": "string", "enum": ["linear", "bspline", "nearest"] },
                 "opt_shift": { "type": "boolean" },
                 "shift_range": { "type": "string" },

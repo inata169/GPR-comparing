@@ -17,5 +17,6 @@
     "rtstruct":  "",
     "roi":  "",
     "interp_fraction":  4,
+    "allow_frame_of_reference_mismatch":  false,
     "profile":  "Custom"
 }

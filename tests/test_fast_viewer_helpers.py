@@ -30,6 +30,7 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
             'numba',
             '--interp-fraction',
             '4',
+            '--allow-frame-of-reference-mismatch',
         ]
     )
 
@@ -44,6 +45,7 @@ def test_parser_accepts_explicit_engine_and_interpolation_fraction():
     assert args.early_stop_patience == 100
     assert args.prescan_2d == 'on'
     assert args.skip_gamma_compute is False
+    assert args.allow_frame_of_reference_mismatch is True
 
 
 def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
@@ -56,8 +58,17 @@ def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
         lambda _: evaluation,
     )
 
-    def fake_validate(ref_meta, eval_meta):
-        calls.append((ref_meta, eval_meta))
+    def fake_validate(
+        ref_meta,
+        eval_meta,
+        *,
+        allow_frame_of_reference_mismatch=False,
+    ):
+        calls.append((
+            ref_meta,
+            eval_meta,
+            allow_frame_of_reference_mismatch,
+        ))
         raise ValueError('incompatible RTDOSE pair')
 
     monkeypatch.setattr(
@@ -72,9 +83,9 @@ def test_eval_pair_is_validated_before_fast_viewer_resampling(monkeypatch):
     )
 
     with np.testing.assert_raises_regex(ValueError, 'incompatible RTDOSE pair'):
-        _resample_eval('evaluation.dcm', reference)
+        _resample_eval('evaluation.dcm', reference, True)
 
-    assert calls == [(reference, evaluation)]
+    assert calls == [(reference, evaluation, True)]
 
 
 def test_on_demand_gamma_routes_selected_engine(monkeypatch):

@@ -181,3 +181,23 @@ def test_pair_rejects_frame_of_reference_mismatch(tmp_path):
 
     with pytest.raises(RTDoseGeometryError, match='FrameOfReferenceUID values differ'):
         validate_rtdose_pair_geometry(ref, evaluation)
+
+
+def test_pair_explicitly_allows_frame_of_reference_mismatch(tmp_path, caplog):
+    ref = load_rtdose(str(_write_rtdose(
+        tmp_path / 'ref.dcm',
+        frame_of_reference_uid=pydicom.uid.generate_uid(),
+    )))
+    evaluation = load_rtdose(str(_write_rtdose(
+        tmp_path / 'eval.dcm',
+        frame_of_reference_uid=pydicom.uid.generate_uid(),
+    )))
+
+    orientation_min_dot = validate_rtdose_pair_geometry(
+        ref,
+        evaluation,
+        allow_frame_of_reference_mismatch=True,
+    )
+
+    assert orientation_min_dot == pytest.approx(1.0)
+    assert 'explicitly allowed' in caplog.text

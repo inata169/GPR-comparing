@@ -744,13 +744,29 @@ def _parse_args(argv=None):
     parser.add_argument('--norm', choices=['global_max', 'max_ref', 'none'], default='global_max')
     parser.add_argument('--engine', choices=['pymedphys', 'numba'], default='pymedphys')
     parser.add_argument('--interp-fraction', type=int, default=1)
+    parser.add_argument(
+        '--allow-frame-of-reference-mismatch',
+        action='store_true',
+        help=(
+            'Continue only for a verified anonymization-only UID mismatch '
+            'using absolute DICOM patient coordinates.'
+        ),
+    )
     parser.add_argument('--cache-radius', type=int, default=15)
     return parser.parse_args(argv)
 
 
-def _load_and_resample_eval(eval_path, dose_meta):
+def _load_and_resample_eval(
+    eval_path,
+    dose_meta,
+    allow_frame_of_reference_mismatch=False,
+):
     eval_meta = load_rtdose(eval_path)
-    validate_rtdose_pair_geometry(dose_meta, eval_meta)
+    validate_rtdose_pair_geometry(
+        dose_meta,
+        eval_meta,
+        allow_frame_of_reference_mismatch=allow_frame_of_reference_mismatch,
+    )
     Xw, Yw, Zw = build_ref_world_coords(dose_meta)
     w2i = lambda pts: world_to_index(
         eval_meta['ipp'],
@@ -784,10 +800,18 @@ def main(argv=None):
     if args.gamma_npz:
         gamma_map = np.load(args.gamma_npz)['gamma']
         if args.eval:
-            eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
+            eval_meta, eval_on_ref = _load_and_resample_eval(
+                args.eval,
+                dose_meta,
+                args.allow_frame_of_reference_mismatch,
+            )
             eval_dose_unit = eval_meta.get('units')
     else:
-        eval_meta, eval_on_ref = _load_and_resample_eval(args.eval, dose_meta)
+        eval_meta, eval_on_ref = _load_and_resample_eval(
+            args.eval,
+            dose_meta,
+            args.allow_frame_of_reference_mismatch,
+        )
         eval_dose_unit = eval_meta.get('units')
         axes = (dose_meta['z_coords_mm'], dose_meta['y_coords_mm'], dose_meta['x_coords_mm'])
         gamma_map, _, _ = compute_gamma(

@@ -204,6 +204,16 @@ def main(argv=None):
 
     parser.add_argument('--spacing', help='Override spacing sx,sy,sz in mm (unused default: ref grid)')
     parser.add_argument('--interp', choices=['linear', 'bspline', 'nearest'], default='linear')
+    parser.add_argument(
+        '--allow-frame-of-reference-mismatch',
+        action='store_true',
+        help=(
+            'Continue when both RTDOSE files have different '
+            'FrameOfReferenceUID values. Use only after confirming the '
+            'difference was introduced by anonymization and both grids share '
+            'the same absolute DICOM patient coordinate system.'
+        ),
+    )
 
     parser.add_argument('--save-gamma-map')
     parser.add_argument('--save-dose-diff')
@@ -288,7 +298,13 @@ def main(argv=None):
     meta_eval = load_rtdose(args.eval)
     logging.info("Evaluation dose loaded.")
 
-    orientation_min_dot = validate_rtdose_pair_geometry(meta_ref, meta_eval)
+    orientation_min_dot = validate_rtdose_pair_geometry(
+        meta_ref,
+        meta_eval,
+        allow_frame_of_reference_mismatch=(
+            args.allow_frame_of_reference_mismatch
+        ),
+    )
     logging.info("RTDOSE geometry validation passed.")
 
     logging.info(f"Ref IPP: {meta_ref['ipp']}, Eval IPP: {meta_eval['ipp']}")
@@ -649,6 +665,13 @@ def main(argv=None):
     # Build warnings and flags (always, for return value)
     warnings_list = []
     same_for = (ref_for_uid != '' and eval_for_uid != '' and ref_for_uid == eval_for_uid)
+    if ref_for_uid and eval_for_uid and ref_for_uid != eval_for_uid:
+        msg = (
+            "FrameOfReferenceUID values differ; comparison was explicitly "
+            "allowed and used absolute DICOM patient coordinates"
+        )
+        warnings_list.append(msg)
+        logging.warning(msg)
     if not ref_for_uid or not eval_for_uid:
         msg = (
             "FrameOfReferenceUID missing from one or both inputs; "
