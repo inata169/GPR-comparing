@@ -19,8 +19,9 @@ def test_installer_uses_external_python_only_as_dedicated_venv_base() -> None:
     script = INSTALLER.read_text(encoding="utf-8")
 
     assert '-SelectedPythonPathFile "%SELECTED_PYTHON_FILE%"' in script
-    assert 'set /p PYTHON_EXE=<"%SELECTED_PYTHON_FILE%"' in script
-    assert '"%PYTHON_EXE%" -m venv "%VENV_DIR%"' in script
+    assert '-VenvDir "%VENV_DIR%"' in script
+    assert 'set /p PYTHON_EXE=' not in script
+    assert 'set "PYTHON_EXE=%VENV_PYTHON%"' in script
     assert '--no-index --find-links "%BUNDLE_ROOT%\\wheelhouse"' in script
 
 

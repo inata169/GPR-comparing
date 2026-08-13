@@ -79,3 +79,30 @@ def test_preflight_selects_external_python312_without_modifying_it(tmp_path: Pat
     assert "Compatible external Python 3.12 x64" in result.stdout
     assert "global packages will not be changed" in result.stdout
     assert selected_path.read_text(encoding="utf-8") == str(Path(sys.executable).resolve())
+
+
+@pytest.mark.skipif(sys.version_info[:2] != (3, 12), reason="requires a Python 3.12 test interpreter")
+def test_preflight_creates_venv_when_python_path_contains_unicode(
+    tmp_path: Path,
+) -> None:
+    selected_path = tmp_path / "selected-python.txt"
+    venv_dir = tmp_path / "日本語ユーザー" / ".venv"
+    source_python = Path(sys.executable).resolve()
+    source_mtime = source_python.stat().st_mtime_ns
+
+    result = run_preflight(
+        "-BundledPythonDir",
+        str(tmp_path / "runtime" / "python312"),
+        "-SelectedPythonPathFile",
+        str(selected_path),
+        "-VenvDir",
+        str(venv_dir),
+        "-CandidatePath",
+        str(source_python),
+        "-SkipSystemDiscovery",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (venv_dir / "Scripts" / "python.exe").is_file()
+    assert selected_path.read_text(encoding="utf-8") == str(source_python)
+    assert source_python.stat().st_mtime_ns == source_mtime
