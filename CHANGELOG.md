@@ -2,9 +2,20 @@
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-08-20
+
+### Added
+- A Frame of Reference UID mismatch can now be permitted explicitly from the CLI, GUI, batch runner, and Viewers when an operator has independently verified that both RTDOSE objects use the same patient coordinate system and differ only because of UID replacement or anonymization. The default remains fail-closed.
+
 ### Fixed
+- Windows offline installation now invokes an existing external CPython 3.12 executable safely when its path contains Japanese or other non-ASCII characters, without changing that Python installation, global packages, PATH, or the registry.
 - Gamma pass-rate denominators now exclude cutoff-qualified reference points whose patient-coordinate positions lie outside the evaluation RTDOSE grid. PyMedPhys and Numba use the same common-spatial mask, and reports separately record cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts.
-- Gamma cache contract version 2 prevents Viewer reuse of maps created before the common-spatial mask rule. Report schema version 3 carries the new coverage counts through JSON, CSV, Markdown, PDF, and SQLite.
+- Comparison and Viewer paths preserve the evaluation RTDOSE source extent so points outside that extent remain unavailable instead of being interpreted as failures or extrapolated dose.
+- For GUI launches and direct Viewer launches supplied with the matching report, Gamma cache contract version 2 rejects maps created before the common-spatial mask rule. Report schema version 3 carries the new coverage counts through JSON, CSV, Markdown, PDF, and SQLite. A direct `--gamma-npz` launch without `--gamma-report` cannot validate cache semantics and should use a newly generated cache.
+
+### Validation
+- The source workflow was accepted on the target TPS PC with Frame of Reference mismatch permission disabled: PyMedPhys and Numba 3D runs completed, all required report/cache artifacts were generated, all six Viewer overlays were inspected, dose-only fallback worked without a Gamma cache, and Viewer startup failure produced a GUI error plus a saved traceback log.
+- This is software functional acceptance only. It is not clinical QA, patient-dose approval, cross-engine numerical equivalence, or acceptance of an EXE/offline ZIP.
 
 ## [0.9.4] - 2026-08-12
 
