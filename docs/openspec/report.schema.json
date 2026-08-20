@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Current rtgamma summary report",
-  "description": "Schema version 2 for the summary object written by rtgamma.main, including privacy-conscious runtime provenance.",
+  "description": "Schema version 3 for the summary object written by rtgamma.main, including privacy-conscious runtime provenance and spatial evaluation coverage.",
   "type": "object",
   "additionalProperties": false,
   "definitions": {
@@ -92,7 +92,7 @@
     }
   },
   "properties": {
-    "report_schema_version": { "type": "integer", "const": 2 },
+    "report_schema_version": { "type": "integer", "const": 3 },
     "ref": { "type": ["string", "null"] },
     "eval": { "type": ["string", "null"] },
     "profile": { "type": ["string", "null"] },
@@ -129,6 +129,10 @@
     "gamma_max": { "$ref": "#/definitions/nullableNumber" },
     "gamma_p95": { "$ref": "#/definitions/nullableNumber" },
     "gamma_p99": { "$ref": "#/definitions/nullableNumber" },
+    "cutoff_qualified_points": { "type": "integer", "minimum": 0 },
+    "common_spatial_points": { "type": "integer", "minimum": 0 },
+    "spatially_excluded_points": { "type": "integer", "minimum": 0 },
+    "evaluated_points": { "type": "integer", "minimum": 0 },
     "histogram": {
       "type": "object",
       "additionalProperties": false,
@@ -150,7 +154,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "schema_version": { "type": "integer", "const": 2 },
+        "schema_version": { "type": "integer", "const": 3 },
         "gamma_cache_contract_version": { "type": "integer", "minimum": 1 },
         "application": {
           "type": "object",
@@ -372,6 +376,10 @@
     "gamma_max",
     "gamma_p95",
     "gamma_p99",
+    "cutoff_qualified_points",
+    "common_spatial_points",
+    "spatially_excluded_points",
+    "evaluated_points",
     "histogram",
     "save_gamma_map_path",
     "save_gamma_map_sha256"

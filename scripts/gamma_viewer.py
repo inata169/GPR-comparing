@@ -23,6 +23,7 @@ sys.path.insert(0, ROOT)
 
 from rtgamma.gamma import compute_gamma
 from rtgamma.io_dicom import (
+    evaluation_axes_in_reference_frame,
     load_ct,
     load_rtdose,
     load_rtstruct,
@@ -826,6 +827,10 @@ def main(argv=None):
             norm=args.norm,
             engine=args.engine,
             interp_fraction=args.interp_fraction,
+            evaluation_domain_axes_mm=evaluation_axes_in_reference_frame(
+                dose_meta,
+                eval_meta,
+            ),
         )
 
     rtstruct_meta = load_rtstruct(args.rtstruct) if args.rtstruct else None

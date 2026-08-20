@@ -151,6 +151,10 @@ def save_summary_pdf(path: str, summary: dict):
     g_max = summary.get('gamma_max', 'N/A')
     g_p95 = summary.get('gamma_p95', 'N/A')
     g_p99 = summary.get('gamma_p99', 'N/A')
+    cutoff_qualified = summary.get('cutoff_qualified_points', 'N/A')
+    common_spatial = summary.get('common_spatial_points', 'N/A')
+    spatially_excluded = summary.get('spatially_excluded_points', 'N/A')
+    evaluated_points = summary.get('evaluated_points', 'N/A')
 
     def fmt_num(val, prec=3):
         if isinstance(val, (float, int)):
@@ -214,6 +218,26 @@ def save_summary_pdf(path: str, summary: dict):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     Story.append(stats_table)
+    Story.append(Spacer(1, 0.3*inch))
+
+    Story.append(Paragraph("Evaluation Coverage", bold_style))
+    coverage_data = [
+        ["Cutoff-qualified", str(cutoff_qualified), "Common spatial", str(common_spatial)],
+        ["Excluded outside Eval", str(spatially_excluded), "Evaluated", str(evaluated_points)],
+    ]
+    coverage_table = Table(
+        coverage_data,
+        colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch],
+        hAlign='LEFT',
+    )
+    coverage_table.setStyle(TableStyle([
+        ('FONT', (0,0), (-1,-1), font_name, 9),
+        ('FONT', (0,0), (0,-1), bold_font, 9),
+        ('FONT', (2,0), (2,-1), bold_font, 9),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    Story.append(coverage_table)
     Story.append(Spacer(1, 0.3*inch))
 
     # Gamma Histogram

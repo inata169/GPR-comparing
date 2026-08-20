@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from rtgamma.gamma import compute_gamma  # noqa: E402
 from rtgamma.io_dicom import (  # noqa: E402
+    evaluation_axes_in_reference_frame,
     load_rtdose,
     validate_rtdose_pair_geometry,
     world_to_index,
@@ -228,6 +229,10 @@ def run_comparison(args: argparse.Namespace) -> dict:
         shift_mm=(0.0, 0.0, 0.0),
     )
     ref_slice = _selected_slice(dose_ref, args.plane, plane_index)
+    evaluation_domain_axes_mm = evaluation_axes_in_reference_frame(
+        meta_ref,
+        meta_eval,
+    )
     normalisation_override = (
         float(np.nanmax(dose_ref))
         if args.norm in ("global_max", "max_ref")
@@ -251,6 +256,7 @@ def run_comparison(args: argparse.Namespace) -> dict:
             norm_factor_override=normalisation_override,
             interp_fraction=args.interp_fraction,
             engine=engine,
+            evaluation_domain_axes_mm=evaluation_domain_axes_mm,
         )
         elapsed = time.perf_counter() - started
         gamma_maps[engine] = gamma_map

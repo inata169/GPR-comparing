@@ -90,6 +90,96 @@ def test_run_comparison_rejects_dose_unit_mismatch(monkeypatch, tmp_path):
         run_comparison(args)
 
 
+def test_run_comparison_passes_original_projected_evaluation_extent(
+    monkeypatch,
+    tmp_path,
+):
+    dose = np.ones((1, 2, 3), dtype=float)
+    axes = (
+        np.array([0.0]),
+        np.array([0.0, 1.0]),
+        np.array([0.0, 1.0, 2.0]),
+    )
+    reference = {
+        'dose': dose,
+        'ipp': np.array([0.0, 0.0, 0.0]),
+        'v_slice': np.array([0.0, 0.0, 1.0]),
+        'v_row': np.array([0.0, 1.0, 0.0]),
+        'v_col': np.array([1.0, 0.0, 0.0]),
+        'z_coords_mm': axes[0],
+        'y_coords_mm': axes[1],
+        'x_coords_mm': axes[2],
+        'source_path': 'reference.dcm',
+        'source_sha256': '1' * 64,
+    }
+    evaluation = {
+        **reference,
+        'ipp': np.array([1.0, -2.0, 3.0]),
+        'source_path': 'evaluation.dcm',
+        'source_sha256': '2' * 64,
+    }
+    loaded = iter([reference, evaluation])
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.load_rtdose',
+        lambda _path: next(loaded),
+    )
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.validate_rtdose_pair_geometry',
+        lambda *_args, **_kwargs: 1.0,
+    )
+    world = tuple(np.zeros(dose.shape, dtype=float) for _ in range(3))
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.build_plane_world_coords',
+        lambda *_args, **_kwargs: (world, axes),
+    )
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.resample_eval_onto_ref',
+        lambda *_args, **_kwargs: dose.copy(),
+    )
+    captured_domains = []
+
+    def fake_compute_gamma(**kwargs):
+        captured_domains.append(kwargs['evaluation_domain_axes_mm'])
+        stats = {
+            'gamma_engine_version': 'test',
+            'valid_points': dose.size,
+            'gamma_mean': 0.0,
+            'gamma_median': 0.0,
+            'gamma_p95': 0.0,
+            'gamma_p99': 0.0,
+            'gamma_max': 0.0,
+        }
+        return np.zeros_like(dose), 100.0, stats
+
+    monkeypatch.setattr(
+        'scripts.compare_gamma_engine_maps.compute_gamma',
+        fake_compute_gamma,
+    )
+    args = SimpleNamespace(
+        ref='reference.dcm',
+        eval='evaluation.dcm',
+        out=str(tmp_path / 'comparison'),
+        plane='axial',
+        plane_index='0',
+        resample_interp='linear',
+        norm='global_max',
+        dd=3.0,
+        dta=2.0,
+        cutoff=10.0,
+        gamma_type='global',
+        interp_fraction=1,
+        coordinate_limit=10,
+    )
+
+    run_comparison(args)
+
+    assert len(captured_domains) == 2
+    expected_domain = (axes[0] + 3.0, axes[1] - 2.0, axes[2] + 1.0)
+    for domain in captured_domains:
+        for actual, expected in zip(domain, expected_domain):
+            np.testing.assert_array_equal(actual, expected)
+
+
 def test_input_identity_hashes_resolved_rtdose_not_directory(tmp_path):
     input_dir = tmp_path / "dose-directory"
     input_dir.mkdir()

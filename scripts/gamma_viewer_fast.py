@@ -20,6 +20,7 @@ sys.path.insert(0, ROOT)
 
 from rtgamma.gamma import compute_gamma, gamma_engine_version
 from rtgamma.io_dicom import (
+    evaluation_axes_in_reference_frame,
     load_ct,
     load_rtdose,
     load_rtstruct,
@@ -357,6 +358,11 @@ def _compute_gamma_if_needed(
             norm=args.norm,
             engine=args.engine,
             interp_fraction=args.interp_fraction,
+            evaluation_domain_axes_mm=(
+                evaluation_axes_in_reference_frame(dose_meta, eval_meta)
+                if eval_meta is not None
+                else axes
+            ),
         )
         return gamma_map
     return None

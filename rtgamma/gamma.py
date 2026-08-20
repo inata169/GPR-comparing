@@ -129,6 +129,71 @@ def _norm_factor(dose_ref: np.ndarray, dose_eval: np.ndarray, norm: NormType) ->
     return 1.0
 
 
+def _common_spatial_mask(
+    axes_ref_mm: Tuple[np.ndarray, ...],
+    axes_eval_domain_mm: Tuple[np.ndarray, ...],
+    reference_shape: Tuple[int, ...],
+) -> np.ndarray:
+    """Return reference points that lie inside every evaluation-grid extent.
+
+    The mask describes spatial coverage only. Dose cutoff and engine-specific
+    evaluation behavior are handled separately. A point on the evaluation
+    boundary is included; a point outside any evaluation axis is excluded.
+    """
+    ndim = len(reference_shape)
+    if len(axes_ref_mm) != ndim:
+        raise ValueError("reference axes count does not match dose dimensions")
+    if len(axes_eval_domain_mm) != ndim:
+        raise ValueError(
+            "evaluation domain axes count does not match dose dimensions"
+        )
+
+    mask = np.ones(reference_shape, dtype=bool)
+    for dimension, (ref_axis, eval_axis) in enumerate(
+        zip(axes_ref_mm, axes_eval_domain_mm)
+    ):
+        ref_values = np.asarray(ref_axis, dtype=float)
+        eval_values = np.asarray(eval_axis, dtype=float)
+        if (
+            ref_values.ndim != 1
+            or len(ref_values) != reference_shape[dimension]
+        ):
+            raise ValueError(
+                f"reference axis {dimension} does not match dose shape"
+            )
+        if eval_values.ndim != 1 or not len(eval_values):
+            raise ValueError(
+                f"evaluation domain axis {dimension} must be a non-empty 1D axis"
+            )
+        if not np.isfinite(ref_values).all():
+            raise ValueError(
+                f"reference axis {dimension} contains non-finite values"
+            )
+        if not np.isfinite(eval_values).all():
+            raise ValueError(
+                f"evaluation domain axis {dimension} contains non-finite values"
+            )
+        if len(eval_values) > 1:
+            differences = np.diff(eval_values)
+            if not (np.all(differences > 0) or np.all(differences < 0)):
+                raise ValueError(
+                    f"evaluation domain axis {dimension} is not strictly monotonic"
+                )
+
+        lower = float(np.min(eval_values))
+        upper = float(np.max(eval_values))
+        tolerance = 1e-9 * max(1.0, abs(lower), abs(upper))
+        within_axis = (
+            (ref_values >= lower - tolerance)
+            & (ref_values <= upper + tolerance)
+        )
+        broadcast_shape = [1] * ndim
+        broadcast_shape[dimension] = reference_shape[dimension]
+        mask &= within_axis.reshape(broadcast_shape)
+
+    return mask
+
+
 @numba.jit(nopython=True)
 def _trilinear(dose_eval, nz, ny, nx,
                kf, jf, if_):
@@ -289,6 +354,8 @@ def _numba_gamma_3d(
             for i_ref in range(shape_ref[2]):
                 dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
 
+                if not np.isfinite(dose_ref_val):
+                    continue
                 if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
                     continue
 
@@ -392,6 +459,8 @@ def _numba_gamma_3d_interp(
             for i_ref in range(shape_ref[2]):
                 dose_ref_val = dose_ref[k_ref, j_ref, i_ref]
 
+                if not np.isfinite(dose_ref_val):
+                    continue
                 if (dose_ref_val / norm_factor * 100.0) < cutoff_percent:
                     continue
 
@@ -458,10 +527,16 @@ def compute_gamma(
     norm_factor_override: Optional[float] = None,
     interp_fraction: int = 1,
     engine: Optional[GammaEngineName] = None,
+    evaluation_domain_axes_mm: Optional[Tuple[np.ndarray, ...]] = None,
 ) -> Tuple[np.ndarray, float, dict]:
 
     resolved_engine = resolve_gamma_engine(engine, use_pymedphys)
     nf = float(norm_factor_override) if (norm_factor_override is not None) else _norm_factor(dose_ref, dose_eval, norm)
+    axes_eval_domain_mm = (
+        axes_eval_mm
+        if evaluation_domain_axes_mm is None
+        else evaluation_domain_axes_mm
+    )
 
     if resolved_engine == 'pymedphys':
         if interp_fraction < 1:
@@ -473,6 +548,22 @@ def compute_gamma(
             )
         _validate_pymedphys_grid(axes_ref_mm, dose_ref, 'reference')
         _validate_pymedphys_grid(axes_eval_mm, dose_eval, 'evaluation')
+        spatial_mask = _common_spatial_mask(
+            axes_ref_mm,
+            axes_eval_domain_mm,
+            dose_ref.shape,
+        )
+        cutoff_mask = (
+            np.isfinite(dose_ref)
+            & (dose_ref >= (cutoff_percent / 100.0) * nf)
+        )
+        cutoff_qualified_points = int(np.count_nonzero(cutoff_mask))
+        common_spatial_points = int(
+            np.count_nonzero(cutoff_mask & spatial_mask)
+        )
+        spatially_excluded_points = int(
+            np.count_nonzero(cutoff_mask & ~spatial_mask)
+        )
         try:
             import pymedphys
         except ImportError as exc:
@@ -489,43 +580,70 @@ def compute_gamma(
                 "Install the pinned runtime requirements before calculation."
             )
 
-        active_points = int(
-            np.count_nonzero(
-                np.isfinite(dose_ref)
-                & (dose_ref >= (cutoff_percent / 100.0) * nf)
-            )
-        )
+        active_points = common_spatial_points
         logging.info(
-            "PyMedPhys workload: %d/%d reference points above cutoff, "
+            "PyMedPhys workload: %d/%d cutoff-qualified reference points "
+            "inside the common spatial domain (%d excluded outside), "
             "interp_fraction=%d. Large 3D grids may take tens of minutes; "
             "the GUI Numba engine is recommended for fast full-volume GPR.",
             active_points,
-            dose_ref.size,
+            cutoff_qualified_points,
+            spatially_excluded_points,
             interp_fraction,
         )
-        heartbeat_stop, heartbeat_thread = _start_gamma_heartbeat(
-            'PyMedPhys', active_points
-        )
-        try:
-            g = pymedphys.gamma(
-                axes_ref_mm,
-                dose_ref,
-                axes_eval_mm,
-                dose_eval,
-                dose_percent_threshold=dd_percent,
-                distance_mm_threshold=dta_mm,
-                lower_percent_dose_cutoff=cutoff_percent,
-                interp_fraction=interp_fraction,
-                local_gamma=(gamma_type == 'local'),
-                global_normalisation=nf,
-                max_gamma=np.inf,
-                skip_once_passed=False,
-                random_subset=None,
-                interp_algo='pymedphys',
+        g = np.full(dose_ref.shape, np.nan, dtype=float)
+        if active_points:
+            selection = None
+            if np.all(spatial_mask):
+                cropped_axes_ref_mm = axes_ref_mm
+                cropped_dose_ref = dose_ref
+            else:
+                spatial_indices = []
+                for dimension in range(dose_ref.ndim):
+                    other_dimensions = tuple(
+                        index
+                        for index in range(dose_ref.ndim)
+                        if index != dimension
+                    )
+                    within_axis = np.any(
+                        spatial_mask,
+                        axis=other_dimensions,
+                    )
+                    spatial_indices.append(np.flatnonzero(within_axis))
+                selection = np.ix_(*spatial_indices)
+                cropped_axes_ref_mm = tuple(
+                    np.asarray(axis)[indices]
+                    for axis, indices in zip(axes_ref_mm, spatial_indices)
+                )
+                cropped_dose_ref = np.asarray(dose_ref)[selection]
+
+            heartbeat_stop, heartbeat_thread = _start_gamma_heartbeat(
+                'PyMedPhys', active_points
             )
-        finally:
-            heartbeat_stop.set()
-            heartbeat_thread.join(timeout=1.0)
+            try:
+                cropped_gamma = pymedphys.gamma(
+                    cropped_axes_ref_mm,
+                    cropped_dose_ref,
+                    axes_eval_mm,
+                    dose_eval,
+                    dose_percent_threshold=dd_percent,
+                    distance_mm_threshold=dta_mm,
+                    lower_percent_dose_cutoff=cutoff_percent,
+                    interp_fraction=interp_fraction,
+                    local_gamma=(gamma_type == 'local'),
+                    global_normalisation=nf,
+                    max_gamma=np.inf,
+                    skip_once_passed=False,
+                    random_subset=None,
+                    interp_algo='pymedphys',
+                )
+            finally:
+                heartbeat_stop.set()
+                heartbeat_thread.join(timeout=1.0)
+            if selection is None:
+                g = cropped_gamma
+            else:
+                g[selection] = cropped_gamma
     else:
         engine_version = gamma_engine_version('numba')
         if dose_ref.ndim != 3:
@@ -542,6 +660,24 @@ def compute_gamma(
             'evaluation',
             require_uniform=True,
         )
+        spatial_mask = _common_spatial_mask(
+            axes_ref_mm,
+            axes_eval_domain_mm,
+            dose_ref.shape,
+        )
+        cutoff_mask = (
+            np.isfinite(dose_ref)
+            & (dose_ref >= (cutoff_percent / 100.0) * nf)
+        )
+        cutoff_qualified_points = int(np.count_nonzero(cutoff_mask))
+        common_spatial_points = int(
+            np.count_nonzero(cutoff_mask & spatial_mask)
+        )
+        spatially_excluded_points = int(
+            np.count_nonzero(cutoff_mask & ~spatial_mask)
+        )
+        dose_ref_for_engine = np.asarray(dose_ref, dtype=float).copy()
+        dose_ref_for_engine[~spatial_mask] = np.nan
 
         local_mode = 1 if gamma_type == 'local' else 0
 
@@ -550,7 +686,7 @@ def compute_gamma(
             offsets, dists_sq = _get_interp_offsets(interp_fraction, dta_mm)
             g = _numba_gamma_3d_interp(
                 axes_ref_mm,
-                dose_ref,
+                dose_ref_for_engine,
                 axes_eval_mm,
                 dose_eval,
                 dd_percent,
@@ -574,7 +710,7 @@ def compute_gamma(
             
             g = _numba_gamma_3d(
                 axes_ref_mm,
-                dose_ref,
+                dose_ref_for_engine,
                 axes_eval_mm,
                 dose_eval,
                 dd_percent,
@@ -587,6 +723,8 @@ def compute_gamma(
                 v_dists_sq
             )
 
+    g = np.asarray(g, dtype=float).copy()
+    g[~spatial_mask] = np.nan
     valid = ~np.isnan(g)
     if valid.any():
         pass_rate = float(np.sum(g[valid] <= 1.0) / np.sum(valid) * 100.0)
@@ -601,6 +739,10 @@ def compute_gamma(
         'gamma_mean': float(np.nanmean(g)) if has_finite else float('nan'),
         'gamma_median': float(np.nanmedian(g)) if has_finite else float('nan'),
         'gamma_max': float(np.nanmax(g)) if has_finite else float('nan'),
+        'cutoff_qualified_points': cutoff_qualified_points,
+        'common_spatial_points': common_spatial_points,
+        'spatially_excluded_points': spatially_excluded_points,
+        'evaluated_points': int(np.sum(valid)),
         'valid_points': int(np.sum(valid)),
     }
 

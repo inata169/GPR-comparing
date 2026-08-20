@@ -152,6 +152,29 @@ def validate_rtdose_pair_geometry(
     return orientation_min_dot
 
 
+def evaluation_axes_in_reference_frame(
+    meta_ref: Dict,
+    meta_eval: Dict,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Express evaluation RTDOSE axes in the reference rectilinear frame."""
+    origin_offset = (
+        np.asarray(meta_eval['ipp'], dtype=float)
+        - np.asarray(meta_ref['ipp'], dtype=float)
+    )
+    axis_offsets = (
+        float(np.dot(origin_offset, meta_ref['v_slice'])),
+        float(np.dot(origin_offset, meta_ref['v_row'])),
+        float(np.dot(origin_offset, meta_ref['v_col'])),
+    )
+    return tuple(
+        np.asarray(meta_eval[key], dtype=float) + offset
+        for key, offset in zip(
+            ('z_coords_mm', 'y_coords_mm', 'x_coords_mm'),
+            axis_offsets,
+        )
+    )
+
+
 def _dircos_to_matrix(iop: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     r = np.array(iop[:3], dtype=float)
     c = np.array(iop[3:6], dtype=float)

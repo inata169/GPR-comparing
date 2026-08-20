@@ -113,3 +113,5 @@ def test_both_viewers_validate_rtdose_pairs_before_resampling():
     for script in (legacy, fast):
         assert 'validate_rtdose_pair_geometry(' in script
         assert 'allow_frame_of_reference_mismatch=' in script
+        assert 'evaluation_axes_in_reference_frame(' in script
+        assert 'evaluation_domain_axes_mm=' in script

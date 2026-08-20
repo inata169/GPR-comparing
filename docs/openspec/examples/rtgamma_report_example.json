@@ -1,5 +1,5 @@
 {
-  "report_schema_version": 2,
+  "report_schema_version": 3,
   "ref": "synthetic_reference_rtdose.dcm",
   "eval": "synthetic_evaluation_rtdose.dcm",
   "profile": null,
@@ -28,6 +28,10 @@
   "gamma_max": 0.0,
   "gamma_p95": 0.0,
   "gamma_p99": 0.0,
+  "cutoff_qualified_points": 1000,
+  "common_spatial_points": 1000,
+  "spatially_excluded_points": 0,
+  "evaluated_points": 1000,
   "histogram": {
     "bin_edges": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0],
     "counts": [1000, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -36,8 +40,8 @@
   "save_gamma_map_path": null,
   "save_gamma_map_sha256": null,
   "provenance": {
-    "schema_version": 2,
-    "gamma_cache_contract_version": 1,
+    "schema_version": 3,
+    "gamma_cache_contract_version": 2,
     "application": {
       "name": "GPR-comparing",
       "version": "v0.9.2-15-g179e914",

@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from rtgamma.gamma import (
+    _common_spatial_mask,
     _start_gamma_heartbeat,
     compute_gamma,
     resolve_gamma_engine,
@@ -189,6 +190,111 @@ def test_pymedphys_supports_different_rectilinear_spacing():
 
     assert pass_rate == 100.0
     np.testing.assert_allclose(gamma, 0.0, atol=1e-12)
+
+
+def test_common_spatial_mask_uses_evaluation_extent_per_axis():
+    axes_ref = tuple(np.array([0.0, 1.0, 2.0]) for _ in range(3))
+    axes_eval = (
+        np.array([0.0, 1.0, 2.0]),
+        np.array([-1.0, 0.0, 1.0]),
+        np.array([0.0, 1.0, 2.0]),
+    )
+
+    mask = _common_spatial_mask(axes_ref, axes_eval, (3, 3, 3))
+
+    assert mask.shape == (3, 3, 3)
+    assert np.all(mask[:, :2, :])
+    assert not np.any(mask[:, 2, :])
+    descending_eval = tuple(axis[::-1] for axis in axes_eval)
+    np.testing.assert_array_equal(
+        _common_spatial_mask(axes_ref, descending_eval, (3, 3, 3)),
+        mask,
+    )
+
+
+@pytest.mark.parametrize('engine', ['numba', 'pymedphys'])
+def test_gamma_excludes_reference_points_outside_evaluation_extent(engine):
+    axes_ref = tuple(np.array([0.0, 1.0, 2.0]) for _ in range(3))
+    axes_eval = (
+        np.array([0.0, 1.0, 2.0]),
+        np.array([-1.0, 0.0, 1.0]),
+        np.array([0.0, 1.0, 2.0]),
+    )
+    dose_ref = np.ones((3, 3, 3), dtype=float)
+    dose_eval = np.ones((3, 3, 3), dtype=float)
+    # A zero dose is still a real value when it lies inside both grids.
+    dose_ref[0, 0, 0] = 0.0
+    dose_eval[0, 1, 0] = 0.0
+
+    gamma, pass_rate, stats = compute_gamma(
+        axes_ref_mm=axes_ref,
+        dose_ref=dose_ref,
+        axes_eval_mm=axes_eval,
+        dose_eval=dose_eval,
+        dd_percent=3.0,
+        dta_mm=2.0,
+        cutoff_percent=0.0,
+        interp_fraction=1,
+        engine=engine,
+    )
+
+    assert np.isfinite(gamma[:, :2, :]).all()
+    assert np.isnan(gamma[:, 2, :]).all()
+    assert pass_rate == 100.0
+    assert stats['cutoff_qualified_points'] == 27
+    assert stats['common_spatial_points'] == 18
+    assert stats['spatially_excluded_points'] == 9
+    assert stats['evaluated_points'] == 18
+    assert stats['valid_points'] == 18
+
+
+def test_gamma_can_mask_resampled_dose_with_original_evaluation_domain():
+    axes_ref = tuple(np.array([0.0, 1.0, 2.0]) for _ in range(3))
+    dose = np.ones((3, 3, 3), dtype=float)
+    evaluation_domain_axes = (
+        axes_ref[0],
+        np.array([0.0, 1.0]),
+        axes_ref[2],
+    )
+
+    gamma, pass_rate, stats = compute_gamma(
+        axes_ref_mm=axes_ref,
+        dose_ref=dose,
+        axes_eval_mm=axes_ref,
+        dose_eval=dose.copy(),
+        evaluation_domain_axes_mm=evaluation_domain_axes,
+        dd_percent=3.0,
+        dta_mm=2.0,
+        cutoff_percent=0.0,
+        interp_fraction=1,
+        engine='numba',
+    )
+
+    assert np.isfinite(gamma[:, :2, :]).all()
+    assert np.isnan(gamma[:, 2, :]).all()
+    assert pass_rate == 100.0
+    assert stats['common_spatial_points'] == 18
+    assert stats['spatially_excluded_points'] == 9
+
+
+def test_gamma_rejects_evaluation_domain_dimension_mismatch():
+    axes, dose = _case()
+
+    with pytest.raises(
+        ValueError,
+        match='evaluation domain axes count does not match dose dimensions',
+    ):
+        compute_gamma(
+            axes_ref_mm=axes,
+            dose_ref=dose,
+            axes_eval_mm=axes,
+            dose_eval=dose.copy(),
+            evaluation_domain_axes_mm=(),
+            dd_percent=3.0,
+            dta_mm=2.0,
+            cutoff_percent=10.0,
+            engine='numba',
+        )
 
 
 def test_reference_evaluation_reversal_uses_reference_normalisation():

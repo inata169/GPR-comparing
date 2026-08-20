@@ -210,13 +210,34 @@ def test_stale_gui_gamma_cache_recomputes_with_selected_engine(monkeypatch):
         'z_coords_mm': axes,
         'y_coords_mm': axes,
         'x_coords_mm': axes,
+        'ipp': np.array([0.0, 0.0, 0.0]),
+        'v_slice': np.array([0.0, 0.0, 1.0]),
+        'v_row': np.array([0.0, 1.0, 0.0]),
+        'v_col': np.array([1.0, 0.0, 0.0]),
     }
-    eval_meta = {'source_path': 'evaluation.dcm', 'source_sha256': '2' * 64}
+    eval_meta = {
+        'source_path': 'evaluation.dcm',
+        'source_sha256': '2' * 64,
+        'ipp': np.array([1.0, -2.0, 3.0]),
+        'z_coords_mm': axes,
+        'y_coords_mm': axes,
+        'x_coords_mm': axes,
+    }
 
     gamma = _compute_gamma_if_needed(args, dose_meta, dose.copy(), eval_meta)
 
     np.testing.assert_array_equal(gamma, np.full_like(dose, 0.25))
     assert captured['engine'] == 'numba'
+    expected_domain = (
+        axes + 3.0,
+        axes - 2.0,
+        axes + 1.0,
+    )
+    for actual, expected in zip(
+        captured['evaluation_domain_axes_mm'],
+        expected_domain,
+    ):
+        np.testing.assert_array_equal(actual, expected)
 
 
 def test_missing_optimized_cache_fails_closed(monkeypatch):
