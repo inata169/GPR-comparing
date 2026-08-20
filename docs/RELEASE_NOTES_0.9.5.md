@@ -35,15 +35,17 @@ The accepted RTDOSE did not embed its dicomxphits Git revision in the GPR-compar
 
 ## Distribution status and limitations
 
-This record supports source-workflow functional acceptance only. It is not clinical QA, patient-dose approval, commissioning, cross-engine equivalence, or approval of any packaged executable.
+The source-workflow evidence supports functional acceptance of the source paths described above. It is not clinical QA, patient-dose approval, commissioning, cross-engine equivalence, or approval of any packaged executable.
 
 Direct Viewer launch with `--gamma-npz` but without `--gamma-report` cannot prove which cache contract created the NPZ. Supply the matching report or regenerate the Gamma cache with v0.9.5 before interpreting Gamma or Pass/Fail.
 
-No v0.9.5 EXE or offline ZIP is created by this release-preparation change. A distributable bundle requires all of the following after this change is merged:
+Post-tag build and publication update, 2026-08-20:
 
-1. create the `v0.9.5` tag at the exact approved release commit;
-2. build from a clean checkout of that tag only after explicit build approval;
-3. record the bundle SHA-256 and embedded application identity;
-4. repeat offline installation and final smoke checks on the target PC.
+1. the annotated `v0.9.5` tag was created at the exact approved release commit `74881d77ee8d654cbe2c368e457136cbf6827da2`;
+2. the EXE and Python 3.12 offline archives were built from a clean detached worktree at that tag after explicit approval;
+3. ZIP CRC, SHA-256, embedded identity, license material, offline-only dependency installation, Viewer startup, and synthetic non-patient Numba/PyMedPhys execution were verified;
+4. the project owner explicitly approved publishing the GitHub Release and both archives on 2026-08-20 before installation and acceptance of those exact final archives on the TPS PC.
 
-Do not rename or redistribute the PR #29 candidate ZIP as v0.9.5. Do not move the existing `v0.9.4` tag.
+Item 4 is a deliberate v0.9.5 exception to the standard target-PC-before-distribution gate. The GitHub Release states that exact-final-binary TPS acceptance remains pending. This exception does not mark the binary package as accepted, does not waive the pending installation and fixed-condition smoke checks, and is not a precedent for future releases.
+
+Do not rename or redistribute the PR #29 candidate ZIP as v0.9.5. Do not replace the published v0.9.5 assets or move the existing `v0.9.4` or `v0.9.5` tags as part of the pending acceptance record.
