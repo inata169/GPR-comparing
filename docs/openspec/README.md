@@ -2,7 +2,11 @@
 
 This directory contains project specifications, report schemas, change proposals, and historical design records. Public current-state statements must agree with the implementation and the canonical English [README](../../README.md).
 
-## Active change
+## Active changes
+
+- [Common spatial evaluation mask](changes/common-spatial-evaluation-mask/proposal.md)
+  - [Design](changes/common-spatial-evaluation-mask/design.md)
+  - [Tasks](changes/common-spatial-evaluation-mask/tasks.md)
 
 - [PyMedPhys as the standard gamma engine](changes/pymedphys-standard-engine/proposal.md)
   - [Design](changes/pymedphys-standard-engine/design.md)
@@ -19,7 +23,7 @@ The Python 3.12 source implementation uses PyMedPhys as the CLI and batch omitte
 - [Example report](examples/rtgamma_report_example.json)
 - Validator: `python scripts/validate_report.py <report.json>`
 
-Schema version 2 emits strict JSON and replaces non-finite floating-point values with `null`. The validator retains `--sanitize-nan` only for legacy reports.
+Schema version 3 emits strict JSON, replaces non-finite floating-point values with `null`, and records cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts. The validator retains `--sanitize-nan` only for legacy reports.
 
 ## Historical specifications
 

@@ -481,6 +481,7 @@ def main(argv=None):
             norm_factor_override=full_ref_max if args.norm in ('global_max','max_ref') else None,
             interp_fraction=args.interp_fraction,
             engine=args.engine,
+            evaluation_domain_axes_mm=eval_axes_mm_1d_preshifted,
         )
         logging.info(f"2D gamma calculation complete. Slice pass rate: {pass_rate}")
     else:
@@ -767,6 +768,13 @@ def main(argv=None):
         'gamma_max': gstats.get('gamma_max', float('nan')),
         'gamma_p95': gstats.get('gamma_p95', float('nan')),
         'gamma_p99': gstats.get('gamma_p99', float('nan')),
+        'cutoff_qualified_points': gstats.get('cutoff_qualified_points', 0),
+        'common_spatial_points': gstats.get('common_spatial_points', 0),
+        'spatially_excluded_points': gstats.get(
+            'spatially_excluded_points',
+            0,
+        ),
+        'evaluated_points': gstats.get('evaluated_points', 0),
         'histogram': gstats.get('histogram', None),
         'save_gamma_map_path': (
             os.path.basename(args.save_gamma_map) if args.save_gamma_map else None

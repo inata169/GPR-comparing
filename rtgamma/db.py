@@ -40,6 +40,10 @@ def init_db(db_path: str):
             gamma_mean REAL,
             gamma_median REAL,
             gamma_max REAL,
+            cutoff_qualified_points INTEGER,
+            common_spatial_points INTEGER,
+            spatially_excluded_points INTEGER,
+            evaluated_points INTEGER,
             per_structure_json TEXT
         )
     ''')
@@ -51,6 +55,10 @@ def init_db(db_path: str):
         'gamma_engine_version': 'TEXT',
         'report_schema_version': 'INTEGER',
         'provenance_json': 'TEXT',
+        'cutoff_qualified_points': 'INTEGER',
+        'common_spatial_points': 'INTEGER',
+        'spatially_excluded_points': 'INTEGER',
+        'evaluated_points': 'INTEGER',
     }
     for column, column_type in migrations.items():
         if column not in existing_columns:
@@ -96,8 +104,11 @@ def save_summary_db(db_path: str, summary: Dict[str, Any]):
                 report_schema_version, provenance_json,
                 pass_rate_percent, best_shift_x, best_shift_y, best_shift_z,
                 best_shift_mag_mm, absolute_geometry_only, same_for_uid,
-                warnings, gamma_mean, gamma_median, gamma_max, per_structure_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                warnings, gamma_mean, gamma_median, gamma_max,
+                cutoff_qualified_points, common_spatial_points,
+                spatially_excluded_points, evaluated_points,
+                per_structure_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             summary.get('ref'),
             summary.get('eval'),
@@ -127,6 +138,10 @@ def save_summary_db(db_path: str, summary: Dict[str, Any]):
             summary.get('gamma_mean'),
             summary.get('gamma_median'),
             summary.get('gamma_max'),
+            summary.get('cutoff_qualified_points'),
+            summary.get('common_spatial_points'),
+            summary.get('spatially_excluded_points'),
+            summary.get('evaluated_points'),
             per_struct_json
         ))
         

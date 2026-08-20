@@ -70,7 +70,7 @@ REPORT_SCHEMA = {
         'cutoff_percent': {'type': 'number'},
         'gamma_engine': {'enum': ['numba', 'pymedphys']},
         'gamma_engine_version': {'type': 'string'},
-        'report_schema_version': {'const': 2},
+        'report_schema_version': {'const': 3},
         'provenance': {'type': 'object'},
         'best_shift_mm': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
         'gamma_mean': {'type': 'number'},
@@ -87,6 +87,10 @@ REPORT_SCHEMA = {
         'gamma_engine_version',
         'report_schema_version',
         'provenance',
+        'cutoff_qualified_points',
+        'common_spatial_points',
+        'spatially_excluded_points',
+        'evaluated_points',
     ],
 }
 
@@ -165,7 +169,7 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     assert data['pass_rate_percent'] == 100.0
     assert data['gamma_engine'] == 'pymedphys'
     provenance = data['provenance']
-    assert provenance['schema_version'] == 2
+    assert provenance['schema_version'] == 3
     assert provenance['gamma_cache_contract_version'] == GAMMA_CACHE_CONTRACT_VERSION
     assert provenance['engine'] == {
         'name': 'pymedphys',
@@ -198,9 +202,106 @@ def test_cli_e2e_full_reports(synthetic_doses, tmp_path):
     }
 
     with sqlite3.connect(out_dir / 'results.db') as connection:
-        row = connection.execute('SELECT report_schema_version, provenance_json FROM gamma_results').fetchone()
-    assert row[0] == 2
+        row = connection.execute(
+            'SELECT report_schema_version, provenance_json, '
+            'cutoff_qualified_points, common_spatial_points, '
+            'spatially_excluded_points, evaluated_points FROM gamma_results'
+        ).fetchone()
+    assert row[0] == 3
     assert json.loads(row[1])['engine']['name'] == 'pymedphys'
+    assert row[2:] == (500, 500, 0, 500)
+
+
+def test_cli_reports_common_spatial_evaluation_coverage(
+    synthetic_doses,
+    tmp_path,
+):
+    ref_path, eval_path = synthetic_doses
+    eval_dataset = pydicom.dcmread(eval_path)
+    eval_dataset.ImagePositionPatient = [0.0, -2.5, 0.0]
+    eval_dataset.save_as(eval_path, write_like_original=False)
+    report_base = tmp_path / 'common_spatial_coverage'
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            ref_path,
+            '--eval',
+            eval_path,
+            '--report',
+            str(report_base),
+            '--opt-shift',
+            'off',
+            '--mode',
+            '3d',
+            '--engine',
+            'numba',
+            '--interp-fraction',
+            '1',
+            '--no-pdf',
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(report_base.with_suffix('.json').read_text(encoding='utf-8'))
+    assert data['cutoff_qualified_points'] == 500
+    assert data['common_spatial_points'] == 450
+    assert data['spatially_excluded_points'] == 50
+    assert data['evaluated_points'] == 450
+    assert data['pass_rate_percent'] == 100.0
+
+
+def test_cli_2d_fast_path_uses_original_evaluation_extent(
+    synthetic_doses,
+    tmp_path,
+):
+    ref_path, eval_path = synthetic_doses
+    eval_dataset = pydicom.dcmread(eval_path)
+    eval_dataset.ImagePositionPatient = [0.0, -2.5, 0.0]
+    eval_dataset.save_as(eval_path, write_like_original=False)
+    report_base = tmp_path / 'common_spatial_coverage_2d'
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'rtgamma.main',
+            '--ref',
+            ref_path,
+            '--eval',
+            eval_path,
+            '--report',
+            str(report_base),
+            '--opt-shift',
+            'off',
+            '--mode',
+            '2d',
+            '--plane',
+            'axial',
+            '--plane-index',
+            '2',
+            '--engine',
+            'numba',
+            '--interp-fraction',
+            '1',
+            '--no-pdf',
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(report_base.with_suffix('.json').read_text(encoding='utf-8'))
+    assert data['cutoff_qualified_points'] == 100
+    assert data['common_spatial_points'] == 90
+    assert data['spatially_excluded_points'] == 10
+    assert data['evaluated_points'] == 90
+    assert data['pass_rate_percent'] == 100.0
 
 
 def test_cli_rejects_frame_of_reference_mismatch(synthetic_doses, tmp_path):

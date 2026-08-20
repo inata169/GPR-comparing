@@ -136,7 +136,7 @@ For the Numba engine, `--norm none` sets the normalization factor to `1.0` dose 
 
 ## 12. Dose cutoff
 
-`--cutoff` is applied to the reference dose before gamma evaluation. For `global_max` and `max_ref`, the threshold is the stated percentage of the maximum finite reference dose. Excluded points are represented by `NaN` and are omitted from the pass-rate denominator.
+`--cutoff` is applied to the reference dose before gamma evaluation. For `global_max` and `max_ref`, the threshold is the stated percentage of the maximum finite reference dose. A cutoff-qualified reference point is evaluated only when its patient-coordinate position lies inside the evaluation grid extent on every axis. Points outside that common spatial domain and points below cutoff are represented by `NaN` and omitted from the pass-rate denominator; a zero dose stored inside both grids remains a real value rather than missing data.
 
 The CLI also exposes `--cutoff-mask`, `--low-dose-exclusion`, and `--tolerance`, but the current main calculation does not use those parsed values. Do not rely on them until implementation and tests exist.
 
@@ -166,7 +166,7 @@ Reports contain input basenames, mode and plane, DD/DTA/cutoff, gamma type, norm
 
 ## 16. Reproducibility information
 
-Report schema version 2 records the application version source and Git commit when available, dirty-worktree state, engine and version, Python and operating system, UTC start/end and duration, reference/evaluation basenames and SHA-256 digests, complete effective gamma and shift settings, selected axis/LPS shift and candidate count, ROI selection, and reference/evaluation grid summaries. Parsed legacy controls that are not applied by the current calculation (`threads`, `gpu`, `seed`, `cutoff-mask`, `low-dose-exclusion`, `spacing`, and `tolerance`) are explicitly marked as not applied rather than presented as effective settings.
+Report schema version 3 records the application version source and Git commit when available, dirty-worktree state, engine and version, Python and operating system, UTC start/end and duration, reference/evaluation basenames and SHA-256 digests, complete effective gamma and shift settings, selected axis/LPS shift and candidate count, ROI selection, reference/evaluation grid summaries, and separate cutoff-qualified/common-spatial/spatially-excluded/evaluated point counts. Parsed legacy controls that are not applied by the current calculation (`threads`, `gpu`, `seed`, `cutoff-mask`, `low-dose-exclusion`, `spacing`, and `tolerance`) are explicitly marked as not applied rather than presented as effective settings.
 
 The provenance privacy policy records basenames and SHA-256 file identity but excludes absolute paths, PatientName, PatientID, birth date, accession numbers, institution fields, and other DICOM demographics.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Gamma pass-rate denominators now exclude cutoff-qualified reference points whose patient-coordinate positions lie outside the evaluation RTDOSE grid. PyMedPhys and Numba use the same common-spatial mask, and reports separately record cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts.
+- Gamma cache contract version 2 prevents Viewer reuse of maps created before the common-spatial mask rule. Report schema version 3 carries the new coverage counts through JSON, CSV, Markdown, PDF, and SQLite.
+
 ## [0.9.4] - 2026-08-12
 
 ### Fixed
