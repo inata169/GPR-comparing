@@ -9,6 +9,7 @@ from pydicom.uid import ExplicitVRLittleEndian
 from rtgamma.header_compare import summarize
 from rtgamma.io_dicom import (
     RTDoseGeometryError,
+    evaluation_axes_in_reference_frame,
     load_rtdose,
     validate_rtdose_pair_geometry,
 )
@@ -142,6 +143,11 @@ def test_pair_allows_different_origin_and_spacing(tmp_path):
     )))
 
     assert validate_rtdose_pair_geometry(ref, evaluation) == pytest.approx(1.0)
+
+    axes = evaluation_axes_in_reference_frame(ref, evaluation)
+    np.testing.assert_allclose(axes[0], evaluation['z_coords_mm'] + 1.0)
+    np.testing.assert_allclose(axes[1], evaluation['y_coords_mm'] - 2.0)
+    np.testing.assert_allclose(axes[2], evaluation['x_coords_mm'] + 1.0)
 
 
 def test_pair_rejects_dose_units_mismatch(tmp_path):

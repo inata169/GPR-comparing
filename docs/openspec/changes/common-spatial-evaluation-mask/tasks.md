@@ -12,5 +12,6 @@
 - [x] Run the complete local test suite and Ruff.
 - [x] Rerun the fixed-condition TPS case in new output folders and verify the expected denominator/counts without committing artifacts.
 - [x] Inspect the final diff and worktree for generated or sensitive files.
-- [ ] Obtain separate authorization for stage, commit, push, and PR creation.
-- [ ] Request `@codex review`, inspect all review threads, and complete the CI/fix loop.
+- [x] Pass the original projected evaluation extent through Viewer recomputation paths.
+- [x] Obtain separate authorization for stage, commit, push, and PR creation.
+- [x] Request `@codex review`, inspect all review threads, and complete the CI/fix loop.

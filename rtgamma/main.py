@@ -14,6 +14,7 @@ from .dvh import calculate_dvh_stats
 from .gamma import compute_gamma
 from .header_compare import run_header_comparison
 from .io_dicom import (
+    evaluation_axes_in_reference_frame,
     load_rtdose,
     load_rtstruct,
     validate_rtdose_pair_geometry,
@@ -374,11 +375,9 @@ def main(argv=None):
     dy_ref = float(np.dot(origin_offset_vec, meta_ref['v_row']))
     dx_ref = float(np.dot(origin_offset_vec, meta_ref['v_col']))
     logging.info(f"Origin offset projected onto ref axes: di={dx_ref:.3f}, dj={dy_ref:.3f}, dk={dz_ref:.3f} mm")
-    eval_axes_mm_1d = (meta_eval['z_coords_mm'], meta_eval['y_coords_mm'], meta_eval['x_coords_mm'])
-    eval_axes_mm_1d_preshifted = (
-        eval_axes_mm_1d[0] + dz_ref,  # k along ref v_slice
-        eval_axes_mm_1d[1] + dy_ref,  # j along ref v_row
-        eval_axes_mm_1d[2] + dx_ref   # i along ref v_col
+    eval_axes_mm_1d_preshifted = evaluation_axes_in_reference_frame(
+        meta_ref,
+        meta_eval,
     )
 
     best_shift = (0.0, 0.0, 0.0)
