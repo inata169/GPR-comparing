@@ -13,5 +13,6 @@
 - [x] Rerun the fixed-condition TPS case in new output folders and verify the expected denominator/counts without committing artifacts.
 - [x] Inspect the final diff and worktree for generated or sensitive files.
 - [x] Pass the original projected evaluation extent through Viewer recomputation paths.
+- [x] Pass the original projected evaluation extent through engine-comparison runs.
 - [x] Obtain separate authorization for stage, commit, push, and PR creation.
 - [x] Request `@codex review`, inspect all review threads, and complete the CI/fix loop.
