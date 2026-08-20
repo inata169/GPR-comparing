@@ -184,7 +184,7 @@ The RTDOSE loader validates IPP, IOP, Pixel Spacing, GFOV, dimensions, Dose Grid
 
 Historical 3DVH summaries and PDFs remain archival material only. They are not required for PyMedPhys standardization, are not part of the acceptance plan, and do not support claims of equivalence, clinical validation, or vendor approval.
 
-The Windows offline bundle has automated integrity and licensing checks plus explicit PyMedPhys 0.41.0 and Numba smoke paths. Historical v0.9.4 and PR #29 candidate ZIPs do not contain the final v0.9.5 source and must not be distributed as v0.9.5. Build any v0.9.5 EXE/offline ZIP only from the approved v0.9.5 tag, record its SHA-256, and repeat installation and smoke acceptance on the target offline PC before distribution.
+The Windows offline bundle has automated integrity and licensing checks plus explicit PyMedPhys 0.41.0 and Numba smoke paths. Historical v0.9.4 and PR #29 candidate ZIPs do not contain the final v0.9.5 source and must not be distributed as v0.9.5. The standard binary-release gate is to build only from the approved tag, record SHA-256 and embedded identity, and repeat installation and smoke acceptance on the target offline PC before distribution. For v0.9.5 only, the project owner explicitly approved publication on 2026-08-20 after clean-tag build verification and synthetic packaged-runtime smoke checks but before installation of the exact final archives on the TPS PC. The published Release identifies that target-PC acceptance as pending. This deliberate exception does not constitute packaged clinical approval, waive the pending acceptance work, or change the standard gate for future releases.
 
 ## 18. Testing
 
