@@ -11,7 +11,7 @@
 - Windows offline installation now invokes an existing external CPython 3.12 executable safely when its path contains Japanese or other non-ASCII characters, without changing that Python installation, global packages, PATH, or the registry.
 - Gamma pass-rate denominators now exclude cutoff-qualified reference points whose patient-coordinate positions lie outside the evaluation RTDOSE grid. PyMedPhys and Numba use the same common-spatial mask, and reports separately record cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts.
 - Comparison and Viewer paths preserve the evaluation RTDOSE source extent so points outside that extent remain unavailable instead of being interpreted as failures or extrapolated dose.
-- Gamma cache contract version 2 prevents Viewer reuse of maps created before the common-spatial mask rule. Report schema version 3 carries the new coverage counts through JSON, CSV, Markdown, PDF, and SQLite.
+- For GUI launches and direct Viewer launches supplied with the matching report, Gamma cache contract version 2 rejects maps created before the common-spatial mask rule. Report schema version 3 carries the new coverage counts through JSON, CSV, Markdown, PDF, and SQLite. A direct `--gamma-npz` launch without `--gamma-report` cannot validate cache semantics and should use a newly generated cache.
 
 ### Validation
 - The source workflow was accepted on the target TPS PC with Frame of Reference mismatch permission disabled: PyMedPhys and Numba 3D runs completed, all required report/cache artifacts were generated, all six Viewer overlays were inspected, dose-only fallback worked without a Gamma cache, and Viewer startup failure produced a GUI error plus a saved traceback log.

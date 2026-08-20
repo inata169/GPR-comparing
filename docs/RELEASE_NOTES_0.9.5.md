@@ -10,7 +10,7 @@ Version 0.9.5 packages the post-v0.9.4 safety and geometry corrections merged th
 
 - Frame of Reference UID mismatches remain rejected by default. An operator may explicitly permit a mismatch in the CLI, GUI, batch runner, and Viewers only after independently verifying that both RTDOSE objects use the same patient coordinate system and differ only because of UID replacement or anonymization. This option does not register or transform either dose grid.
 - Gamma evaluation now uses the common patient-coordinate spatial domain. Cutoff-qualified reference points outside the evaluation RTDOSE extent are unavailable and excluded from the pass-rate denominator; they are not counted as failures.
-- Reports distinguish cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts. Report schema version 3 and Gamma cache contract version 2 prevent older cache semantics from being mistaken for current results.
+- Reports distinguish cutoff-qualified, common-spatial, spatially excluded, and evaluated point counts. For GUI launches and direct Viewer launches supplied with the matching report, report schema version 3 and Gamma cache contract version 2 reject older cache semantics.
 - Viewer and comparison paths preserve the original evaluation-grid extent for Gamma, Pass/Fail, dose difference, and dose ratio behavior.
 - Offline installation can safely create the application venv from an existing CPython 3.12 executable whose path contains Japanese or other non-ASCII characters. It does not modify that Python installation, its global packages, PATH, or registry entries.
 
@@ -36,6 +36,8 @@ The accepted RTDOSE did not embed its dicomxphits Git revision in the GPR-compar
 ## Distribution status and limitations
 
 This record supports source-workflow functional acceptance only. It is not clinical QA, patient-dose approval, commissioning, cross-engine equivalence, or approval of any packaged executable.
+
+Direct Viewer launch with `--gamma-npz` but without `--gamma-report` cannot prove which cache contract created the NPZ. Supply the matching report or regenerate the Gamma cache with v0.9.5 before interpreting Gamma or Pass/Fail.
 
 No v0.9.5 EXE or offline ZIP is created by this release-preparation change. A distributable bundle requires all of the following after this change is merged:
 
