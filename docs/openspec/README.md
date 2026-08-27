@@ -15,8 +15,9 @@ This directory contains project specifications, report schemas, change proposals
   - [Release-readiness checkpoint — 2026-08-11](../RELEASE_READINESS_2026-08-11.md)
   - [v0.9.4 progress and handoff record — 2026-08-12](../PROGRESS_2026-08-12.md)
   - [v0.9.5 release notes — 2026-08-20](../RELEASE_NOTES_0.9.5.md)
+  - [v0.9.6 release notes — 2026-08-27](../RELEASE_NOTES_0.9.6.md)
 
-The Python 3.12 source implementation uses PyMedPhys as the CLI and batch omitted-value default, while the GUI defaults to parallel Numba for practical full-volume runtime and keeps PyMedPhys explicitly selectable as the reference engine. It writes strict-JSON schema-versioned provenance across report formats and SQLite. Controlled local characterization and a full-volume source-GUI/Fast-Viewer workflow check are recorded without treating numerical equality with Numba as an acceptance threshold. Version 0.9.5 adds the explicit, operator-verified Frame of Reference UID override and the common-spatial evaluation mask. A v0.9.5 binary bundle must be built from the approved v0.9.5 tag and accepted separately. A 3DVH comparison is not required for this standardization.
+The Python 3.12 source implementation uses PyMedPhys as the CLI and batch omitted-value default, while the GUI defaults to parallel Numba for practical full-volume runtime and keeps PyMedPhys explicitly selectable as the reference engine. It writes strict-JSON schema-versioned provenance across report formats and SQLite. Controlled local characterization and a full-volume source-GUI/Fast-Viewer workflow check are recorded without treating numerical equality with Numba as an acceptance threshold. Version 0.9.5 adds the explicit, operator-verified Frame of Reference UID override and the common-spatial evaluation mask. Version 0.9.6 keeps completed Gamma results reportable when an ROI has partial or entirely unavailable evaluation-dose support by using paired finite DVH support. A 3DVH comparison is not required for this standardization.
 
 ## Current report contract
 
