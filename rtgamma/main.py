@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from .db import save_summary_db
-from .dvh import calculate_dvh_stats
+from .dvh import calculate_paired_dvh_stats
 from .gamma import compute_gamma
 from .header_compare import run_header_comparison
 from .io_dicom import (
@@ -550,10 +550,11 @@ def main(argv=None):
             # --- DVH calculation ---
             # Use resampled eval dose to match ref mask
             eor = get_eval_on_ref(_eval_on_ref_shift[0])
-            # Ref DVH
-            ref_dvh_stats = calculate_dvh_stats(dose_ref, current_roi_mask)
-            # Eval DVH
-            eval_dvh_stats = calculate_dvh_stats(eor, current_roi_mask)
+            ref_dvh_stats, eval_dvh_stats = calculate_paired_dvh_stats(
+                dose_ref,
+                eor,
+                current_roi_mask,
+            )
 
             logging.info(f"ROI '{roi_name}': GPR={roi_pr:.2f}%, voxels={n_voxels}, evaluated={n_evaluated}")
             per_structure.append({

@@ -84,3 +84,20 @@ def calculate_dvh_stats(dose: np.ndarray, mask: np.ndarray) -> Dict:
         'dvh_bins': bin_centers.tolist(),
         'dvh_vol': cumulative_vol.tolist()
     }
+
+
+def calculate_paired_dvh_stats(
+    reference_dose: np.ndarray,
+    evaluation_dose: np.ndarray,
+    mask: np.ndarray,
+) -> Tuple[Dict, Dict]:
+    """Calculate paired DVH statistics over the same finite ROI voxels."""
+    common_finite_mask = (
+        mask
+        & np.isfinite(reference_dose)
+        & np.isfinite(evaluation_dose)
+    )
+    return (
+        calculate_dvh_stats(reference_dose, common_finite_mask),
+        calculate_dvh_stats(evaluation_dose, common_finite_mask),
+    )

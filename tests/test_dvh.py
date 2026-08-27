@@ -1,6 +1,10 @@
 import numpy as np
 
-from rtgamma.dvh import calculate_dvh, calculate_dvh_stats
+from rtgamma.dvh import (
+    calculate_dvh,
+    calculate_dvh_stats,
+    calculate_paired_dvh_stats,
+)
 
 
 def test_calculate_dvh_uniform():
@@ -67,3 +71,37 @@ def test_dvh_returns_empty_result_when_roi_dose_is_all_non_finite():
     assert np.isnan(stats['d95'])
     assert stats['dvh_bins'] == []
     assert stats['dvh_vol'] == []
+
+
+def test_paired_dvh_uses_same_finite_voxels_for_both_doses():
+    reference_dose = np.array([1.0, 100.0]).reshape((1, 1, 2))
+    evaluation_dose = np.array([2.0, np.nan]).reshape((1, 1, 2))
+    mask = np.ones_like(reference_dose, dtype=bool)
+
+    reference_stats, evaluation_stats = calculate_paired_dvh_stats(
+        reference_dose,
+        evaluation_dose,
+        mask,
+    )
+
+    assert reference_stats['mean'] == 1.0
+    assert reference_stats['max'] == 1.0
+    assert evaluation_stats['mean'] == 2.0
+    assert evaluation_stats['max'] == 2.0
+
+
+def test_paired_dvh_returns_empty_results_without_common_finite_voxels():
+    reference_dose = np.array([1.0]).reshape((1, 1, 1))
+    evaluation_dose = np.array([np.nan]).reshape((1, 1, 1))
+    mask = np.ones_like(reference_dose, dtype=bool)
+
+    reference_stats, evaluation_stats = calculate_paired_dvh_stats(
+        reference_dose,
+        evaluation_dose,
+        mask,
+    )
+
+    assert np.isnan(reference_stats['mean'])
+    assert np.isnan(evaluation_stats['mean'])
+    assert reference_stats['dvh_bins'] == []
+    assert evaluation_stats['dvh_bins'] == []
