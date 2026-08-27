@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-08-27
+
+### Fixed
+- Per-ROI DVH reporting no longer aborts an otherwise completed Gamma run when the evaluation dose contains non-finite values within the ROI. Reference and evaluation DVHs now use the same finite paired-voxel support, and an ROI with no paired finite dose values is reported with an empty DVH and unavailable statistics.
+- Fast 2D RTSTRUCT analysis now slices the reference dose, evaluation dose, and ROI mask consistently for axial, sagittal, and coronal planes before paired DVH calculation.
+
+### Validation
+- The complete source test suite passed with 172 tests, Ruff passed, and the Windows/Ubuntu Python 3.10/3.11/3.12 CI matrix passed on the fix PR.
+- A fixed-condition source-workflow check completed with PyMedPhys 0.41.0 at interpolation fraction 1 and Numba 0.65.1 at interpolation fraction 4. Required reports, charts, SQLite, Gamma/difference caches, all six Viewer overlays, dose-only fallback, and abnormal Viewer-exit logging were checked.
+- The source-workflow check is software functional evidence only. It is not clinical QA, patient-dose approval, commissioning, or cross-engine numerical equivalence.
+- For this release, the TPS-PC follow-up is a release-candidate EXE operational check, not a second formal packaged acceptance study. Local package integrity, identity, licensing, and synthetic engine checks remain required before transfer.
+
 ## [0.9.5] - 2026-08-20
 
 ### Added
