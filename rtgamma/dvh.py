@@ -23,10 +23,11 @@ def calculate_dvh(dose: np.ndarray, mask: np.ndarray, n_bins: int = 1000) -> Tup
         Cumulative volume percentage (y-axis, 0-100).
     """
     roi_dose = dose[mask]
+    roi_dose = roi_dose[np.isfinite(roi_dose)]
     if roi_dose.size == 0:
         return np.zeros(0), np.zeros(0)
     
-    d_min, d_max = np.nanmin(roi_dose), np.nanmax(roi_dose)
+    d_min, d_max = np.min(roi_dose), np.max(roi_dose)
     if d_min == d_max:
         # Avoid division by zero in histogram
         return np.array([d_min]), np.array([100.0])
@@ -56,6 +57,7 @@ def get_dvh_metric(bin_centers: np.ndarray, cumulative_volume: np.ndarray, volum
 def calculate_dvh_stats(dose: np.ndarray, mask: np.ndarray) -> Dict:
     """Calculate common DVH statistics for an ROI."""
     roi_dose = dose[mask]
+    roi_dose = roi_dose[np.isfinite(roi_dose)]
     if roi_dose.size == 0:
         return {
             'mean': float('nan'),
@@ -65,14 +67,16 @@ def calculate_dvh_stats(dose: np.ndarray, mask: np.ndarray) -> Dict:
             'd95': float('nan'),
             'd50': float('nan'),
             'd2': float('nan'),
+            'dvh_bins': [],
+            'dvh_vol': [],
         }
     
     bin_centers, cumulative_vol = calculate_dvh(dose, mask)
     
     return {
-        'mean': float(np.nanmean(roi_dose)),
-        'max': float(np.nanmax(roi_dose)),
-        'min': float(np.nanmin(roi_dose)),
+        'mean': float(np.mean(roi_dose)),
+        'max': float(np.max(roi_dose)),
+        'min': float(np.min(roi_dose)),
         'd98': get_dvh_metric(bin_centers, cumulative_vol, 98.0),
         'd95': get_dvh_metric(bin_centers, cumulative_vol, 95.0),
         'd50': get_dvh_metric(bin_centers, cumulative_vol, 50.0),
