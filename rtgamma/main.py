@@ -74,6 +74,21 @@ def _save_npz_with_sha256(path: str, **arrays) -> str:
             os.remove(temporary)
 
 
+def _slice_volume_for_plane(
+    volume: np.ndarray,
+    plane: str,
+    index: int,
+) -> np.ndarray:
+    """Extract a plane while preserving the fixed singleton axis."""
+    if plane == 'axial':
+        return volume[index:index + 1, :, :]
+    if plane == 'sagittal':
+        return volume[:, :, index:index + 1]
+    if plane == 'coronal':
+        return volume[:, index:index + 1, :]
+    raise ValueError(f"Unsupported plane: {plane}")
+
+
 def build_ref_world_coords(meta_ref):
     # Build world coordinate arrays (LPS) for each voxel center in reference grid
     i_mm = meta_ref['x_coords_mm'] # i-axis values (columns)
@@ -457,13 +472,7 @@ def main(argv=None):
             return world_to_index(meta_eval['ipp'], meta_eval['v_col'], meta_eval['v_row'], meta_eval['v_slice'],
                                   meta_eval['s_col'], meta_eval['s_row'], meta_eval['z_offsets'], xyz)
         eval_on_ref_slice = resample_eval_onto_ref(dose_eval, world_to_eval_ijk, (Xw1, Yw1, Zw1), interp=args.interp, shift_mm=(0, 0, 0))
-        # Extract ref slice
-        if args.plane == 'axial':
-            ref_slice = dose_ref[sl:sl+1, :, :]
-        elif args.plane == 'sagittal':
-            ref_slice = dose_ref[:, :, sl:sl+1]  # shape (z,y,1)
-        else:  # coronal
-            ref_slice = dose_ref[:, sl:sl+1, :]  # shape (z,1,x)
+        ref_slice = _slice_volume_for_plane(dose_ref, args.plane, sl)
         logging.info("Starting 2D slice gamma calculation (fast path).")
         # Ensure 2D fast path uses the full-volume reference max for normalization
         full_ref_max = float(np.nanmax(dose_ref)) if np.isfinite(dose_ref).any() else 1.0
@@ -525,12 +534,11 @@ def main(argv=None):
             # We must slice the 3D roi_mask to match.
             current_roi_mask = roi_mask
             if args.mode == '2d' and args.opt_shift == 'off':
-                if args.plane == 'axial':
-                    current_roi_mask = roi_mask[sl:sl+1, :, :]
-                elif args.plane == 'sagittal':
-                    current_roi_mask = roi_mask[:, :, sl:sl+1]
-                else: # coronal
-                    current_roi_mask = roi_mask[:, sl:sl+1, :]
+                current_roi_mask = _slice_volume_for_plane(
+                    roi_mask,
+                    args.plane,
+                    sl,
+                )
 
             # Apply mask to gamma_map
             masked_gamma = gamma_map[current_roi_mask]
@@ -550,9 +558,22 @@ def main(argv=None):
             # --- DVH calculation ---
             # Use resampled eval dose to match ref mask
             eor = get_eval_on_ref(_eval_on_ref_shift[0])
+            dvh_ref_dose = dose_ref
+            dvh_eval_dose = eor
+            if args.mode == '2d' and args.opt_shift == 'off':
+                dvh_ref_dose = _slice_volume_for_plane(
+                    dose_ref,
+                    args.plane,
+                    sl,
+                )
+                dvh_eval_dose = _slice_volume_for_plane(
+                    eor,
+                    args.plane,
+                    sl,
+                )
             ref_dvh_stats, eval_dvh_stats = calculate_paired_dvh_stats(
-                dose_ref,
-                eor,
+                dvh_ref_dose,
+                dvh_eval_dose,
                 current_roi_mask,
             )
 

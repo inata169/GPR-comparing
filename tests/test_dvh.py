@@ -5,6 +5,7 @@ from rtgamma.dvh import (
     calculate_dvh_stats,
     calculate_paired_dvh_stats,
 )
+from rtgamma.main import _slice_volume_for_plane
 
 
 def test_calculate_dvh_uniform():
@@ -105,3 +106,18 @@ def test_paired_dvh_returns_empty_results_without_common_finite_voxels():
     assert np.isnan(evaluation_stats['mean'])
     assert reference_stats['dvh_bins'] == []
     assert evaluation_stats['dvh_bins'] == []
+
+
+def test_slice_volume_for_plane_preserves_singleton_axis():
+    volume = np.arange(24).reshape((2, 3, 4))
+
+    axial = _slice_volume_for_plane(volume, 'axial', 1)
+    sagittal = _slice_volume_for_plane(volume, 'sagittal', 2)
+    coronal = _slice_volume_for_plane(volume, 'coronal', 1)
+
+    assert axial.shape == (1, 3, 4)
+    assert sagittal.shape == (2, 3, 1)
+    assert coronal.shape == (2, 1, 4)
+    assert np.array_equal(axial[0], volume[1])
+    assert np.array_equal(sagittal[:, :, 0], volume[:, :, 2])
+    assert np.array_equal(coronal[:, 0, :], volume[:, 1, :])
